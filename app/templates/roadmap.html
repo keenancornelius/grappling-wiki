@@ -104,10 +104,10 @@
                 </div>
             </div>
 
-            <!-- Column Cards -->
+            <!-- Column Cards: Open Tasks -->
             <div class="kanban-cards">
                 {% set ns = namespace(current_sub='') %}
-                {% for task in column.tasks %}
+                {% for task in column.tasks if not task.done %}
                     {% if task.sub_stream != ns.current_sub %}
                         {% set ns.current_sub = task.sub_stream %}
                         <div class="kanban-group-header">
@@ -115,13 +115,9 @@
                             <span class="kanban-group-name">{{ task.sub_stream }}</span>
                         </div>
                     {% endif %}
-                    <div class="kanban-card {% if task.done %}kanban-card-done{% endif %}" data-status="{{ task.status }}" data-stream="{{ task.stream_letter }}">
+                    <div class="kanban-card" data-status="{{ task.status }}" data-stream="{{ task.stream_letter }}">
                         <div class="kanban-card-status">
-                            {% if task.done %}
-                                <svg class="kanban-check done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
-                                    <polyline points="20 6 9 17 4 12"></polyline>
-                                </svg>
-                            {% elif task.status == 'active' %}
+                            {% if task.status == 'active' %}
                                 <span class="kanban-pulse" style="background: {{ column.color }}"></span>
                             {% else %}
                                 <span class="kanban-dot-empty"></span>
@@ -130,6 +126,38 @@
                         <span class="kanban-card-text">{{ task.text }}</span>
                     </div>
                 {% endfor %}
+
+                <!-- Completed Tasks (collapsible) -->
+                {% if column.done_count > 0 %}
+                <div class="kanban-done-section">
+                    <button class="kanban-done-toggle" aria-expanded="false">
+                        <svg class="kanban-done-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        <span>{{ column.done_count }} completed</span>
+                    </button>
+                    <div class="kanban-done-tasks" style="display: none;">
+                        {% set ns2 = namespace(current_sub='') %}
+                        {% for task in column.tasks if task.done %}
+                            {% if task.sub_stream != ns2.current_sub %}
+                                {% set ns2.current_sub = task.sub_stream %}
+                                <div class="kanban-group-header">
+                                    <span class="kanban-group-tag" style="border-color: {{ column.color }}">{{ task.stream }}</span>
+                                    <span class="kanban-group-name">{{ task.sub_stream }}</span>
+                                </div>
+                            {% endif %}
+                            <div class="kanban-card kanban-card-done" data-status="done" data-stream="{{ task.stream_letter }}">
+                                <div class="kanban-card-status">
+                                    <svg class="kanban-check done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                </div>
+                                <span class="kanban-card-text">{{ task.text }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% endfor %}
@@ -145,18 +173,14 @@
                 <span class="kanban-column-count">{{ column.done_count }}/{{ column.total }}</span>
             </div>
             {% set ns = namespace(current_sub='') %}
-            {% for task in column.tasks %}
+            {% for task in column.tasks if not task.done %}
                 {% if task.sub_stream != ns.current_sub %}
                     {% set ns.current_sub = task.sub_stream %}
                     <div class="kanban-list-group">{{ task.stream }} — {{ task.sub_stream }}</div>
                 {% endif %}
-                <div class="kanban-list-item {% if task.done %}kanban-card-done{% endif %}" data-status="{{ task.status }}" data-stream="{{ task.stream_letter }}">
+                <div class="kanban-list-item" data-status="{{ task.status }}" data-stream="{{ task.stream_letter }}">
                     <div class="kanban-card-status">
-                        {% if task.done %}
-                            <svg class="kanban-check done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                        {% elif task.status == 'active' %}
+                        {% if task.status == 'active' %}
                             <span class="kanban-pulse" style="background: {{ column.color }}"></span>
                         {% else %}
                             <span class="kanban-dot-empty"></span>
@@ -166,6 +190,36 @@
                     <span class="kanban-list-stream" style="color: {{ column.color }}">{{ task.stream }}</span>
                 </div>
             {% endfor %}
+
+            <!-- Completed Tasks (collapsible) -->
+            {% if column.done_count > 0 %}
+            <div class="kanban-done-section">
+                <button class="kanban-done-toggle" aria-expanded="false">
+                    <svg class="kanban-done-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                    <span>{{ column.done_count }} completed</span>
+                </button>
+                <div class="kanban-done-tasks" style="display: none;">
+                    {% set ns3 = namespace(current_sub='') %}
+                    {% for task in column.tasks if task.done %}
+                        {% if task.sub_stream != ns3.current_sub %}
+                            {% set ns3.current_sub = task.sub_stream %}
+                            <div class="kanban-list-group">{{ task.stream }} — {{ task.sub_stream }}</div>
+                        {% endif %}
+                        <div class="kanban-list-item kanban-card-done" data-status="done" data-stream="{{ task.stream_letter }}">
+                            <div class="kanban-card-status">
+                                <svg class="kanban-check done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            </div>
+                            <span class="kanban-card-text">{{ task.text }}</span>
+                            <span class="kanban-list-stream" style="color: {{ column.color }}">{{ task.stream }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
@@ -281,10 +335,35 @@
         });
     });
 
-    // ── Card click expand ──
-    document.querySelectorAll('.kanban-card').forEach(card => {
-        card.addEventListener('click', () => {
-            card.classList.toggle('kanban-card-expanded');
+    // ── Collapsible done sections ──
+    document.querySelectorAll('.kanban-done-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const expanded = btn.getAttribute('aria-expanded') === 'true';
+            const tasks = btn.nextElementSibling;
+
+            btn.setAttribute('aria-expanded', !expanded);
+
+            if (expanded) {
+                // Collapse
+                tasks.style.maxHeight = tasks.scrollHeight + 'px';
+                requestAnimationFrame(() => {
+                    tasks.style.transition = 'max-height 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease-out';
+                    tasks.style.maxHeight = '0';
+                    tasks.style.opacity = '0';
+                });
+                setTimeout(() => { tasks.style.display = 'none'; }, 300);
+            } else {
+                // Expand
+                tasks.style.display = '';
+                tasks.style.maxHeight = '0';
+                tasks.style.opacity = '0';
+                requestAnimationFrame(() => {
+                    tasks.style.transition = 'max-height 400ms cubic-bezier(0.16, 1, 0.3, 1), opacity 300ms ease-out';
+                    tasks.style.maxHeight = tasks.scrollHeight + 'px';
+                    tasks.style.opacity = '1';
+                });
+                setTimeout(() => { tasks.style.maxHeight = 'none'; }, 400);
+            }
         });
     });
 

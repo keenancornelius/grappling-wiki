@@ -1,7 +1,94 @@
 /**
  * GrapplingWiki - Main JavaScript
- * Handles interactive features like mobile menu, markdown preview, TOC generation, etc.
+ * Handles interactive features, animations, and the wiki editor.
  */
+
+// ============================================================
+// Animation System — Scroll Reveals & Click Feedback
+// ============================================================
+(function() {
+  // ── Scroll-triggered module reveals ──
+  // Elements with .gw-reveal fade/slide in when they enter the viewport.
+  // Stagger delay is set via data-gw-delay or auto-calculated for siblings.
+  const REVEAL_SELECTOR = [
+    '.stat-card',
+    '.article-card',
+    '.category-card',
+    '.section-header',
+    '.featured-section',
+    '.categories-section',
+    '.hero-section',
+    '.recent-changes-section',
+    '.auth-box',
+    '.auth-info',
+    '.search-results-section',
+    '.article-header',
+    '.article-content',
+    '.article-sidebar',
+    '.profile-header',
+    '.empty-state',
+    '.roadmap-hero',
+    '.roadmap-cta',
+  ].join(',');
+
+  function initReveals() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var delay = parseInt(entry.target.dataset.gwDelay, 10) || 0;
+          setTimeout(function() {
+            entry.target.classList.add('gw-visible');
+          }, delay);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.06, rootMargin: '0px 0px -30px 0px' });
+
+    var elements = document.querySelectorAll(REVEAL_SELECTOR);
+    var parentMap = new Map();
+
+    elements.forEach(function(el) {
+      el.classList.add('gw-reveal');
+      // Auto-stagger siblings
+      var parent = el.parentElement;
+      if (!parentMap.has(parent)) parentMap.set(parent, 0);
+      var index = parentMap.get(parent);
+      el.dataset.gwDelay = index * 60;
+      parentMap.set(parent, index + 1);
+      observer.observe(el);
+    });
+  }
+
+  // ── Click ripple feedback ──
+  // A subtle scale pulse on click for buttons and interactive elements.
+  function initClickFeedback() {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    document.addEventListener('mousedown', function(e) {
+      var target = e.target.closest('.button, .button-primary, .button-secondary, .auth-button, .search-button, .search-button-lg');
+      if (!target) return;
+      target.classList.add('gw-pressing');
+    });
+
+    document.addEventListener('mouseup', function() {
+      document.querySelectorAll('.gw-pressing').forEach(function(el) {
+        el.classList.remove('gw-pressing');
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      initReveals();
+      initClickFeedback();
+    });
+  } else {
+    initReveals();
+    initClickFeedback();
+  }
+})();
 
 // ============================================================
 // Mobile Hamburger Menu

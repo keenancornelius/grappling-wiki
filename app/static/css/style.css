@@ -78,11 +78,32 @@ p {
 a {
   color: #c0c0c0;
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color 120ms ease-out;
 }
 
 a:hover {
   color: #ffffff;
+}
+
+/* ── Link underline slide-in ── */
+.main-content a:not(.button):not(.button-primary):not(.button-secondary):not(.auth-button):not(.article-card):not(.category-card):not(.navbar-link):not(.roadmap-cta-button):not(.kanban-done-toggle):not([class*="card"]) {
+  position: relative;
+  display: inline;
+}
+
+.main-content a:not(.button):not(.button-primary):not(.button-secondary):not(.auth-button):not(.article-card):not(.category-card):not(.navbar-link):not(.roadmap-cta-button):not(.kanban-done-toggle):not([class*="card"])::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #4a9eff;
+  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.main-content a:not(.button):not(.button-primary):not(.button-secondary):not(.auth-button):not(.article-card):not(.category-card):not(.navbar-link):not(.roadmap-cta-button):not(.kanban-done-toggle):not([class*="card"]):hover::after {
+  width: 100%;
 }
 
 strong,
@@ -281,17 +302,37 @@ hr {
 .navbar-link {
   color: #c0c0c0;
   text-decoration: none;
-  transition: color 0.2s ease;
+  transition: color 120ms ease-out;
   font-weight: 400;
+  position: relative;
+}
+
+.navbar-link::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #fff;
+  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .navbar-link:hover {
   color: #ffffff;
 }
 
+.navbar-link:hover::after {
+  width: 100%;
+}
+
 .navbar-link-wip {
   color: #4a9eff;
   font-weight: 500;
+}
+
+.navbar-link-wip::after {
+  background: #4a9eff;
 }
 
 .navbar-link-wip:hover {
@@ -396,8 +437,13 @@ hr {
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 500;
-  transition: all 0.2s ease;
+  transition: background-color 120ms ease-out, color 120ms ease-out, transform 120ms ease-out;
   border-radius: 0;
+}
+
+.auth-button:active {
+  transform: scale(0.96);
+  transition-duration: 60ms;
 }
 
 .auth-button.primary {
@@ -638,13 +684,18 @@ hr {
   background-color: #111111;
   border: 1px solid #1a1a1a;
   border-radius: 0;
-  transition: all 0.2s ease;
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out, transform 120ms ease-out;
 }
 
 .stat-card:hover {
   border-color: #c0c0c0;
-  box-shadow: 0 1px 2px rgba(192, 192, 192, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(192, 192, 192, 0.06);
+  transform: translateY(-3px);
+}
+
+.stat-card:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 60ms;
 }
 
 .stat-number {
@@ -710,7 +761,7 @@ hr {
   background-color: #111111;
   border: 1px solid #1a1a1a;
   padding: 1.5rem;
-  transition: all 0.2s ease;
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out, transform 120ms ease-out;
   border-radius: 0;
   display: flex;
   flex-direction: column;
@@ -718,8 +769,13 @@ hr {
 
 .article-card:hover {
   border-color: #c0c0c0;
-  box-shadow: 0 1px 2px rgba(192, 192, 192, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.06);
+  transform: translateY(-3px);
+}
+
+.article-card:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 60ms;
 }
 
 .article-card.featured {
@@ -863,13 +919,18 @@ hr {
   border: 1px solid #1a1a1a;
   padding: 1.5rem;
   border-radius: 0;
-  transition: all 0.2s ease;
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out, transform 120ms ease-out;
 }
 
 .category-card:hover {
   border-color: #c0c0c0;
-  box-shadow: 0 1px 2px rgba(192, 192, 192, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.06);
+  transform: translateY(-3px);
+}
+
+.category-card:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 60ms;
 }
 
 .category-name {
@@ -922,11 +983,16 @@ hr {
   cursor: pointer;
   font-size: 1rem;
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out, transform 120ms ease-out, box-shadow 120ms ease-out;
   text-align: center;
   text-decoration: none;
   white-space: nowrap;
   border-radius: 0;
+}
+
+.button:active {
+  transform: scale(0.97);
+  transition-duration: 60ms;
 }
 
 .button-primary {
@@ -936,6 +1002,7 @@ hr {
 
 .button-primary:hover {
   background-color: #c0c0c0;
+  box-shadow: 0 2px 8px rgba(192, 192, 192, 0.15);
 }
 
 .button-secondary {
@@ -947,6 +1014,7 @@ hr {
 .button-secondary:hover {
   background-color: #ffffff;
   color: #0a0a0a;
+  box-shadow: 0 2px 8px rgba(192, 192, 192, 0.15);
 }
 
 .button-large {
@@ -1233,13 +1301,18 @@ hr {
   background-color: #111111;
   border: 1px solid #1a1a1a;
   border-radius: 0;
-  transition: all 0.2s ease;
+  transition: border-color 120ms ease-out, box-shadow 120ms ease-out, transform 120ms ease-out;
 }
 
 .category-card:hover {
   border-color: #c0c0c0;
-  box-shadow: 0 1px 2px rgba(192, 192, 192, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.06);
+  transform: translateY(-3px);
+}
+
+.category-card:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 60ms;
 }
 
 .category-card-header {
@@ -2717,6 +2790,45 @@ textarea {
 
 
 /* ═══════════════════════════════════════════════════════
+   ANIMATION SYSTEM — Scroll Reveals & Click Feedback
+   ═══════════════════════════════════════════════════════ */
+
+/* Reveal: elements start hidden and translate up */
+.gw-reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 400ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.gw-reveal.gw-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Reduced motion: disable everything */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  .gw-reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .kanban-pulse {
+    animation: none;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════
    ROADMAP / KANBAN BOARD
    ═══════════════════════════════════════════════════════ */
 
@@ -3139,7 +3251,48 @@ textarea {
 
 .kanban-card-done .kanban-card-text {
   text-decoration: line-through;
-  color: #555;
+  text-decoration-color: #333;
+  color: #444;
+}
+
+/* ── Collapsible Done Section ── */
+
+.kanban-done-section {
+  margin-top: 0.25rem;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.kanban-done-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #444;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.55rem 0.4rem;
+  cursor: pointer;
+  transition: color 120ms ease-out;
+}
+
+.kanban-done-toggle:hover {
+  color: #666;
+}
+
+.kanban-done-chevron {
+  transition: transform 200ms ease-out;
+  flex-shrink: 0;
+}
+
+.kanban-done-toggle[aria-expanded="true"] .kanban-done-chevron {
+  transform: rotate(90deg);
+}
+
+.kanban-done-tasks {
+  overflow: hidden;
 }
 
 /* ── List View ── */

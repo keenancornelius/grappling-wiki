@@ -335,11 +335,11 @@ Every route is a user's entry point. It must be fast, correct, and graceful unde
 
 #### D.1 — Animation System
 - [ ] Implement page transition engine (fetch + DOM swap with crossfade for internal nav)
-- [ ] Click feedback: scale + opacity pulse on all interactive elements (120ms ease-out)
-- [ ] Scroll-triggered module reveals (IntersectionObserver, 400ms staggered)
-- [ ] Hover states: underline slide-in on links, lift on cards, tone shift on buttons
+- [x] Click feedback: scale + opacity pulse on all interactive elements (120ms ease-out)
+- [x] Scroll-triggered module reveals (IntersectionObserver, 400ms staggered)
+- [x] Hover states: underline slide-in on links, lift on cards, tone shift on buttons
 - [ ] Skeleton loading screens for all async content (shimmer animation)
-- [ ] `prefers-reduced-motion` support — all animations collapse to instant
+- [x] `prefers-reduced-motion` support — all animations collapse to instant
 - [ ] Search autocomplete: results stream in with staggered fade
 
 #### D.2 — Modular Page Layouts

@@ -321,6 +321,41 @@ if (document.readyState === 'loading') {
 }
 
 // ============================================================
+// Collapsible Module Toggles
+// ============================================================
+function initCollapsibleModules() {
+  document.querySelectorAll('.gw-module-toggle').forEach(function(btn) {
+    if (btn._gwBound) return;
+    btn._gwBound = true;
+
+    btn.addEventListener('click', function() {
+      var expanded = this.getAttribute('aria-expanded') === 'true';
+      var targetId = this.getAttribute('aria-controls');
+      var body = targetId ? document.getElementById(targetId) : this.nextElementSibling;
+
+      if (!body) return;
+
+      if (expanded) {
+        body.classList.add('collapsed');
+        this.setAttribute('aria-expanded', 'false');
+      } else {
+        body.classList.remove('collapsed');
+        this.setAttribute('aria-expanded', 'true');
+      }
+    });
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCollapsibleModules);
+} else {
+  initCollapsibleModules();
+}
+
+// Re-init collapsibles after page transitions
+document.addEventListener('gw:pageload', initCollapsibleModules);
+
+// ============================================================
 // Mobile Hamburger Menu
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {

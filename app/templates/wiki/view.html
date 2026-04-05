@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ article.title | e }} - GrapplingWiki{% endblock %}
+{% block title %}{{ article.title | e }} — GrapplingWiki{% endblock %}
 {% block meta_description %}{{ article.summary | default('', true) | e }}{% endblock %}
 {% block canonical %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.view', slug=article.slug) }}{% endblock %}
 
@@ -39,113 +39,165 @@
 {% endblock %}
 
 {% block content %}
-<div class="article-container">
-    <!-- Sidebar -->
-    <aside class="article-sidebar">
-        <!-- Metadata Box -->
-        <div class="metadata-box">
-            <div class="metadata-item">
-                <span class="metadata-label">Last Updated</span>
-                <span class="metadata-value" title="{{ article.updated_at.isoformat() }}">
-                    {{ article.updated_at.strftime('%B %d, %Y') }}
-                </span>
-            </div>
-            <div class="metadata-item">
-                <span class="metadata-label">Author</span>
-                <span class="metadata-value">
-                    <a href="{{ url_for('auth.profile', username=article.author.username) }}">
-                        {{ article.author.username | e }}
-                    </a>
-                </span>
-            </div>
-            <div class="metadata-item">
-                <span class="metadata-label">Category</span>
-                <span class="metadata-value">{{ article.category | e }}</span>
-            </div>
-            <div class="metadata-item">
-                <span class="metadata-label">Views</span>
-                <span class="metadata-value">{{ article.view_count | default(0) }}</span>
-            </div>
-            <div class="metadata-item">
-                <span class="metadata-label">Revisions</span>
-                <span class="metadata-value">{{ revision_count | default(0) }}</span>
-            </div>
-        </div>
+<div class="article-page">
 
-        <!-- Tags -->
-        {% if article.tags %}
-        <div class="tags-box">
-            <h4>Tags</h4>
-            <div class="tags-list">
-                {% for tag in article.tags %}
-                <a href="{{ url_for('main.category', name=tag.slug) }}" class="tag">{{ tag.name | e }}</a>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-    </aside>
-
-    <!-- Main Article Content -->
-    <article class="article-content">
-        <!-- Article Header -->
-        <header class="article-header">
-            <h1 class="article-title">{{ article.title | e }}</h1>
-
+    <!-- ── Module: Hero Header ── -->
+    <section class="gw-module article-hero">
+        <div class="article-hero-inner">
             {% if article.category %}
-            <div class="article-category-badge">
-                {{ article.category | e }}
+            <span class="article-hero-badge">{{ article.category | e }}</span>
+            {% endif %}
+            <h1 class="article-hero-title">{{ article.title | e }}</h1>
+            {% if article.summary %}
+            <p class="article-hero-summary">{{ article.summary | e }}</p>
+            {% endif %}
+            <div class="article-hero-meta">
+                <span>By <a href="{{ url_for('auth.profile', username=article.author.username) }}">{{ article.author.username | e }}</a></span>
+                <span class="meta-sep">/</span>
+                <span title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%B %d, %Y') }}</span>
+                <span class="meta-sep">/</span>
+                <span>{{ article.view_count | default(0) }} views</span>
+                <span class="meta-sep">/</span>
+                <span>{{ revision_count | default(0) }} revision{{ 's' if revision_count != 1 else '' }}</span>
+            </div>
+            <div class="article-hero-actions">
+                <a href="{{ url_for('wiki.edit', slug=article.slug) }}" class="button button-primary button-sm">Edit</a>
+                <a href="{{ url_for('wiki.history', slug=article.slug) }}" class="button button-secondary button-sm">History</a>
+                <a href="{{ url_for('wiki.talk', slug=article.slug) }}" class="button button-secondary button-sm">Discussion</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Two-column layout: TOC + Content ── -->
+    <div class="article-layout">
+
+        <!-- ── Module: Table of Contents (collapsible) ── -->
+        <aside class="gw-module article-toc-module" id="article-toc">
+            <button class="gw-module-toggle" aria-expanded="true" aria-controls="toc-content">
+                <span class="gw-module-toggle-label">Contents</span>
+                <svg class="gw-module-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </button>
+            <nav class="gw-module-body" id="toc-content">
+                <div class="toc">
+                    <ul></ul>
+                </div>
+            </nav>
+
+            <!-- ── Tags (collapsible) ── -->
+            {% if article.tags %}
+            <div class="article-toc-tags">
+                <button class="gw-module-toggle" aria-expanded="true" aria-controls="tags-content">
+                    <span class="gw-module-toggle-label">Tags</span>
+                    <svg class="gw-module-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <div class="gw-module-body" id="tags-content">
+                    <div class="tags-list">
+                        {% for tag in article.tags %}
+                        <a href="{{ url_for('main.category', name=tag.slug) }}" class="tag">{{ tag.name | e }}</a>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
             {% endif %}
 
-            {% if article.summary %}
-            <p class="article-summary">{{ article.summary | e }}</p>
-            {% endif %}
-        </header>
+            <!-- ── Metadata (collapsible) ── -->
+            <div class="article-toc-meta">
+                <button class="gw-module-toggle" aria-expanded="false" aria-controls="meta-content">
+                    <span class="gw-module-toggle-label">Metadata</span>
+                    <svg class="gw-module-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <div class="gw-module-body collapsed" id="meta-content">
+                    <div class="metadata-box">
+                        <div class="metadata-item">
+                            <span class="metadata-label">Last Updated</span>
+                            <span class="metadata-value">{{ article.updated_at.strftime('%B %d, %Y') }}</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Author</span>
+                            <span class="metadata-value">
+                                <a href="{{ url_for('auth.profile', username=article.author.username) }}">{{ article.author.username | e }}</a>
+                            </span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Category</span>
+                            <span class="metadata-value">{{ article.category | e }}</span>
+                        </div>
+                        <div class="metadata-item">
+                            <span class="metadata-label">Views</span>
+                            <span class="metadata-value">{{ article.view_count | default(0) }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
 
-        <!-- Article Body -->
-        <div class="article-body">
-            {{ html_content | safe }}
+        <!-- ── Module: Article Body ── -->
+        <div class="gw-module article-content-module">
+            <div class="article-body">
+                {{ html_content | safe }}
+            </div>
         </div>
 
-        <!-- Article Footer -->
-        <footer class="article-footer">
-            <div class="article-actions">
-                <a href="{{ url_for('wiki.edit', slug=article.slug) }}" class="article-action-link edit">
-                    <span>Edit</span>
-                </a>
+    </div>
 
-                <a href="{{ url_for('wiki.history', slug=article.slug) }}" class="article-action-link">
-                    <span>History ({{ revision_count | default(0) }})</span>
-                </a>
+    <!-- ── Module: Related Techniques ── -->
+    {% if related_articles %}
+    <section class="gw-module article-related-module">
+        <h2 class="gw-module-heading">Related Techniques</h2>
+        <div class="related-grid">
+            {% for related in related_articles[:6] %}
+            <a href="{{ url_for('wiki.view', slug=related.slug) }}" class="related-card">
+                <span class="related-card-category">{{ related.category | e }}</span>
+                <span class="related-card-title">{{ related.title | e }}</span>
+                {% if related.summary %}
+                <span class="related-card-summary">{{ related.summary | truncate(80) | e }}</span>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
-                <a href="{{ url_for('wiki.talk', slug=article.slug) }}" class="article-action-link">
-                    <span>Discussion</span>
-                </a>
-            </div>
-
-            <div class="article-last-edit">
+    <!-- ── Module: Revision Footer ── -->
+    <section class="gw-module article-revision-module">
+        <div class="revision-footer-inner">
+            <div class="revision-footer-info">
                 <p>
-                    Created by <a href="{{ url_for('auth.profile', username=article.author.username) }}">
-                        {{ article.author.username | e }}
-                    </a>
-                    &bull; Last updated {{ article.updated_at.strftime('%B %d, %Y at %H:%M') }}
+                    Created by <a href="{{ url_for('auth.profile', username=article.author.username) }}">{{ article.author.username | e }}</a>
+                    on {{ article.created_at.strftime('%B %d, %Y') }}
                 </p>
+                <p>Last edited {{ article.updated_at.strftime('%B %d, %Y at %H:%M') }} &middot; {{ revision_count | default(0) }} revision{{ 's' if revision_count != 1 else '' }}</p>
             </div>
-        </footer>
+            <div class="revision-footer-actions">
+                <a href="{{ url_for('wiki.history', slug=article.slug) }}" class="button button-secondary button-sm">View Full History</a>
+            </div>
+        </div>
+    </section>
 
-        <!-- Related Articles -->
-        {% if related_articles %}
-        <section class="related-articles">
-            <h3>Related Articles</h3>
-            <ul class="related-articles-list">
-                {% for related in related_articles[:5] %}
-                <li>
-                    <a href="{{ url_for('wiki.view', slug=related.slug) }}">{{ related.title | e }}</a>
-                </li>
-                {% endfor %}
-            </ul>
-        </section>
+    <!-- ── Module: Discussion Preview ── -->
+    <section class="gw-module article-discussion-module">
+        <div class="discussion-preview-header">
+            <h2 class="gw-module-heading">Discussion</h2>
+            <a href="{{ url_for('wiki.talk', slug=article.slug) }}" class="button button-secondary button-sm">View All</a>
+        </div>
+        {% if article.discussions.count() > 0 %}
+        <div class="discussion-preview-list">
+            {% for disc in article.discussions.order_by(article.discussions._entity_zero().entity.created_at.desc()).limit(3).all() if false %}
+            {% endfor %}
+            <p class="discussion-preview-count">
+                {{ article.discussions.count() }} discussion thread{{ 's' if article.discussions.count() != 1 else '' }}
+            </p>
+        </div>
+        {% else %}
+        <p class="discussion-preview-empty">No discussions yet. <a href="{{ url_for('wiki.talk', slug=article.slug) }}">Start one.</a></p>
         {% endif %}
-    </article>
+    </section>
+
 </div>
 {% endblock %}

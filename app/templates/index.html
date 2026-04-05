@@ -1,36 +1,30 @@
 {% extends "base.html" %}
 
-{% block title %}GrapplingWiki - Jiu-Jitsu & Grappling Knowledge Base{% endblock %}
+{% block title %}GrapplingWiki — The Free Encyclopedia of Grappling{% endblock %}
 {% block meta_description %}Explore techniques, positions, terminology, and comprehensive knowledge about jiu-jitsu and grappling.{% endblock %}
 
 {% block content %}
-<div class="index-container">
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">GrapplingWiki</h1>
-            <p class="hero-subtitle">The Free Encyclopedia of Jiu-Jitsu & Grappling</p>
+<div class="home-page">
 
-            <!-- Hero Search -->
-            <form action="{{ url_for('main.search') }}" method="get" class="hero-search-form">
-                <div class="hero-search-wrapper">
-                    <input
-                        type="search"
-                        name="q"
-                        class="hero-search-input"
-                        placeholder="Search for techniques, positions, terminology..."
-                        value="{{ request.args.get('q', '') | e }}"
-                        aria-label="Search articles"
-                    >
-                    <button type="submit" class="hero-search-button">Search</button>
-                </div>
+    <!-- ── Module: Hero ── -->
+    <section class="gw-module home-hero">
+        <div class="home-hero-inner">
+            <span class="home-hero-badge">Open Source &middot; Community Driven</span>
+            <h1 class="home-hero-title">GrapplingWiki</h1>
+            <p class="home-hero-subtitle">The definitive encyclopedia of jiu-jitsu, wrestling, judo, sambo, and every grappling art on earth.</p>
+
+            <form action="{{ url_for('main.search') }}" method="get" class="home-hero-search">
+                <input type="search" name="q" class="home-hero-search-input" placeholder="Search techniques, positions, terminology..." value="{{ request.args.get('q', '') | e }}" aria-label="Search articles">
+                <button type="submit" class="home-hero-search-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                </button>
             </form>
         </div>
     </section>
 
-    <!-- Stats Section -->
-    <section class="stats-section">
-        <div class="stats-container">
+    <!-- ── Module: Stats Dashboard ── -->
+    <section class="gw-module home-stats">
+        <div class="home-stats-grid">
             <div class="stat-card">
                 <div class="stat-number">{{ total_articles | default(0) }}</div>
                 <div class="stat-label">Articles</div>
@@ -41,108 +35,120 @@
             </div>
             <div class="stat-card">
                 <div class="stat-number">{{ total_edits | default(0) }}</div>
-                <div class="stat-label">Edits</div>
+                <div class="stat-label">Revisions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ categories | length }}</div>
+                <div class="stat-label">Categories</div>
             </div>
         </div>
     </section>
 
-    <div class="index-grid">
-        <!-- Featured Articles -->
-        <section class="featured-section">
-            <div class="section-header">
-                <h2>Featured Articles</h2>
-            </div>
-            <div class="articles-grid">
-                {% if featured_articles %}
-                    {% for article in featured_articles[:4] %}
-                    <article class="article-card featured">
-                        <div class="article-card-content">
-                            <div class="article-card-category">{{ article.category | e }}</div>
-                            <h3><a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a></h3>
-                            <p class="article-card-excerpt">{{ article.summary | default('', true) | e }}</p>
-                            <div class="article-card-meta">
-                                <span class="author">By {{ article.author.username | e }}</span>
-                                <span class="date" title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%b %d, %Y') }}</span>
-                            </div>
-                        </div>
-                    </article>
-                    {% endfor %}
-                {% else %}
-                <div class="empty-state">
-                    <p>No featured articles yet. <a href="{{ url_for('wiki.create') }}">Create one!</a></p>
-                </div>
-                {% endif %}
-            </div>
-        </section>
-
-        <!-- Recent Articles -->
-        <section class="recent-section">
-            <div class="section-header">
-                <h2>Recent Articles</h2>
-                <a href="{{ url_for('main.recent_changes') }}" class="view-all-link">View All</a>
-            </div>
-            <div class="articles-grid">
-                {% if recent_articles %}
-                    {% for article in recent_articles[:4] %}
-                    <article class="article-card">
-                        <div class="article-card-content">
-                            <div class="article-card-category">{{ article.category | e }}</div>
-                            <h3><a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a></h3>
-                            <p class="article-card-excerpt">{{ article.summary | default('', true) | e }}</p>
-                            <div class="article-card-meta">
-                                <span class="author">By {{ article.author.username | e }}</span>
-                                <span class="date" title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%b %d, %Y') }}</span>
-                            </div>
-                        </div>
-                    </article>
-                    {% endfor %}
-                {% else %}
-                <div class="empty-state">
-                    <p>No articles yet. <a href="{{ url_for('wiki.create') }}">Be the first to create one!</a></p>
-                </div>
-                {% endif %}
-            </div>
-        </section>
-    </div>
-
-    <!-- Categories Quick Links -->
-    <section class="categories-section">
-        <div class="section-header">
-            <h2>Browse by Category</h2>
-            <a href="{{ url_for('main.categories') }}" class="view-all-link">View All Categories</a>
-        </div>
-        <div class="categories-grid">
-            {% if categories %}
-                {% for category in categories[:6] %}
-                <a href="{{ url_for('main.category', name=category.slug) }}" class="category-link">
-                    <div class="category-name">{{ category.name | e }}</div>
-                    <div class="category-count">{{ category.article_count }} articles</div>
-                </a>
+    <!-- ── Module: Trending Edits Ticker ── -->
+    {% if recent_edits %}
+    <section class="gw-module home-ticker">
+        <div class="home-ticker-label">Recent Activity</div>
+        <div class="home-ticker-track">
+            <div class="home-ticker-scroll">
+                {% for revision, article in recent_edits %}
+                <span class="home-ticker-item">
+                    <a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a>
+                    <span class="ticker-summary">{{ revision.edit_summary | default('edited', true) | truncate(40) | e }}</span>
+                    <span class="ticker-author">by {{ revision.editor.username | e }}</span>
+                </span>
                 {% endfor %}
-            {% else %}
-            <div class="empty-state" style="grid-column: 1 / -1;">
-                <p>No categories available yet.</p>
             </div>
-            {% endif %}
         </div>
     </section>
+    {% endif %}
 
-    <!-- Contribute Section -->
-    <section class="contribute-section">
-        <div class="contribute-content">
+    <!-- ── Module: Featured Spotlight ── -->
+    <section class="gw-module home-featured">
+        <h2 class="gw-module-heading">Featured Articles</h2>
+        {% if featured_articles %}
+        <div class="home-featured-grid">
+            {% for article in featured_articles[:5] %}
+            <article class="article-card {{ 'featured-primary' if loop.first else '' }}">
+                <div class="article-card-content">
+                    <div class="article-card-category">{{ article.category | e }}</div>
+                    <h3><a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a></h3>
+                    <p class="article-card-excerpt">{{ article.summary | default('', true) | e }}</p>
+                    <div class="article-card-meta">
+                        <span class="author">By {{ article.author.username | e }}</span>
+                        <span class="date" title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%b %d, %Y') }}</span>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No articles yet. <a href="{{ url_for('wiki.create') }}">Create one.</a></p>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- ── Module: Category Grid ── -->
+    <section class="gw-module home-categories">
+        <div class="gw-module-header-row">
+            <h2 class="gw-module-heading">Browse by Category</h2>
+            <a href="{{ url_for('main.categories') }}" class="gw-module-link">View All</a>
+        </div>
+        {% if categories %}
+        <div class="home-categories-grid">
+            {% for category in categories[:8] %}
+            <a href="{{ url_for('main.category', name=category.slug) }}" class="home-category-chip">
+                <span class="home-category-name">{{ category.name | e }}</span>
+                <span class="home-category-count">{{ category.article_count }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No categories yet.</p>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- ── Module: Recent Articles ── -->
+    <section class="gw-module home-recent">
+        <div class="gw-module-header-row">
+            <h2 class="gw-module-heading">Recent Changes</h2>
+            <a href="{{ url_for('main.recent_changes') }}" class="gw-module-link">View All</a>
+        </div>
+        {% if recent_articles %}
+        <div class="home-recent-list">
+            {% for article in recent_articles[:6] %}
+            <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="home-recent-item">
+                <span class="home-recent-title">{{ article.title | e }}</span>
+                <span class="home-recent-meta">{{ article.category | e }} &middot; {{ article.updated_at.strftime('%b %d') }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No articles yet.</p>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- ── Module: Contribute CTA ── -->
+    <section class="gw-module home-cta">
+        <div class="home-cta-inner">
             <h2>Help Build GrapplingWiki</h2>
-            <p>GrapplingWiki is maintained by the community. Whether you're a seasoned grappler or just getting started, your knowledge can help others.</p>
-            <div class="contribute-buttons">
+            <p>Whether you're a seasoned black belt or just started training, your knowledge can help others. GrapplingWiki is open source and community-driven.</p>
+            <div class="home-cta-buttons">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('wiki.create') }}" class="button button-primary">Create an Article</a>
-                    <a href="#" class="button button-secondary">Learn How to Contribute</a>
+                <a href="{{ url_for('wiki.create') }}" class="button button-primary">Create an Article</a>
+                <a href="{{ url_for('main.roadmap') }}" class="button button-secondary">View Roadmap</a>
                 {% else %}
-                    <a href="{{ url_for('auth.register') }}" class="button button-primary">Sign Up to Contribute</a>
-                    <a href="#" class="button button-secondary">Learn How to Contribute</a>
+                <a href="{{ url_for('auth.register') }}" class="button button-primary">Sign Up to Contribute</a>
+                <a href="{{ url_for('main.roadmap') }}" class="button button-secondary">View Roadmap</a>
                 {% endif %}
             </div>
         </div>
     </section>
+
 </div>
 
 <script type="application/ld+json">
@@ -152,7 +158,6 @@
     "name": "GrapplingWiki",
     "description": "The free encyclopedia of jiu-jitsu and grappling",
     "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}",
-    "image": "{{ config.SITE_URL | default('http://localhost:5000', true) }}/static/img/logo.png",
     "publisher": {
         "@type": "Organization",
         "name": "GrapplingWiki",

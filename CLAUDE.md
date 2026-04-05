@@ -343,11 +343,11 @@ Every route is a user's entry point. It must be fast, correct, and graceful unde
 - [x] Search autocomplete: results stream in with staggered fade
 
 #### D.2 — Modular Page Layouts
-- [ ] Article page: hero header, TOC sidebar, content body, related techniques, revision footer, discussion preview — all as discrete modules
-- [ ] Homepage: featured spotlight, trending edits ticker, category grid, stats dashboard, CTA
-- [ ] Category pages: filterable card grid (thumbnail, title, summary, tags)
-- [ ] Module spacing system: consistent padding, clear visual boundaries, no heavy borders
-- [ ] Collapsible/expandable modules where appropriate (TOC, sidebar sections)
+- [x] Article page: hero header, TOC sidebar, content body, related techniques, revision footer, discussion preview — all as discrete modules
+- [x] Homepage: featured spotlight, trending edits ticker, category grid, stats dashboard, CTA
+- [x] Category pages: filterable card grid (thumbnail, title, summary, tags)
+- [x] Module spacing system: consistent padding, clear visual boundaries, no heavy borders
+- [x] Collapsible/expandable modules where appropriate (TOC, sidebar sections)
 
 #### D.3 — The Editor
 - [ ] Live Markdown preview (side-by-side desktop, tabbed mobile)

@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}{{ tag.name | e }} - GrapplingWiki{% endblock %}
+{% block title %}{{ tag.name | e }} — GrapplingWiki{% endblock %}
 {% block meta_description %}Browse all articles in the {{ tag.name | e }} category on GrapplingWiki.{% endblock %}
 {% block canonical %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('main.category', name=tag.slug) }}{% endblock %}
 
 {% block og_type %}category{% endblock %}
-{% block og_title %}{{ tag.name | e }} - GrapplingWiki{% endblock %}
+{% block og_title %}{{ tag.name | e }} — GrapplingWiki{% endblock %}
 {% block og_description %}Browse all articles in the {{ tag.name | e }} category.{% endblock %}
 
 {% block head_extra %}
@@ -21,56 +21,57 @@
 {% endblock %}
 
 {% block content %}
-<div class="category-container">
-    <!-- Page Header -->
-    <div class="page-header">
-        <h1>{{ tag.name | e }}</h1>
+<div class="category-page">
+
+    <!-- ── Module: Category Hero ── -->
+    <section class="gw-module category-hero">
+        <a href="{{ url_for('main.categories') }}" class="category-hero-back">&larr; All Categories</a>
+        <h1 class="category-hero-title">{{ tag.name | e }}</h1>
         {% if tag.description %}
-        <p class="page-description">{{ tag.description | e }}</p>
+        <p class="category-hero-desc">{{ tag.description | e }}</p>
         {% endif %}
-    </div>
+        <div class="category-hero-meta">
+            <span>{{ articles.total }} article{{ 's' if articles.total != 1 else '' }}</span>
+            {% if current_user.is_authenticated %}
+            <span class="meta-sep">/</span>
+            <a href="{{ url_for('wiki.create') }}">+ Create article</a>
+            {% endif %}
+        </div>
+    </section>
 
-    <!-- Category Info Bar -->
-    <div class="category-info-bar">
-        <span class="info-item">{{ articles.total }} article{{ 's' if articles.total != 1 else '' }}</span>
-        <span class="info-divider">&bull;</span>
-        <a href="{{ url_for('main.categories') }}" class="info-link">&larr; Back to all categories</a>
-
-        {% if current_user.is_authenticated %}
-        <span class="info-divider">&bull;</span>
-        <a href="{{ url_for('wiki.create') }}" class="info-link">+ Create article</a>
-        {% endif %}
-    </div>
-
-    <!-- Articles List -->
+    <!-- ── Module: Article Card Grid (filterable) ── -->
     {% if articles.items %}
-    <section class="articles-section">
-        <div class="articles-list">
+    <section class="gw-module category-articles">
+        <div class="category-filter-bar">
+            <button class="category-filter-btn active" data-sort="default">Newest</button>
+            <button class="category-filter-btn" data-sort="alpha">A-Z</button>
+            <button class="category-filter-btn" data-sort="views">Most Viewed</button>
+        </div>
+
+        <div class="category-card-grid" id="category-grid">
             {% for article in articles.items %}
-            <article class="article-list-item">
-                <div class="article-list-content">
-                    <h3>
+            <article class="category-article-card"
+                     data-title="{{ article.title | e }}"
+                     data-views="{{ article.view_count | default(0) }}"
+                     data-date="{{ article.updated_at.isoformat() }}">
+                <div class="category-article-card-inner">
+                    <h3 class="category-article-title">
                         <a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a>
                     </h3>
-
-                    <p class="article-excerpt">{{ article.summary | default('', true) | e }}</p>
-
-                    <div class="article-list-meta">
-                        <span class="meta-author">
-                            By <a href="{{ url_for('auth.profile', username=article.author.username) }}">{{ article.author.username | e }}</a>
-                        </span>
-                        <span class="meta-divider">&bull;</span>
-                        <span class="meta-date" title="{{ article.updated_at.isoformat() }}">
-                            {{ article.updated_at.strftime('%b %d, %Y') }}
-                        </span>
-                        <span class="meta-divider">&bull;</span>
-                        <span class="meta-views">{{ article.view_count | default(0) }} views</span>
+                    {% if article.summary %}
+                    <p class="category-article-summary">{{ article.summary | truncate(120) | e }}</p>
+                    {% endif %}
+                    <div class="category-article-meta">
+                        <span>By {{ article.author.username | e }}</span>
+                        <span class="meta-sep">&middot;</span>
+                        <span>{{ article.updated_at.strftime('%b %d, %Y') }}</span>
+                        <span class="meta-sep">&middot;</span>
+                        <span>{{ article.view_count | default(0) }} views</span>
                     </div>
-
                     {% if article.tags %}
-                    <div class="article-tags">
+                    <div class="category-article-tags">
                         {% for t in article.tags[:3] %}
-                        <a href="{{ url_for('main.category', name=t.slug) }}" class="tag">{{ t.name | e }}</a>
+                        <span class="tag-chip">{{ t.name | e }}</span>
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -82,41 +83,65 @@
 
     <!-- Pagination -->
     {% if articles.pages > 1 %}
-    <div class="pagination">
-        {% if articles.has_prev %}
-        <a href="{{ url_for('main.category', name=tag.slug, page=1) }}" class="pagination-link">&laquo; First</a>
-        <a href="{{ url_for('main.category', name=tag.slug, page=articles.prev_num) }}" class="pagination-link">&lsaquo; Previous</a>
-        {% endif %}
-
-        <span class="pagination-info">Page {{ articles.page }} of {{ articles.pages }}</span>
-
-        {% if articles.has_next %}
-        <a href="{{ url_for('main.category', name=tag.slug, page=articles.next_num) }}" class="pagination-link">Next &rsaquo;</a>
-        <a href="{{ url_for('main.category', name=tag.slug, page=articles.pages) }}" class="pagination-link">Last &raquo;</a>
-        {% endif %}
+    <div class="gw-module category-pagination">
+        <div class="pagination">
+            {% if articles.has_prev %}
+            <a href="{{ url_for('main.category', name=tag.slug, page=1) }}" class="pagination-link">&laquo;</a>
+            <a href="{{ url_for('main.category', name=tag.slug, page=articles.prev_num) }}" class="pagination-link">&lsaquo; Prev</a>
+            {% endif %}
+            <span class="pagination-info">{{ articles.page }} / {{ articles.pages }}</span>
+            {% if articles.has_next %}
+            <a href="{{ url_for('main.category', name=tag.slug, page=articles.next_num) }}" class="pagination-link">Next &rsaquo;</a>
+            <a href="{{ url_for('main.category', name=tag.slug, page=articles.pages) }}" class="pagination-link">&raquo;</a>
+            {% endif %}
+        </div>
     </div>
     {% endif %}
 
     {% else %}
     <!-- Empty State -->
-    <div class="empty-state">
+    <div class="gw-module empty-state">
         <h2>No articles yet</h2>
         <p>This category doesn't have any articles yet.</p>
-
         {% if current_user.is_authenticated %}
-        <p>
-            <a href="{{ url_for('wiki.create') }}" class="button button-primary">
-                Create the first article
-            </a>
-        </p>
+        <a href="{{ url_for('wiki.create') }}" class="button button-primary">Create the first article</a>
         {% else %}
-        <p>
-            <a href="{{ url_for('auth.register') }}" class="button button-primary">
-                Sign up to create an article
-            </a>
-        </p>
+        <a href="{{ url_for('auth.register') }}" class="button button-primary">Sign up to create one</a>
         {% endif %}
     </div>
     {% endif %}
+
 </div>
+
+{% block scripts_extra %}
+<script>
+(function() {
+  var grid = document.getElementById('category-grid');
+  var btns = document.querySelectorAll('.category-filter-btn');
+  if (!grid || !btns.length) return;
+
+  btns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      btns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+
+      var cards = Array.from(grid.querySelectorAll('.category-article-card'));
+      var sort = btn.dataset.sort;
+
+      cards.sort(function(a, b) {
+        if (sort === 'alpha') {
+          return a.dataset.title.localeCompare(b.dataset.title);
+        } else if (sort === 'views') {
+          return parseInt(b.dataset.views) - parseInt(a.dataset.views);
+        } else {
+          return new Date(b.dataset.date) - new Date(a.dataset.date);
+        }
+      });
+
+      cards.forEach(function(card) { grid.appendChild(card); });
+    });
+  });
+})();
+</script>
+{% endblock %}
 {% endblock %}

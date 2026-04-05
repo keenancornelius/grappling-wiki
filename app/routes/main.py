@@ -192,6 +192,13 @@ def index():
             'article_count': count
         })
 
+    # Trending edits (recent revisions for the ticker)
+    recent_edits = db.session.query(ArticleRevision, Article).join(
+        Article, ArticleRevision.article_id == Article.id
+    ).filter(
+        Article.is_published == True
+    ).order_by(desc(ArticleRevision.created_at)).limit(10).all()
+
     return render_template(
         'index.html',
         featured_articles=featured_articles,
@@ -199,7 +206,8 @@ def index():
         total_articles=total_articles,
         total_users=total_users,
         total_edits=total_edits,
-        categories=categories
+        categories=categories,
+        recent_edits=recent_edits
     )
 
 

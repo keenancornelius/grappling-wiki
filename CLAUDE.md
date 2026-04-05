@@ -142,66 +142,89 @@ Every page is composed of discrete, self-contained **modules** — cards, panels
 
 **Knowledge Graph: The Inverse Tree (Option Compression Model)**
 
-The 3D knowledge graph is the visual crown jewel of GrapplingWiki. It is NOT a random cluster map — it is a **top-down inverse tree** that mirrors the Unified Theory's causal chain. The Y axis represents optionality: high = many options, low = end state (submission/tap). The tree structure is canonical and must be maintained by every contributor.
+The 3D knowledge graph is the visual crown jewel of GrapplingWiki. It is NOT a random cluster map — it is a **top-down inverse tree** that mirrors the Unified Theory's causal chain.
+
+**Three Semantic Axes:**
+
+| Axis | What it encodes | Negative | Zero | Positive |
+|---|---|---|---|---|
+| **X** | Guard leg reconnection spectrum | Most closed (legs locked around opponent) | Leg entanglements | Most open (feet on opponent, grips only) → Standing |
+| **Y** | Optionality (the causal chain) | Top of tree = max options (standing) | — | Bottom of tree = end states (submissions/tap) |
+| **Z** | Offense / defense spectrum | Defensive perspective (frames, retention, escapes) | Neutral | Offensive perspective (attacks, passes, submissions) |
+
+**X-Axis Spectrum (left → right):**
+Closed Guard → Half Guard → Deep Half → Knee Shield/Quarter Guard → Single Leg X / Ashi Garami (leg locks) → Lasso → De La Riva → Spider → Sit-up Guard → Wrestle-ups → Standing
+
+This spectrum encodes how the guard player's legs connect: fully locked around the opponent (closed guard, leftmost) through progressively more open configurations to standing (rightmost). The spectrum wraps — far open guards can wrestle up back to standing.
+
+The tree structure is canonical and must be maintained by every contributor.
 
 **The Tree Structure:**
 
 ```
-Standing Neutral (TOP — max optionality, both players on feet)
-├── Upper Body Takedowns (throws, clinch takedowns)
-└── Lower Body Takedowns (single/double leg, ankle picks)
+Standing Neutral (TOP — max optionality, both players on feet, Z=0)
+├── Upper Body Takedowns (throws, clinch takedowns, Z+)
+└── Lower Body Takedowns (single/double leg, ankle picks, Z+)
     │
-    ├── GUARDS (left side, sorted by distance — far highest, close lowest)
-    │   ├── Far Distance Guards (DLR, Spider, X-Guard, Lasso)
+    ├── GUARDS (sorted by leg reconnection on X — closed leftmost, open rightmost, Z-)
+    │   ├── Close Distance Guards (Closed Guard, Rubber Guard) ← X far left
     │   ├── Mid Distance Guards (Butterfly, Half Guard, Z-Guard)
-    │   └── Close Distance Guards (Closed Guard, Rubber Guard)
+    │   ├── Leg Entanglements (Ashi Garami, Saddle, 50/50, Outside Ashi, Cross Ashi, Z≈0)
+    │   └── Far Distance Guards (DLR, Spider, X-Guard, Lasso) → X right
     │
-    └── PASSED / DOMINANT POSITIONS (right side)
+    ├── FRONT HEADLOCK (face-to-back, Z+, X far right — OPPOSITE of close guards)
+    │   └── Guillotine, Darce, Anaconda, Peruvian Necktie, Japanese Necktie
+    │
+    └── PASSED / DOMINANT POSITIONS (BELOW guards on Y — passing is a step down the chain, Z+)
         ├── Side Control
         ├── Knee on Belly
         ├── Mount
         └── Back Control
             │
-            └── SUBMISSIONS (BOTTOM — end states, zero options)
-                ├── Guard Submissions (triangle, omoplata, heel hook, etc.)
-                ├── Top Submissions (americana, darce, kimura, etc.)
-                └── Back Submissions (RNC, bow and arrow, etc.)
+            └── SUBMISSIONS (BOTTOM — end states, color = force vector type)
+                ├── Arterial (crimson): chokes — RNC, guillotine, darce, triangle
+                ├── Extension (coral): hyperextension — armbar, kneebar
+                ├── Torsion (amber): joint rotation — kimura, heel hook, toe hold
+                └── Compression (teal): slicers — calf slicer, bicep slicer
 ```
 
 **Structural Rules:**
-1. Standing Neutral is ALWAYS the top node (highest Y value) — both players standing = highest average head height, maximum option space.
-2. The tree branches downward through takedowns into either guards or passed positions.
-3. Guards are sorted vertically by distance: far distance highest, close distance lowest. This maps the distance spectrum onto the Y axis.
-4. Dominant positions (side control, mount, KOB, back control) sit on the right side at the same tier as guards.
-5. Submissions are ALWAYS leaf nodes at the bottom of the tree. They are endpoints, not transitions. They link back to the positions they're available from but never forward to other techniques.
-6. Sweeps are NOT nodes — they are polarity flips (edges) that connect a guard to the dominant position achieved.
-7. Passes are NOT nodes — they are distance compressions (edges) that connect a far guard to a closer position.
-8. Person, Competition, and Style articles are EXCLUDED from the graph entirely — they are not part of the physical system.
+1. Standing Neutral is ALWAYS the top node (highest Y value) — both players standing = highest average head height, maximum option space. Z=0 (neutral).
+2. The tree branches downward through takedowns into either guards, front headlock, or passed positions. Takedowns are Z+ (offensive actions).
+3. Guards are sorted horizontally on X by leg reconnection: closed (leftmost) → open (rightmost). Guards are Z- (defensive positions — the bottom player is maintaining/creating space).
+4. **Leg entanglements are a guard subsystem** — they are guard positions where control is through leg-on-leg entanglement. They are the gateway to leg lock submissions. Z≈0 because entanglements are symmetrical (both players can attack, especially in 50/50).
+5. **Front headlock is the offensive mirror of close guard** — same Y tier, opposite X (far right), Z+ (offensive). Face-to-back control from sprawls and snap downs. Gateway to guillotines, darces, anacondas, neckties.
+6. Dominant positions (side control, mount, KOB, back control) sit BELOW guards on the Y axis — passing guard is a step further down the causal chain. Z+ (offensive — top player controls).
+7. Submissions are colored by force vector type (NOT generic technique green). They connect ONLY to the Combat Zones they're available from. They are terminal endpoints — lightning strikes them as the final destination. Add new submissions to both `SUBMISSION_SLUGS` and `FORCE_VECTORS` in `graph-engine.js`.
+8. Sweeps are NOT nodes — they are polarity flips (edges) that connect a guard to the dominant position achieved.
+9. Passes are NOT nodes — they are distance compressions (edges) that connect a far guard to a closer position.
+10. Person, Competition, and Style articles are EXCLUDED from the graph entirely — they are not part of the physical system.
 
 **When adding a new article to the graph (`ARTICLE_CONNECTIONS` in `graph-engine.js`):**
 - Determine which tree level(s) the technique belongs to
-- Connect it to the appropriate system node(s) from the list below
-- Submissions MUST connect to both their position of origin AND the relevant submission zone node (`sys_guard_subs`, `sys_top_subs`, or `sys_back_subs`)
+- Connect it to the appropriate Combat Zone node(s) from the table below
+- **Submissions**: connect to every Combat Zone they're available from (e.g., armbar → `sys_close_guard`, `sys_mount`). Add slug to `SUBMISSION_SLUGS` AND classify in `FORCE_VECTORS` (arterial/extension/torsion/compression).
+- **Front headlock submissions** (guillotine, darce, anaconda, neckties) connect to `sys_front_headlock`
+- **Leg lock submissions** connect to `sys_leg_entangle`
 - Sweeps connect to their guard of origin AND the dominant position they achieve
 - Passes connect to their guard of origin AND the dominant position they land in
 
-**System Node IDs for article connections:**
+**Combat Zone IDs for article connections:**
 
-| Node ID | Tree Level | What connects here |
-|---|---|---|
-| `sys_standing` | Standing | Standing concepts (grip fighting, stance, posture) |
-| `sys_upper_td` | Takedowns | Judo throws, headlock takedowns, clinch-initiated takedowns |
-| `sys_lower_td` | Takedowns | Double leg, single leg, ankle pick, low singles |
-| `sys_far_guard` | Far Distance Guards | DLR, Spider, X-Guard, Lasso, Single Leg X, RDLR |
-| `sys_mid_guard` | Mid Distance Guards | Butterfly, Half Guard, Z-Guard, Knee Shield, Deep Half |
-| `sys_close_guard` | Close Distance Guards | Closed Guard, Rubber Guard, Lockdown |
-| `sys_side_control` | Dominant Positions | Side control, north-south, 100 kilos |
-| `sys_mount` | Dominant Positions | Mount, S-mount, mounted crucifix |
-| `sys_kob` | Dominant Positions | Knee on belly, knee on chest |
-| `sys_back_control` | Dominant Positions | Back mount, rear body triangle, turtle (back exposure) |
-| `sys_guard_subs` | Submissions | Any submission executed from a guard position |
-| `sys_top_subs` | Submissions | Any submission executed from a dominant top position |
-| `sys_back_subs` | Submissions | Any submission executed from back control |
+| Node ID | Tree Level | Z Polarity | What connects here |
+|---|---|---|---|
+| `sys_standing` | Standing | 0 (neutral) | Standing concepts (grip fighting, stance, posture) |
+| `sys_upper_td` | Takedowns | + (offense) | Judo throws, headlock takedowns, clinch-initiated takedowns |
+| `sys_lower_td` | Takedowns | + (offense) | Double leg, single leg, ankle pick, low singles |
+| `sys_far_guard` | Far Distance Guards | - (defense) | DLR, Spider, X-Guard, Lasso, RDLR |
+| `sys_mid_guard` | Mid Distance Guards | - (defense) | Butterfly, Half Guard, Z-Guard, Knee Shield, Deep Half |
+| `sys_close_guard` | Close Distance Guards | - (defense) | Closed Guard, Rubber Guard, Lockdown |
+| `sys_leg_entangle` | Leg Entanglements | ≈0 (symmetrical) | Ashi Garami, Saddle/Inside Sankaku, 50/50, Outside Ashi, Cross Ashi |
+| `sys_front_headlock` | Front Headlock | + (offense) | Guillotine, darce, anaconda, peruvian/japanese necktie. Face-to-back. Opposite of close guard on X axis. |
+| `sys_side_control` | Dominant Positions | + (offense) | Side control, north-south, 100 kilos |
+| `sys_mount` | Dominant Positions | + (offense) | Mount, S-mount, mounted crucifix |
+| `sys_kob` | Dominant Positions | + (offense) | Knee on belly, knee on chest |
+| `sys_back_control` | Dominant Positions | + (offense) | Back mount, rear body triangle, turtle (back exposure) |
 
 **This model is a living framework.** As more articles are added and the system deepens, contributors should look for ways to refine the tree — splitting nodes when a category becomes too broad, adding new system nodes when a meaningful structural distinction emerges, and always asking: *does the graph accurately represent how the physical system of grappling actually works?*
 
@@ -211,13 +234,24 @@ The graph's color system complements the core black/white/silver/steel-blue pale
 
 | Category | Color | RGB | Rationale |
 |---|---|---|---|
-| System nodes | Steel blue | `rgb(74, 158, 255)` | Primary accent, anchors the graph |
+| Combat Zone nodes | Steel blue | `rgb(74, 158, 255)` | Primary accent, anchors the graph |
 | Technique | Seafoam | `rgb(120, 210, 190)` | Cool green — active, physical |
 | Position | Muted lavender | `rgb(160, 140, 220)` | Soft purple — spatial, structural |
 | Concept | Warm silver | `rgb(200, 195, 150)` | Desaturated gold — intellectual |
 | Glossary | Cool gray | `rgb(170, 170, 180)` | Neutral, reference-like |
 
-**No rainbow palettes.** No full-saturation primaries. Every category color must feel like it belongs on a #0a0a0a background next to steel blue.
+**Force Vector Colors (Submissions):**
+
+Submissions override category color with their force vector type. Each finish mechanic gets a distinct hue so you can read the damage type at a glance:
+
+| Force Vector | Color | RGB | What it encodes |
+|---|---|---|---|
+| Arterial compression | Desaturated crimson | `rgb(190, 100, 100)` | Chokes — blood/air restriction (RNC, guillotine, darce, triangle) |
+| Extension | Warm coral | `rgb(210, 140, 110)` | Hyperextension — armbar, kneebar, straight ankle lock |
+| Torsion | Amber | `rgb(200, 175, 100)` | Joint rotation — kimura, americana, heel hook, toe hold |
+| Compression/Wedge | Cool teal | `rgb(100, 180, 175)` | Crushing tissue against bone — calf slicer, bicep slicer |
+
+**No rainbow palettes.** No full-saturation primaries. Every color must feel like it belongs on a #0a0a0a background next to steel blue.
 
 ### Principle 5: Responsive by Default
 
@@ -445,6 +479,41 @@ Every route is a user's entry point. It must be fast, correct, and graceful unde
 - [ ] Graph should be explorable: click a node → navigate to article; hover → preview card
 - [ ] Performance budget: graph must render within JS bundle limits (<40KB gzipped) — consider SVG-based or lightweight canvas approach
 - [ ] `prefers-reduced-motion` support for graph animations
+
+#### D.6 — Categories Page Redesign (Unified Theory Layout)
+
+The current `/categories` page is a flat alphabetical grid of category cards. It teaches the user nothing about how grappling actually works. This page must be replaced with a layout that mirrors the inverse tree / gameplay loop from the knowledge graph — walking the user down the causal chain from Standing to Submissions.
+
+**Design intent:** This is the 2D, browsable version of what the 3D graph does. A visitor who never touches the graph should still absorb the structure of grappling just by scrolling this page. The gameplay loop is the spine; every article is a rib.
+
+**Layout structure (top → bottom, mirroring the inverse tree's Y-axis):**
+
+1. **Page hero:** Title + one-line explanation of the gameplay loop ("Grappling is a game of option compression. Every position, technique, and concept below sits on a causal chain from standing neutral to submission.")
+2. **Tier 0 — Standing Neutral:** Single featured module. Links to standing concepts (grip fighting, stance, posture). Maximum optionality — visually wide and open.
+3. **Tier 1 — Takedowns:** Two-column split: Upper Body (throws, clinch) | Lower Body (shots, ankle picks). Each column is a card cluster linking to its articles.
+4. **Tier 2 — Guards (sorted by distance spectrum on X-axis):** Horizontal band sorted left-to-right: Close Guards → Mid Guards → Leg Entanglements → Far Guards. Each group is a collapsible card cluster. The X-axis ordering must match the graph. Sweeps and passes appear as transition annotations between guard tiers and dominant positions (not standalone cards — they are edges, not nodes).
+5. **Tier 3 — Dominant Positions:** Horizontal band: Side Control | Knee on Belly | Mount | Back Control. Each is a card cluster with its articles.
+6. **Tier 4 — Submissions (terminal endpoints):** Organized by force vector type: Extension | Compression/Wedge | Torsion | Arterial Compression. Visually distinct treatment (green accent like graph lightning endpoints). These are leaf nodes — no outbound links.
+7. **Concepts overlay:** Concept articles (Frames, Pressure, Guard Retention, etc.) appear as contextual callouts or tags within the tiers where they're most relevant, not as a separate bucket.
+8. **Reference section (below the tree):** Clearly separated "Reference Library" section with compact cards for non-graph categories: Person, Competition, Style, Glossary. These are important but secondary to the positional system.
+
+**Technical requirements:**
+
+- [ ] Redesign `/categories` route to query articles grouped by gameplay loop tier (use graph_nodes or category + subcategory to determine tier placement), not just by tag
+- [ ] Build new `categories.html` template with vertical tier-based layout mirroring the inverse tree (Standing → Takedowns → Guards → Dominant → Submissions)
+- [ ] Implement guard distance spectrum ordering (close → mid → leg entangle → far) as a horizontal band within the Guards tier — must match graph X-axis
+- [ ] Group submissions by force vector type (extension, compression, torsion, arterial) instead of alphabetically
+- [ ] Place Concept articles as contextual elements within their relevant tiers, not as a standalone category bucket
+- [ ] Add "Reference Library" section below the tree for non-graph categories (Person, Competition, Style, Glossary) as compact cards
+- [ ] Ensure each tier module is collapsible/expandable (progressive enhancement — works without JS)
+- [ ] Add visual connectors or flow indicators between tiers to communicate the causal chain direction (top → bottom)
+- [ ] Article cards within each tier: title, one-line summary, category tag chip, link to article. No thumbnails needed initially.
+- [ ] Responsive: tiers stack vertically on mobile (they already flow top-to-bottom); guard distance spectrum scrolls horizontally on small screens
+- [ ] Page must stay within performance budget (<150KB total, <40KB JS gzipped)
+- [ ] Semantic HTML + BreadcrumbList JSON-LD for SEO
+- [ ] `prefers-reduced-motion`: disable any scroll-triggered reveals or flow animations
+
+**Dependency:** Requires article data to include tier/graph placement info. If articles don't yet have `graph_nodes` stored in the DB, the route can derive tier from category + subcategory as a fallback, or read from the `ARTICLE_CONNECTIONS` map in `graph-engine.js` and mirror that mapping server-side.
 
 #### D.5 — Polish & Accessibility
 - [ ] Logo and favicon design

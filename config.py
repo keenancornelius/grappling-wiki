@@ -6,10 +6,18 @@ load_dotenv()
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 
+def _fix_db_url(url):
+    """SQLAlchemy 1.4+ requires postgresql:// not postgres://.
+    Render and some providers still issue the old scheme."""
+    if url and url.startswith('postgres://'):
+        return url.replace('postgres://', 'postgresql://', 1)
+    return url
+
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-key-change-in-production'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+    SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL')) or \
         'sqlite:///' + os.path.join(basedir, 'instance', 'grappling_wiki.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -37,8 +45,10 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:////tmp/grappling_wiki.db'
+    # In production, require a real DATABASE_URL. Fall back to a warning SQLite
+    # only so the app starts and logs the problem — articles won't persist.
+    SQLALCHEMY_DATABASE_URI = _fix_db_url(os.environ.get('DATABASE_URL')) or \
+        'sqlite:////tmp/grappling_wiki_EPHEMERAL.db'
 
 
 class TestingConfig(Config):

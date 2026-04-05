@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: python scripts/auto_seed.py && gunicorn run:app --bind 0.0.0.0:$PORT
+    startCommand: python scripts/auto_seed.py && gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
     envVars:
       - key: FLASK_CONFIG
         value: production
@@ -12,3 +12,5 @@ services:
         generateValue: true
       - key: PYTHON_VERSION
         value: "3.11.0"
+      - key: DATABASE_URL
+        sync: false   # Set this manually in the Render dashboard — paste your Neon connection string here

@@ -140,9 +140,74 @@ Every page is composed of discrete, self-contained **modules** — cards, panels
 - Imagery: monochrome or desaturated. Photography gets subtle grain filter. Illustrations are line-art.
 - Icons: stroke-based, thin, consistent weight. Lucide or Phosphor. Never emoji in the UI.
 
+**Knowledge Graph: The Inverse Tree (Option Compression Model)**
+
+The 3D knowledge graph is the visual crown jewel of GrapplingWiki. It is NOT a random cluster map — it is a **top-down inverse tree** that mirrors the Unified Theory's causal chain. The Y axis represents optionality: high = many options, low = end state (submission/tap). The tree structure is canonical and must be maintained by every contributor.
+
+**The Tree Structure:**
+
+```
+Standing Neutral (TOP — max optionality, both players on feet)
+├── Upper Body Takedowns (throws, clinch takedowns)
+└── Lower Body Takedowns (single/double leg, ankle picks)
+    │
+    ├── GUARDS (left side, sorted by distance — far highest, close lowest)
+    │   ├── Far Distance Guards (DLR, Spider, X-Guard, Lasso)
+    │   ├── Mid Distance Guards (Butterfly, Half Guard, Z-Guard)
+    │   └── Close Distance Guards (Closed Guard, Rubber Guard)
+    │
+    └── PASSED / DOMINANT POSITIONS (right side)
+        ├── Side Control
+        ├── Knee on Belly
+        ├── Mount
+        └── Back Control
+            │
+            └── SUBMISSIONS (BOTTOM — end states, zero options)
+                ├── Guard Submissions (triangle, omoplata, heel hook, etc.)
+                ├── Top Submissions (americana, darce, kimura, etc.)
+                └── Back Submissions (RNC, bow and arrow, etc.)
+```
+
+**Structural Rules:**
+1. Standing Neutral is ALWAYS the top node (highest Y value) — both players standing = highest average head height, maximum option space.
+2. The tree branches downward through takedowns into either guards or passed positions.
+3. Guards are sorted vertically by distance: far distance highest, close distance lowest. This maps the distance spectrum onto the Y axis.
+4. Dominant positions (side control, mount, KOB, back control) sit on the right side at the same tier as guards.
+5. Submissions are ALWAYS leaf nodes at the bottom of the tree. They are endpoints, not transitions. They link back to the positions they're available from but never forward to other techniques.
+6. Sweeps are NOT nodes — they are polarity flips (edges) that connect a guard to the dominant position achieved.
+7. Passes are NOT nodes — they are distance compressions (edges) that connect a far guard to a closer position.
+8. Person, Competition, and Style articles are EXCLUDED from the graph entirely — they are not part of the physical system.
+
+**When adding a new article to the graph (`ARTICLE_CONNECTIONS` in `graph-engine.js`):**
+- Determine which tree level(s) the technique belongs to
+- Connect it to the appropriate system node(s) from the list below
+- Submissions MUST connect to both their position of origin AND the relevant submission zone node (`sys_guard_subs`, `sys_top_subs`, or `sys_back_subs`)
+- Sweeps connect to their guard of origin AND the dominant position they achieve
+- Passes connect to their guard of origin AND the dominant position they land in
+
+**System Node IDs for article connections:**
+
+| Node ID | Tree Level | What connects here |
+|---|---|---|
+| `sys_standing` | Standing | Standing concepts (grip fighting, stance, posture) |
+| `sys_upper_td` | Takedowns | Judo throws, headlock takedowns, clinch-initiated takedowns |
+| `sys_lower_td` | Takedowns | Double leg, single leg, ankle pick, low singles |
+| `sys_far_guard` | Far Distance Guards | DLR, Spider, X-Guard, Lasso, Single Leg X, RDLR |
+| `sys_mid_guard` | Mid Distance Guards | Butterfly, Half Guard, Z-Guard, Knee Shield, Deep Half |
+| `sys_close_guard` | Close Distance Guards | Closed Guard, Rubber Guard, Lockdown |
+| `sys_side_control` | Dominant Positions | Side control, north-south, 100 kilos |
+| `sys_mount` | Dominant Positions | Mount, S-mount, mounted crucifix |
+| `sys_kob` | Dominant Positions | Knee on belly, knee on chest |
+| `sys_back_control` | Dominant Positions | Back mount, rear body triangle, turtle (back exposure) |
+| `sys_guard_subs` | Submissions | Any submission executed from a guard position |
+| `sys_top_subs` | Submissions | Any submission executed from a dominant top position |
+| `sys_back_subs` | Submissions | Any submission executed from back control |
+
+**This model is a living framework.** As more articles are added and the system deepens, contributors should look for ways to refine the tree — splitting nodes when a category becomes too broad, adding new system nodes when a meaningful structural distinction emerges, and always asking: *does the graph accurately represent how the physical system of grappling actually works?*
+
 **Knowledge Graph Color Philosophy:**
 
-The 3D knowledge graph is the visual crown jewel of GrapplingWiki. Its color system must complement — never clash with — the core black/white/silver/steel-blue palette. Category colors are desaturated, cool-shifted accents that feel native to the dark UI:
+The graph's color system complements the core black/white/silver/steel-blue palette. Category colors are desaturated, cool-shifted accents:
 
 | Category | Color | RGB | Rationale |
 |---|---|---|---|
@@ -150,10 +215,9 @@ The 3D knowledge graph is the visual crown jewel of GrapplingWiki. Its color sys
 | Technique | Seafoam | `rgb(120, 210, 190)` | Cool green — active, physical |
 | Position | Muted lavender | `rgb(160, 140, 220)` | Soft purple — spatial, structural |
 | Concept | Warm silver | `rgb(200, 195, 150)` | Desaturated gold — intellectual |
-| Style | Ice blue | `rgb(130, 195, 210)` | Cool, disciplined, close to system blue |
 | Glossary | Cool gray | `rgb(170, 170, 180)` | Neutral, reference-like |
 
-**No rainbow palettes.** No full-saturation primaries. Every category color must feel like it belongs on a #0a0a0a background next to steel blue. Person and Competition articles are excluded from the graph entirely — they live in their own sections of the site. The graph maps the *physical system* of grappling: techniques, positions, concepts, styles, and their connections.
+**No rainbow palettes.** No full-saturation primaries. Every category color must feel like it belongs on a #0a0a0a background next to steel blue.
 
 ### Principle 5: Responsive by Default
 
@@ -496,17 +560,35 @@ The wiki is only as good as the community that maintains it.
 
 ## Content Taxonomy
 
-| Category | Description | Examples |
-|---|---|---|
-| **Technique** | Submissions, sweeps, passes, escapes, takedowns | Armbar, Triangle, Berimbolo, Double Leg |
-| **Position** | Guards, pins, dominant positions, scramble states | Mount, Closed Guard, Side Control, Turtle |
-| **Concept** | Principles, strategies, theories, Unified Theory pillars | Frames, Pressure, Grip Fighting, Tempo, Distance Spectrum |
-| **Person** | Practitioners, instructors, competitors, pioneers | Helio Gracie, Marcelo Garcia, Gordon Ryan |
-| **Competition** | Tournaments, rulesets, organizations | ADCC, IBJJF Worlds, EBI |
-| **Glossary** | Terminology, Japanese/Portuguese terms, slang | Oss, Shrimping, Pulling Guard |
-| **Style** | Martial arts disciplines | BJJ, Judo, Wrestling, Sambo, Catch Wrestling |
+| Category | Description | In Graph? | Examples |
+|---|---|---|---|
+| **Technique** | Submissions, sweeps, passes, escapes, takedowns | **YES** | Armbar, Triangle, Berimbolo, Double Leg |
+| **Position** | Guards, pins, dominant positions, scramble states | **YES** | Mount, Closed Guard, Side Control, Turtle |
+| **Concept** | Principles, strategies, theories, Unified Theory pillars | **YES** | Frames, Pressure, Grip Fighting, Tempo |
+| **Person** | Practitioners, instructors, competitors, pioneers | NO | Helio Gracie, Marcelo Garcia, Gordon Ryan |
+| **Competition** | Tournaments, rulesets, organizations | NO | ADCC, IBJJF Worlds, EBI |
+| **Glossary** | Terminology, Japanese/Portuguese terms, slang | NO | Oss, Shrimping, Pulling Guard |
+| **Style** | Martial arts disciplines | NO | BJJ, Judo, Wrestling, Sambo, Catch Wrestling |
 
 Technique subcategories: Submissions (chokes, joint locks, leg locks, compression), Sweeps, Guard Passes, Takedowns, Escapes, Transitions.
+
+### Mandatory: Graph Placement for Every Technique, Position, and Concept Article
+
+**Every article with category Technique, Position, or Concept MUST have an entry in `ARTICLE_CONNECTIONS` in `app/static/js/graph-engine.js`.** No exceptions. If an article exists in the database but has no graph connection, it floats in random space on the graph — that is a bug, not a feature.
+
+When adding a new article, follow this sequence:
+
+1. **Assign the correct category** (Technique, Position, or Concept). If it's Person, Competition, Style, or Glossary, it does not go in the graph.
+2. **Determine the graph placement** by asking: where does this live in the inverse tree? Which system node(s) does it connect to?
+3. **Classify the article's role in the tree:**
+   - **Position articles** connect to their distance band (`sys_far_guard`, `sys_mid_guard`, `sys_close_guard`) or dominant position node (`sys_side_control`, `sys_mount`, `sys_kob`, `sys_back_control`).
+   - **Submission articles** connect to their position of origin AND the relevant submission zone (`sys_guard_subs`, `sys_top_subs`, `sys_back_subs`). A submission that works from multiple positions connects to all of them.
+   - **Sweep articles** connect to their guard of origin AND the dominant position achieved (the polarity flip destination).
+   - **Pass articles** connect to the guard they defeat AND the position they land in (the distance compression destination).
+   - **Takedown articles** connect to `sys_upper_td` or `sys_lower_td` based on whether they attack above or below the waist.
+   - **Concept articles** connect to the system nodes where the concept is most actively contested.
+4. **Add the connection** to `ARTICLE_CONNECTIONS` in `graph-engine.js`.
+5. **Verify the graph** renders the article in the correct tree position.
 
 ### Unified Theory Overlay
 
@@ -538,6 +620,12 @@ positions_from: ["Mount", "Closed Guard", "Side Control", "Back"]
 priority: high
 target_keyword: "armbar"
 monthly_search_volume: 22000
+
+# --- REQUIRED: Graph Placement ---
+# Every Technique, Position, and Concept article MUST specify graph_nodes.
+# These map directly to ARTICLE_CONNECTIONS in graph-engine.js.
+# See the System Node IDs table in CLAUDE.md → Knowledge Graph section.
+graph_nodes: ["sys_close_guard", "sys_guard_subs", "sys_mount", "sys_top_subs"]
 
 # --- Unified Theory Fields ---
 gameplay_loop_phase: submission

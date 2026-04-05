@@ -34,7 +34,7 @@ grappling-wiki/
 ├── config.py               # Environment-based config
 ├── requirements.txt
 ├── CLAUDE.md               # ← You are here. Read everything.
-├── UNIFIED_THEORY.md       # The conceptual framework for all content (gameplay loop, distance spectrum, tempo, force vectors)
+├── UNIFIED_THEORY.md       # Internal reference: how grappling works (positional hierarchy, distance, force vectors). Informs graph layout, not article requirements.
 ├── DESIGN_MANIFESTO.md     # Standalone copy of the manifesto (also inlined below)
 ├── CONTRIBUTING.md          # Git workflow for contributors
 ├── content/
@@ -388,15 +388,15 @@ Open a [GitHub Issue](https://github.com/keenancornelius/grappling-wiki/issues) 
 
 The bones of the project. If this isn't solid, nothing else matters.
 
-- [ ] Choose and add open-source license (MIT or Apache 2.0)
-- [ ] Set up Flask-Migrate for proper database migrations
-- [ ] Create `.env.example` documenting all environment variables
-- [ ] Write `Makefile` or `scripts/` for common commands (run, test, migrate, seed)
-- [ ] GitHub Actions CI: lint (flake8/black), test (pytest), performance budget check
-- [ ] Production deployment config (Render — already live, needs refinement)
-- [ ] Pre-commit hooks (black, isort, flake8)
-- [ ] Structured logging configuration
-- [ ] Add performance budget enforcement to CI (fail if page weight > 150KB)
+- [x] Choose and add open-source license — MIT license added to repo root so contributors know the terms
+- [x] Write `Makefile` for common commands — `make run`, `make test`, `make lint`, `make format`, `make seed`, `make migrate` so no one has to memorize CLI incantations
+- [x] Pre-commit hooks (black, isort, flake8) — auto-format and lint on every commit so code style is enforced without thinking
+- [ ] Set up Flask-Migrate — enable `flask db migrate` / `flask db upgrade` so schema changes are versioned and deployable
+- [ ] Create `.env.example` — document every environment variable (SECRET_KEY, DATABASE_URL, etc.) so new contributors can set up in one step
+- [ ] GitHub Actions CI — run linting, tests, and performance budget checks on every PR so broken code can't reach main
+- [ ] Refine Render deployment — ensure production config handles migrations on deploy, sets correct env vars, and restarts cleanly
+- [ ] Structured logging — replace print statements with proper logging (request IDs, timestamps, levels) so production issues are debuggable
+- [ ] Performance budget in CI — fail the build if any page exceeds 150KB total transfer, keeping the site fast as it grows
 
 **Files:** `config.py`, `run.py`, `requirements.txt`, `Makefile`, `.github/workflows/ci.yml`, `.env.example`
 
@@ -408,14 +408,14 @@ The bones of the project. If this isn't solid, nothing else matters.
 
 The schema is the foundation of every query, every page load, every search result.
 
-- [ ] Review and refine SQLAlchemy models (User, Article, ArticleRevision, Tag, Discussion)
-- [ ] Initialize Flask-Migrate, generate initial migration
-- [ ] Add database indexes: slug lookups, full-text search, created_at sorts
-- [ ] Seed script (`scripts/seed_db.py`): admin user, initial tags, sample articles from glossary
-- [ ] Model-level validation beyond WTForms
-- [ ] Add Watchlist model (users watch articles for change notifications)
-- [ ] Add UserContribution summary table for fast profile rendering
-- [ ] Model unit tests (pytest)
+- [ ] Review and refine SQLAlchemy models — audit User, Article, ArticleRevision, Tag, and Discussion models for missing fields, bad relationships, or type issues before building on top of them
+- [ ] Initialize Flask-Migrate and generate initial migration — so the database schema is version-controlled and deployable without manual SQL
+- [ ] Add database indexes — slug lookups, full-text search columns, and created_at sorts so queries stay fast as the article count grows
+- [ ] Seed script (`scripts/seed_db.py`) — create an admin user, initial category tags, and sample articles so a fresh install isn't an empty shell
+- [ ] Model-level validation — enforce constraints (title length, slug format, required fields) in the models themselves, not just in forms, so the API and import scripts can't write bad data
+- [ ] Watchlist model — let users subscribe to articles and get notified when edits happen, so active contributors can stay on top of pages they care about
+- [ ] UserContribution summary table — pre-compute edit counts and recent activity per user so profile pages load instantly instead of running expensive queries
+- [ ] Model unit tests (pytest) — verify relationships, constraints, and edge cases so model changes don't silently break things
 
 **Files:** `app/models/*.py`, `migrations/`, `scripts/seed_db.py`, `tests/test_models.py`
 
@@ -427,15 +427,15 @@ The schema is the foundation of every query, every page load, every search resul
 
 Every route is a user's entry point. It must be fast, correct, and graceful under weird inputs.
 
-- [ ] End-to-end test: create → edit → history → diff → talk page
-- [ ] Edit conflict detection (warn if article changed since edit started)
-- [ ] Article watchlist functionality (in-app notifications)
-- [ ] Article locking/protection for admins
-- [ ] Redirect system (old slugs redirect when title changes)
-- [ ] Rate limiting on edits and registration (Flask-Limiter)
-- [ ] Honeypot field on registration to block spam bots
-- [ ] Search ranking/relevance scoring improvements
-- [ ] Integration tests for every route (pytest)
+- [ ] End-to-end test — walk through the full article lifecycle (create → edit → view history → compare diffs → post on talk page) to catch integration bugs across routes
+- [ ] Edit conflict detection — warn the user if someone else edited the article while they were writing, so edits don't silently overwrite each other
+- [ ] Article watchlist notifications — let users see in-app alerts when watched articles are edited, so contributors can monitor pages without checking manually
+- [ ] Article locking/protection — let admins lock critical articles (like core position pages) to editor-only editing, preventing drive-by vandalism
+- [ ] Redirect system for renamed articles — when a title changes and the slug updates, auto-redirect the old URL so bookmarks and search engine links don't break
+- [ ] Rate limiting (Flask-Limiter) — throttle edits and registration attempts so bots and bad actors can't spam the wiki
+- [ ] Registration honeypot field — add a hidden form field that only bots fill in, blocking automated sign-ups without bothering real users with CAPTCHAs
+- [ ] Search relevance scoring — improve result ranking so title matches, recent edits, and article completeness factor into search results instead of just raw text matching
+- [ ] Integration tests for every route (pytest) — verify that each page returns correct status codes, renders expected content, and handles auth/permissions properly
 
 **Files:** `app/routes/*.py`, `app/forms.py`, `tests/test_routes.py`
 
@@ -464,66 +464,61 @@ Every route is a user's entry point. It must be fast, correct, and graceful unde
 - [x] Collapsible/expandable modules where appropriate (TOC, sidebar sections)
 
 #### D.3 — The Editor
-- [ ] Live Markdown preview (side-by-side desktop, tabbed mobile)
-- [ ] Toolbar: bold, italic, heading, link, image, list, code, blockquote (icons, not text)
-- [ ] Keyboard shortcuts (Ctrl+S save, Ctrl+B bold, Ctrl+I italic, etc.)
-- [ ] Autosave drafts to localStorage every 30s
-- [ ] Markdown syntax highlighting in textarea (lightweight — CodeMirror only if < 40KB gzipped)
-- [ ] Edit conflict warning UI
+- [ ] Live Markdown preview — show rendered HTML beside the textarea on desktop (tabbed on mobile) so authors see what their article looks like while writing
+- [ ] Editor toolbar — icon buttons for bold, italic, heading, link, image, list, code, blockquote that insert Markdown syntax, so authors don't need to memorize formatting
+- [ ] Keyboard shortcuts — Ctrl+S to save, Ctrl+B for bold, Ctrl+I for italic, etc. so power users can write without touching the mouse
+- [ ] Autosave drafts to localStorage every 30s — protect against browser crashes and accidental navigation so no one loses a half-written article
+- [ ] Markdown syntax highlighting in the textarea — color the raw Markdown (headings, links, bold) so the editing experience feels like a real writing tool, not a plain text box. Lightweight only (CodeMirror if < 40KB gzipped)
+- [ ] Edit conflict warning UI — if someone else saved while you were editing, show a diff and let the user merge rather than silently overwriting their work
 
 #### D.4 — Technique Graph Visualization
-- [ ] Design and build interactive technique graph: nodes = positions/techniques, edges = transitions, submissions = terminal leaf nodes (inbound edges only, no outbound)
-- [ ] Define layer color scheme for the 7 gameplay loop layers (Neutral, Grip Fight, Disruption, Positional Control, Transitions, Isolation, Submission) — apply consistently across graph, article tags, and category pages
-- [ ] Graph must visually sort techniques by gameplay loop layer, not alphabetically
-- [ ] Positions and transitions render as bidirectional nodes; submissions render as endpoint/leaf nodes with distinct visual treatment
-- [ ] Graph should be explorable: click a node → navigate to article; hover → preview card
-- [ ] Performance budget: graph must render within JS bundle limits (<40KB gzipped) — consider SVG-based or lightweight canvas approach
-- [ ] `prefers-reduced-motion` support for graph animations
+- [ ] Build the interactive technique graph — a 3D node graph where positions and techniques are nodes, transitions are edges, and submissions are terminal leaf nodes (no outbound edges). This is the visual centerpiece that shows how all of grappling connects.
+- [ ] Color scheme for graph tiers — each level of the tree (standing, takedowns, guards, dominant positions, submissions) gets a distinct color so users can read the structure at a glance. Submissions colored by force vector type (chokes, hyperextensions, rotations, compressions).
+- [ ] Sort nodes by tree position, not alphabetically — the graph should reflect how grappling actually flows (standing at top → submissions at bottom), not an arbitrary A-Z ordering
+- [ ] Submission leaf node styling — submissions are endpoints (you win or reset), so they should look visually distinct from positions that have outbound transitions
+- [ ] Make the graph explorable — click a node to navigate to the article; hover to see a preview card with title, category, and summary. The graph is a navigation tool, not just eye candy.
+- [ ] Performance budget — graph must render within JS bundle limits (<40KB gzipped). Consider SVG or lightweight canvas. No heavy 3D libraries that blow the budget.
+- [ ] `prefers-reduced-motion` — disable graph animations for users who have reduced motion enabled in their OS
 
-#### D.6 — Categories Page Redesign (Unified Theory Layout)
+#### D.6 — Categories Page Redesign
 
-The current `/categories` page is a flat alphabetical grid of category cards. It teaches the user nothing about how grappling actually works. This page must be replaced with a layout that mirrors the inverse tree / gameplay loop from the knowledge graph — walking the user down the causal chain from Standing to Submissions.
+Replace the flat alphabetical category grid with a layout that mirrors how grappling actually works — the same tree structure used in the knowledge graph. Instead of 7 generic cards (Technique, Position, etc.), walk the user down the positional hierarchy: Standing → Takedowns → Guards → Dominant Positions → Submissions. A visitor who never touches the 3D graph should still absorb the structure of grappling just by scrolling this page.
 
-**Design intent:** This is the 2D, browsable version of what the 3D graph does. A visitor who never touches the graph should still absorb the structure of grappling just by scrolling this page. The gameplay loop is the spine; every article is a rib.
+**Layout (top → bottom, matching the graph's tree):**
 
-**Layout structure (top → bottom, mirroring the inverse tree's Y-axis):**
+1. **Standing Neutral** at top — links to standing concepts (grip fighting, stance, posture)
+2. **Takedowns** — two columns: Upper Body (throws, clinch) | Lower Body (shots, ankle picks)
+3. **Guards** — sorted left-to-right by distance: Close → Mid → Leg Entanglements → Far (matching the graph's X-axis). Sweeps and passes shown as transitions between tiers, not standalone cards.
+4. **Dominant Positions** — Side Control | Knee on Belly | Mount | Back Control
+5. **Submissions** — grouped by how they finish (chokes, hyperextensions, rotations, compressions) instead of alphabetically
+6. **Concepts** woven into the tiers where they're relevant (Frames in the guard tier, Pressure in dominant positions, etc.)
+7. **Reference Library** below the tree — compact cards for Person, Competition, Style, Glossary
 
-1. **Page hero:** Title + one-line explanation of the gameplay loop ("Grappling is a game of option compression. Every position, technique, and concept below sits on a causal chain from standing neutral to submission.")
-2. **Tier 0 — Standing Neutral:** Single featured module. Links to standing concepts (grip fighting, stance, posture). Maximum optionality — visually wide and open.
-3. **Tier 1 — Takedowns:** Two-column split: Upper Body (throws, clinch) | Lower Body (shots, ankle picks). Each column is a card cluster linking to its articles.
-4. **Tier 2 — Guards (sorted by distance spectrum on X-axis):** Horizontal band sorted left-to-right: Close Guards → Mid Guards → Leg Entanglements → Far Guards. Each group is a collapsible card cluster. The X-axis ordering must match the graph. Sweeps and passes appear as transition annotations between guard tiers and dominant positions (not standalone cards — they are edges, not nodes).
-5. **Tier 3 — Dominant Positions:** Horizontal band: Side Control | Knee on Belly | Mount | Back Control. Each is a card cluster with its articles.
-6. **Tier 4 — Submissions (terminal endpoints):** Organized by force vector type: Extension | Compression/Wedge | Torsion | Arterial Compression. Visually distinct treatment (green accent like graph lightning endpoints). These are leaf nodes — no outbound links.
-7. **Concepts overlay:** Concept articles (Frames, Pressure, Guard Retention, etc.) appear as contextual callouts or tags within the tiers where they're most relevant, not as a separate bucket.
-8. **Reference section (below the tree):** Clearly separated "Reference Library" section with compact cards for non-graph categories: Person, Competition, Style, Glossary. These are important but secondary to the positional system.
+- [ ] Redesign `/categories` route — query articles grouped by graph tier instead of just by tag, so the page reflects positional hierarchy
+- [ ] Build tier-based `categories.html` template — vertical layout walking Standing → Takedowns → Guards → Dominant → Submissions so users see grappling's structure
+- [ ] Guard distance ordering — sort guards left-to-right (close → mid → leg entangle → far) as a horizontal band matching the graph
+- [ ] Submission grouping by finish type — organize submissions by how they work (chokes, hyperextensions, rotations, compressions) instead of A-Z
+- [ ] Concept articles as contextual elements — place concepts within the tiers where they matter most, not in a separate generic bucket
+- [ ] Reference Library section — Person, Competition, Style, Glossary as compact cards below the positional tree
+- [ ] Collapsible tier modules — each tier section can expand/collapse (works without JS, enhanced with it)
+- [ ] Visual flow indicators between tiers — show the directional relationship (standing flows to takedowns flows to guards, etc.)
+- [ ] Article cards — title, one-line summary, category tag chip, and link. No thumbnails needed initially.
+- [ ] Responsive — tiers stack vertically on mobile; guard distance band scrolls horizontally on small screens
+- [ ] Performance budget — page stays under 150KB total, 40KB JS gzipped
+- [ ] SEO — semantic HTML + BreadcrumbList JSON-LD
+- [ ] `prefers-reduced-motion` — disable scroll reveals and flow animations
 
-**Technical requirements:**
-
-- [ ] Redesign `/categories` route to query articles grouped by gameplay loop tier (use graph_nodes or category + subcategory to determine tier placement), not just by tag
-- [ ] Build new `categories.html` template with vertical tier-based layout mirroring the inverse tree (Standing → Takedowns → Guards → Dominant → Submissions)
-- [ ] Implement guard distance spectrum ordering (close → mid → leg entangle → far) as a horizontal band within the Guards tier — must match graph X-axis
-- [ ] Group submissions by force vector type (extension, compression, torsion, arterial) instead of alphabetically
-- [ ] Place Concept articles as contextual elements within their relevant tiers, not as a standalone category bucket
-- [ ] Add "Reference Library" section below the tree for non-graph categories (Person, Competition, Style, Glossary) as compact cards
-- [ ] Ensure each tier module is collapsible/expandable (progressive enhancement — works without JS)
-- [ ] Add visual connectors or flow indicators between tiers to communicate the causal chain direction (top → bottom)
-- [ ] Article cards within each tier: title, one-line summary, category tag chip, link to article. No thumbnails needed initially.
-- [ ] Responsive: tiers stack vertically on mobile (they already flow top-to-bottom); guard distance spectrum scrolls horizontally on small screens
-- [ ] Page must stay within performance budget (<150KB total, <40KB JS gzipped)
-- [ ] Semantic HTML + BreadcrumbList JSON-LD for SEO
-- [ ] `prefers-reduced-motion`: disable any scroll-triggered reveals or flow animations
-
-**Dependency:** Requires article data to include tier/graph placement info. If articles don't yet have `graph_nodes` stored in the DB, the route can derive tier from category + subcategory as a fallback, or read from the `ARTICLE_CONNECTIONS` map in `graph-engine.js` and mirror that mapping server-side.
+**Dependency:** Route needs a way to determine each article's tier. Can derive from category + subcategory, or mirror the `ARTICLE_CONNECTIONS` map from `graph-engine.js` server-side.
 
 #### D.5 — Polish & Accessibility
-- [ ] Logo and favicon design
-- [ ] Responsive testing: 480 / 768 / 1024 / 1440 breakpoints
-- [ ] Mobile-specific nav (swipe-friendly, bottom-anchored actions, 44px touch targets)
-- [ ] Dark mode is the default; light mode toggle (stretch)
-- [ ] Print-friendly article styles
-- [ ] Accessibility audit (ARIA labels, focus management, keyboard navigation, screen reader)
-- [ ] Image upload support for articles
-- [ ] Diff view: word-level highlighting, toggle inline vs side-by-side
+- [ ] Logo and favicon — design a mark that works at 16px (favicon) and full size, so the site has a recognizable identity in browser tabs and bookmarks
+- [ ] Responsive testing at all breakpoints (480 / 768 / 1024 / 1440) — verify every page looks right on phone, tablet, laptop, and desktop so nothing is broken for any screen size
+- [ ] Mobile navigation — swipe-friendly menu, bottom-anchored actions, 44px touch targets so the site is usable one-handed on a phone
+- [ ] Light mode toggle — dark is the default; add an optional light mode for users who prefer it (stretch goal)
+- [ ] Print-friendly article styles — clean print stylesheet so users can print technique articles for gym use without UI chrome
+- [ ] Accessibility audit — ARIA labels, focus management, keyboard navigation, screen reader testing so the wiki is usable for everyone
+- [ ] Image upload for articles — let editors attach images (technique photos, diagrams) directly when editing, so articles aren't text-only
+- [ ] Diff view improvements — word-level highlighting with toggle between inline and side-by-side views so editors can clearly see what changed between revisions
 
 **Files:** `app/templates/*.html`, `app/static/css/style.css`, `app/static/js/wiki.js`, `app/static/images/`
 
@@ -535,73 +530,73 @@ The current `/categories` page is a flat alphabetical grid of category cards. It
 
 Every millisecond of load time and every missing meta tag is traffic we're leaving on the table.
 
-- [ ] Validate XML sitemap, submit to Google Search Console
-- [ ] `robots.txt` route
-- [ ] Canonical URLs on every page
-- [ ] Breadcrumb navigation with BreadcrumbList JSON-LD
-- [ ] JSON-LD: Article schema on articles, Person schema on bios, Event schema on competitions
-- [ ] "Related Articles" section on each article (algorithmic, based on shared tags/links)
-- [ ] Auto-detect internal link opportunities (scan article body for mentions of other article titles)
-- [ ] RSS/Atom feed for recent changes
-- [ ] Critical CSS inlining (extract above-the-fold styles, inline in `<head>`)
-- [ ] CSS/JS minification pipeline
-- [ ] Lazy-load all images, serve WebP with `<picture>` fallback
-- [ ] Cache headers: static assets get far-future expires, HTML gets short TTL
-- [ ] Lighthouse CI integration (fail build if Performance < 85)
-- [ ] Social sharing meta (Twitter Card, Open Graph) with auto-generated preview images
-- [ ] Privacy-friendly analytics (Plausible or Umami, not Google Analytics)
+- [ ] Validate XML sitemap and submit to Google Search Console — make sure Google can discover and index every article so they show up in search results
+- [ ] `robots.txt` route — tell crawlers what to index and what to skip (login pages, edit forms, etc.)
+- [ ] Canonical URLs on every page — prevent duplicate content issues by telling search engines which URL is the "real" version of each page
+- [ ] Breadcrumb navigation with BreadcrumbList JSON-LD — show users where they are in the site hierarchy and give Google rich breadcrumb snippets in search results
+- [ ] JSON-LD structured data — Article schema on articles, Person schema on bios, Event schema on competitions so Google can display rich results (knowledge panels, event cards)
+- [ ] "Related Articles" section on each article — algorithmically suggest related techniques/positions based on shared tags and links, keeping users exploring instead of bouncing
+- [ ] Auto-detect internal link opportunities — scan article text for mentions of other article titles and suggest links, so the internal link graph stays dense as content grows
+- [ ] RSS/Atom feed for recent changes — let users and aggregators subscribe to wiki activity without visiting the site
+- [ ] Critical CSS inlining — extract above-the-fold styles and inline them in `<head>` so the page renders before the full stylesheet loads
+- [ ] CSS/JS minification pipeline — strip whitespace and comments from production assets to reduce file size
+- [ ] Lazy-load images with WebP + `<picture>` fallback — images only load when scrolled into view, in the smallest format the browser supports
+- [ ] Cache headers — static assets get far-future expires (browser caches them), HTML gets short TTL (always fresh content)
+- [ ] Lighthouse CI — fail the build if Performance score drops below 85, catching regressions before they ship
+- [ ] Social sharing meta (Twitter Card, Open Graph) — when someone shares an article link, it previews with title, description, and image instead of a blank card
+- [ ] Privacy-friendly analytics (Plausible or Umami) — track page views and referrers without cookies or personal data collection, so we know what content performs without invading privacy
 
 **Files:** `app/utils/seo.py`, `app/routes/main.py`, `app/templates/base.html`, `app/templates/wiki/view.html`
 
 ---
 
-### Stream F — Content Pipeline, Unified Theory & SEO Keyword Strategy
+### Stream F — Content Pipeline & SEO Strategy
 **Status:** 📋 Planning → Active seeding | **PRIMARY FOCUS — Phase 1 priority**
 **Owner:** Unassigned
 
-Content is the product. The framework is just the delivery mechanism. The Unified Theory of Grappling (`UNIFIED_THEORY.md`) is the intellectual backbone — every article must be written with awareness of where its subject sits within the gameplay loop.
+Content is the product. The code is just the delivery mechanism. Phase 1 goal: an article for every known grappling technique and position, written well enough to rank in search and useful enough to be worth reading.
 
-**Phase 1 Goal:** An article for every known jiu-jitsu technique and position, organized through the Unified Theory framework so the wiki functions as a system of understanding, not just a dictionary.
+**Note on `UNIFIED_THEORY.md`:** This document is an internal reference that describes how grappling actually works — the positional hierarchy, distance spectrum, force vectors, etc. It informs how we arrange the knowledge graph and categorize articles, but it is NOT a framework we impose on users or require in article content. Think of it as our map of the territory, not a curriculum.
 
-#### F.0 — Unified Theory Integration (DO THIS FIRST)
-- [ ] Review and internalize `UNIFIED_THEORY.md` — the conceptual framework for all content
-- [ ] Create the "Gameplay Loop" overview article: the master article that explains the full causal chain (neutral → grip fight → disruption → takedown → positional advancement → isolation → submission) with links to every phase
-- [ ] Create the "Grips vs. Frames" concept article — the space management dichotomy (grips remove space / offensive; frames create space / defensive; every positional battle is a grip vs. frame exchange)
-- [ ] Create the "Grip Fighting" concept article — the unifying micro-game thread
-- [ ] Create the "Distance Spectrum" concept article — how ground positions map from far (standing/ground) to close (chest-to-chest)
-- [ ] Create the "Orientation Axis" concept article — face-to-face vs. face-to-back and why back exposure is the worst-case scenario
-- [ ] Create the "Tempo and Option Space" concept article — how attacks compress options, the rhythm of attack/defense, and how momentum flips
-- [ ] Create the "Physics of Top Position" concept article — potential energy, force vectors, the balancing game of efficient control
-- [ ] Create the "Isolation and Submission Mechanics" concept article — how limbs are separated from body cohesion and the four force vectors (extension, compression, torsion, arterial compression)
+#### F.0 — Foundational Concept Articles
+These articles explain the big-picture ideas that connect everything else on the wiki. They're valuable standalone content and high-traffic search targets.
 
-#### F.1 — Keyword-Prioritized Content Plan
-- [ ] Research: compile top 200 grappling search terms by monthly volume (Ahrefs, SEMrush, or free alternatives)
-- [ ] Create prioritized article pipeline: highest volume + lowest competition = write first
-- [ ] Map each target keyword to an article title, category, target word count, and Unified Theory placement (which phase of the gameplay loop, which axes)
-- [ ] Track keyword rankings over time as articles publish
+- [ ] "How Grappling Works" overview article — the master article explaining the positional hierarchy from standing to submission, with links to every phase. This is the front door for new visitors.
+- [ ] "Grips vs. Frames" concept article — explain the fundamental space management dichotomy (grips close distance, frames create it) that runs through every position
+- [ ] "Grip Fighting" concept article — the micro-game that happens in every position, from standing collar ties to guard sleeve grips
+- [ ] "Distance Management" concept article — how ground positions map from far (standing/open guard) to close (chest-to-chest pins) and why distance matters
+- [ ] "Facing and Back Exposure" concept article — face-to-face vs. face-to-back and why giving up your back is the worst-case scenario in every ruleset
+- [ ] "Tempo and Momentum" concept article — how attacks create pressure, how defense resets, and why initiative matters
+- [ ] "Top Position Mechanics" concept article — weight distribution, pressure, base, and why gravity favors the top player
+- [ ] "Submission Mechanics" concept article — the four ways submissions finish (chokes, hyperextensions, rotations, compressions) and the concept of isolating a limb from the body
+
+#### F.1 — SEO Keyword Strategy
+- [ ] Research top 200 grappling search terms by monthly volume — use Ahrefs, SEMrush, or free alternatives to find what people actually search for
+- [ ] Create prioritized article pipeline — highest search volume + lowest competition = write first, so early articles have the best chance of ranking
+- [ ] Map each keyword to an article title, category, and target word count — so content production has a clear queue instead of random selection
+- [ ] Track keyword rankings over time — measure whether articles are actually ranking and adjust strategy based on results
 
 #### F.2 — Technique & Position Seed (Phase 1: Complete Coverage)
-- [ ] Finalize YAML schema for glossary entries (see Content Taxonomy and updated schema below)
-- [ ] Build full technique/position corpus: Positions (~30), Submissions (~40), Sweeps & Passes (~25), Takedowns (~20), Concepts (~20+)
-- [ ] Write import script (`scripts/import_glossary.py`) to convert YAML → Article records
-- [ ] Create article templates per category type that include Unified Theory fields (gameplay loop phase, distance spectrum position, orientation, grip state, options compressed, tempo implications)
-- [ ] Seed People (~25), Competitions (~15), Styles (~10) as secondary priority after all techniques/positions are covered
+- [ ] Finalize YAML schema for glossary/seed entries — define the fields each article type needs (see Content Taxonomy below) so bulk import is consistent
+- [ ] Build the full technique/position corpus — Positions (~30), Submissions (~40), Sweeps & Passes (~25), Takedowns (~20), Concepts (~20+). This is the core content that makes the wiki worth visiting.
+- [ ] Write import script (`scripts/import_glossary.py`) — convert YAML seed files into Article database records so content can be loaded in bulk
+- [ ] Create article templates per category type — standardized structure for technique articles, position articles, concept articles, etc. so content has consistent quality
+- [ ] Seed People (~25), Competitions (~15), Styles (~10) — secondary priority after techniques/positions are covered, but needed for a complete reference
 
 #### F.3 — Content Quality & Article Standards
-- [ ] Write style guide: tone, structure, heading hierarchy, citation format, internal linking rules
-- [ ] Every technique/position article must answer the 7 Unified Theory questions (see `UNIFIED_THEORY.md` → "How This Framework Applies to Articles")
-- [ ] Every article must have: hand-written meta description, at least 3 internal links, proper heading hierarchy, category/tags assigned
-- [ ] Every position article must specify: distance spectrum placement, orientation, key grips contested, options available to attacker and defender
-- [ ] Every submission article must specify: force vector type (extension, compression, torsion, arterial), isolation mechanism, positions it's available from, common entries
-- [ ] Article review checklist for editors (incorporating Unified Theory completeness check)
+- [ ] Write style guide — document tone, structure, heading hierarchy, citation format, and internal linking rules so all articles read like they were written by the same team
+- [ ] Minimum article requirements — every article needs: hand-written meta description, at least 3 internal links, proper heading hierarchy, and category/tags assigned
+- [ ] Position article standard — should cover: where it sits in the positional hierarchy, key grips, what the top and bottom player are trying to do, and common transitions
+- [ ] Submission article standard — should specify: how it finishes (choke, hyperextension, rotation, compression), which positions it's available from, common entries, and key defensive responses
+- [ ] Article review checklist for editors — a quick checklist to verify completeness and quality before an article is considered "done"
 
 #### F.4 — Phase 2+ Expansion (500+ articles)
-- [ ] Competition histories, biographical deep-dives, stylistic analysis articles
-- [ ] Identify authoritative sources per subject area
-- [ ] Build contributor onboarding flow for content writers (not just coders)
-- [ ] Advanced Unified Theory articles: chain wrestling, guard retention systems, leg lock flow charts, passing taxonomies mapped to distance spectrum
+- [ ] Competition histories, biographical deep-dives, and stylistic analysis articles — the reference content that makes the wiki comprehensive beyond just techniques
+- [ ] Identify authoritative sources per subject area — build a source list so articles can cite credible references
+- [ ] Contributor onboarding for content writers — a guide for non-coders who want to write articles, covering the editor, style guide, and review process
+- [ ] Advanced system articles — chain wrestling, guard retention systems, leg lock flow charts, passing taxonomies. The deep-cut content for serious practitioners.
 
-**Files:** `UNIFIED_THEORY.md`, `content/glossary/*.yml`, `content/templates/`, `docs/style-guide.md`, `scripts/import_glossary.py`
+**Files:** `content/glossary/*.yml`, `content/templates/`, `docs/style-guide.md`, `scripts/import_glossary.py`
 
 ---
 
@@ -611,17 +606,17 @@ Content is the product. The framework is just the delivery mechanism. The Unifie
 
 The wiki is only as good as the community that maintains it.
 
-- [ ] User reputation / contribution scoring system
-- [ ] Article quality ratings or review workflow
-- [ ] @mentions in discussions
-- [ ] Admin dashboard (stats, flags, user management)
-- [ ] Content flagging / reporting system
-- [ ] Email notification system (watchlist changes, discussion replies)
-- [ ] Community guidelines / code of conduct
-- [ ] Anti-vandalism: auto-revert, IP blocking, edit throttling
-- [ ] Gamification: badges for edit milestones, quality contributions
-- [ ] Outreach plan: r/bjj, BJJ forums, social media, grappling podcast outreach
-- [ ] User campaign launch (only after content base is strong and SEO is ranking)
+- [ ] User reputation / contribution scoring — track edit counts and quality so active contributors are visible and recognized on their profiles
+- [ ] Article quality ratings or review workflow — let editors flag articles as stub/draft/reviewed/featured so readers know what's reliable and contributors know what needs work
+- [ ] @mentions in discussions — notify users when they're tagged in talk page threads so conversations don't die from missed replies
+- [ ] Admin dashboard — centralized view of site stats, flagged content, and user management so admins can moderate without digging through the database
+- [ ] Content flagging / reporting — let users flag vandalism, inaccuracies, or policy violations so bad edits surface quickly
+- [ ] Email notifications — alert users when watched articles are edited or someone replies to their discussion thread, so engagement doesn't require daily manual checks
+- [ ] Community guidelines / code of conduct — set expectations for contributor behavior so moderation has a clear reference point
+- [ ] Anti-vandalism tools — auto-revert obvious vandalism, IP blocking, and edit throttling so one bad actor can't trash the wiki
+- [ ] Gamification — badges for edit milestones and quality contributions so there's a visible reward for putting in the work
+- [ ] Outreach plan — strategy for r/bjj, BJJ forums, social media, and grappling podcast outreach to build awareness once content is strong
+- [ ] User campaign launch — only after the content base is solid and articles are ranking in search. Traffic proves the value; community sustains it.
 
 **Files:** `app/models/user.py`, `app/routes/admin.py` (new), `app/templates/admin/`, `docs/community-guidelines.md`
 
@@ -633,7 +628,7 @@ The wiki is only as good as the community that maintains it.
 |---|---|---|---|
 | **Technique** | Submissions, sweeps, passes, escapes, takedowns | **YES** | Armbar, Triangle, Berimbolo, Double Leg |
 | **Position** | Guards, pins, dominant positions, scramble states | **YES** | Mount, Closed Guard, Side Control, Turtle |
-| **Concept** | Principles, strategies, theories, Unified Theory pillars | **YES** | Frames, Pressure, Grip Fighting, Tempo |
+| **Concept** | Principles, strategies, theories, and mental models | **YES** | Frames, Pressure, Grip Fighting, Tempo |
 | **Person** | Practitioners, instructors, competitors, pioneers | NO | Helio Gracie, Marcelo Garcia, Gordon Ryan |
 | **Competition** | Tournaments, rulesets, organizations | NO | ADCC, IBJJF Worlds, EBI |
 | **Glossary** | Terminology, Japanese/Portuguese terms, slang | NO | Oss, Shrimping, Pulling Guard |
@@ -659,20 +654,6 @@ When adding a new article, follow this sequence:
 4. **Add the connection** to `ARTICLE_CONNECTIONS` in `graph-engine.js`.
 5. **Verify the graph** renders the article in the correct tree position.
 
-### Unified Theory Overlay
-
-Every technique and position article maps onto the Unified Theory framework (see `UNIFIED_THEORY.md`):
-
-| Unified Theory Axis | What It Captures | Values |
-|---|---|---|
-| **Gameplay Loop Phase** | Where this sits in the causal chain | Neutral, Grip Fight, Disruption, Takedown, Ground Position, Isolation, Submission |
-| **Distance Spectrum** | Chest-to-chest distance (ground only) | Far (standing/seated), Mid (knee-based, open guards), Close (chest-to-chest pins) |
-| **Orientation** | Facing relationship | Face-to-face, Face-to-back, Side-on |
-| **Grip State** | Dominant grips contested in this position | Position-specific (e.g., underhook vs. whizzer, collar vs. sleeve) |
-| **Options Compressed** | What the opponent can no longer do | Position-specific (e.g., "cannot hip escape toward underhook side") |
-| **Tempo Direction** | Who has initiative | Attacker advantage, Neutral, Scramble |
-| **Force Vector** | Submission finish mechanic (submissions only) | Extension, Compression/Wedge, Torsion, Arterial Compression |
-
 ## Glossary Entry Schema (YAML)
 
 ```yaml
@@ -690,21 +671,10 @@ priority: high
 target_keyword: "armbar"
 monthly_search_volume: 22000
 
-# --- REQUIRED: Graph Placement ---
-# Every Technique, Position, and Concept article MUST specify graph_nodes.
-# These map directly to ARTICLE_CONNECTIONS in graph-engine.js.
-# See the System Node IDs table in CLAUDE.md → Knowledge Graph section.
-graph_nodes: ["sys_close_guard", "sys_guard_subs", "sys_mount", "sys_top_subs"]
-
-# --- Unified Theory Fields ---
-gameplay_loop_phase: submission
-distance_spectrum: close       # attacker's hips tight to opponent's shoulder
-orientation: face-to-face      # or face-to-back for belly-down armbar
-force_vector: extension        # hyperextension of the elbow joint
-isolation_mechanism: "Hips pinch the shoulder while legs control the torso, isolating the arm from the body's kinetic chain."
-options_compressed: "Opponent cannot use the trapped arm for frames or grips. Torso rotation is restricted by leg pressure."
-tempo_implications: "Terminal — if grip is secured with proper hip position, defender's options approach zero. Failed attempt returns to positional exchange."
-grip_battle: "Attacker fights to control the wrist and break the defender's grip (clasped hands, pants grip). Defender fights to connect hands and create a unified structure to resist extension."
+# --- Graph Placement (required for Technique, Position, Concept) ---
+# Maps to ARTICLE_CONNECTIONS in graph-engine.js.
+# Determines where this article appears on the knowledge graph.
+graph_nodes: ["sys_close_guard", "sys_mount"]
 ```
 
 ### Initial Seed Categories

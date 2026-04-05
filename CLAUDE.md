@@ -34,6 +34,7 @@ grappling-wiki/
 ├── config.py               # Environment-based config
 ├── requirements.txt
 ├── CLAUDE.md               # ← You are here. Read everything.
+├── UNIFIED_THEORY.md       # The conceptual framework for all content (gameplay loop, distance spectrum, tempo, force vectors)
 ├── DESIGN_MANIFESTO.md     # Standalone copy of the manifesto (also inlined below)
 ├── CONTRIBUTING.md          # Git workflow for contributors
 ├── content/
@@ -138,6 +139,21 @@ Every page is composed of discrete, self-contained **modules** — cards, panels
 - Shadows: almost none. When used, tight and directional — not diffuse glows.
 - Imagery: monochrome or desaturated. Photography gets subtle grain filter. Illustrations are line-art.
 - Icons: stroke-based, thin, consistent weight. Lucide or Phosphor. Never emoji in the UI.
+
+**Knowledge Graph Color Philosophy:**
+
+The 3D knowledge graph is the visual crown jewel of GrapplingWiki. Its color system must complement — never clash with — the core black/white/silver/steel-blue palette. Category colors are desaturated, cool-shifted accents that feel native to the dark UI:
+
+| Category | Color | RGB | Rationale |
+|---|---|---|---|
+| System nodes | Steel blue | `rgb(74, 158, 255)` | Primary accent, anchors the graph |
+| Technique | Seafoam | `rgb(120, 210, 190)` | Cool green — active, physical |
+| Position | Muted lavender | `rgb(160, 140, 220)` | Soft purple — spatial, structural |
+| Concept | Warm silver | `rgb(200, 195, 150)` | Desaturated gold — intellectual |
+| Style | Ice blue | `rgb(130, 195, 210)` | Cool, disciplined, close to system blue |
+| Glossary | Cool gray | `rgb(170, 170, 180)` | Neutral, reference-like |
+
+**No rainbow palettes.** No full-saturation primaries. Every category color must feel like it belongs on a #0a0a0a background next to steel blue. Person and Competition articles are excluded from the graph entirely — they live in their own sections of the site. The graph maps the *physical system* of grappling: techniques, positions, concepts, styles, and their connections.
 
 ### Principle 5: Responsive by Default
 
@@ -357,7 +373,16 @@ Every route is a user's entry point. It must be fast, correct, and graceful unde
 - [ ] Markdown syntax highlighting in textarea (lightweight — CodeMirror only if < 40KB gzipped)
 - [ ] Edit conflict warning UI
 
-#### D.4 — Polish & Accessibility
+#### D.4 — Technique Graph Visualization
+- [ ] Design and build interactive technique graph: nodes = positions/techniques, edges = transitions, submissions = terminal leaf nodes (inbound edges only, no outbound)
+- [ ] Define layer color scheme for the 7 gameplay loop layers (Neutral, Grip Fight, Disruption, Positional Control, Transitions, Isolation, Submission) — apply consistently across graph, article tags, and category pages
+- [ ] Graph must visually sort techniques by gameplay loop layer, not alphabetically
+- [ ] Positions and transitions render as bidirectional nodes; submissions render as endpoint/leaf nodes with distinct visual treatment
+- [ ] Graph should be explorable: click a node → navigate to article; hover → preview card
+- [ ] Performance budget: graph must render within JS bundle limits (<40KB gzipped) — consider SVG-based or lightweight canvas approach
+- [ ] `prefers-reduced-motion` support for graph animations
+
+#### D.5 — Polish & Accessibility
 - [ ] Logo and favicon design
 - [ ] Responsive testing: 480 / 768 / 1024 / 1440 breakpoints
 - [ ] Mobile-specific nav (swipe-friendly, bottom-anchored actions, 44px touch targets)
@@ -397,35 +422,53 @@ Every millisecond of load time and every missing meta tag is traffic we're leavi
 
 ---
 
-### Stream F — Content Pipeline & SEO Keyword Strategy
-**Status:** 📋 Planning → Active seeding
+### Stream F — Content Pipeline, Unified Theory & SEO Keyword Strategy
+**Status:** 📋 Planning → Active seeding | **PRIMARY FOCUS — Phase 1 priority**
 **Owner:** Unassigned
 
-Content is the product. The framework is just the delivery mechanism.
+Content is the product. The framework is just the delivery mechanism. The Unified Theory of Grappling (`UNIFIED_THEORY.md`) is the intellectual backbone — every article must be written with awareness of where its subject sits within the gameplay loop.
+
+**Phase 1 Goal:** An article for every known jiu-jitsu technique and position, organized through the Unified Theory framework so the wiki functions as a system of understanding, not just a dictionary.
+
+#### F.0 — Unified Theory Integration (DO THIS FIRST)
+- [ ] Review and internalize `UNIFIED_THEORY.md` — the conceptual framework for all content
+- [ ] Create the "Gameplay Loop" overview article: the master article that explains the full causal chain (neutral → grip fight → disruption → takedown → positional advancement → isolation → submission) with links to every phase
+- [ ] Create the "Grips vs. Frames" concept article — the space management dichotomy (grips remove space / offensive; frames create space / defensive; every positional battle is a grip vs. frame exchange)
+- [ ] Create the "Grip Fighting" concept article — the unifying micro-game thread
+- [ ] Create the "Distance Spectrum" concept article — how ground positions map from far (standing/ground) to close (chest-to-chest)
+- [ ] Create the "Orientation Axis" concept article — face-to-face vs. face-to-back and why back exposure is the worst-case scenario
+- [ ] Create the "Tempo and Option Space" concept article — how attacks compress options, the rhythm of attack/defense, and how momentum flips
+- [ ] Create the "Physics of Top Position" concept article — potential energy, force vectors, the balancing game of efficient control
+- [ ] Create the "Isolation and Submission Mechanics" concept article — how limbs are separated from body cohesion and the four force vectors (extension, compression, torsion, arterial compression)
 
 #### F.1 — Keyword-Prioritized Content Plan
 - [ ] Research: compile top 200 grappling search terms by monthly volume (Ahrefs, SEMrush, or free alternatives)
 - [ ] Create prioritized article pipeline: highest volume + lowest competition = write first
-- [ ] Map each target keyword to an article title, category, and target word count
+- [ ] Map each target keyword to an article title, category, target word count, and Unified Theory placement (which phase of the gameplay loop, which axes)
 - [ ] Track keyword rankings over time as articles publish
 
-#### F.2 — Glossary Seed (Phase 1: 200 entries)
-- [ ] Finalize YAML schema for glossary entries (see Content Taxonomy below)
-- [ ] Build glossary: Positions (~30), Submissions (~40), Sweeps & Passes (~25), Takedowns (~20), Concepts (~20), People (~25), Competitions (~15), Styles (~10)
+#### F.2 — Technique & Position Seed (Phase 1: Complete Coverage)
+- [ ] Finalize YAML schema for glossary entries (see Content Taxonomy and updated schema below)
+- [ ] Build full technique/position corpus: Positions (~30), Submissions (~40), Sweeps & Passes (~25), Takedowns (~20), Concepts (~20+)
 - [ ] Write import script (`scripts/import_glossary.py`) to convert YAML → Article records
-- [ ] Create article templates/stubs per category type
+- [ ] Create article templates per category type that include Unified Theory fields (gameplay loop phase, distance spectrum position, orientation, grip state, options compressed, tempo implications)
+- [ ] Seed People (~25), Competitions (~15), Styles (~10) as secondary priority after all techniques/positions are covered
 
-#### F.3 — Content Quality
+#### F.3 — Content Quality & Article Standards
 - [ ] Write style guide: tone, structure, heading hierarchy, citation format, internal linking rules
+- [ ] Every technique/position article must answer the 7 Unified Theory questions (see `UNIFIED_THEORY.md` → "How This Framework Applies to Articles")
 - [ ] Every article must have: hand-written meta description, at least 3 internal links, proper heading hierarchy, category/tags assigned
-- [ ] Article review checklist for editors
+- [ ] Every position article must specify: distance spectrum placement, orientation, key grips contested, options available to attacker and defender
+- [ ] Every submission article must specify: force vector type (extension, compression, torsion, arterial), isolation mechanism, positions it's available from, common entries
+- [ ] Article review checklist for editors (incorporating Unified Theory completeness check)
 
 #### F.4 — Phase 2+ Expansion (500+ articles)
 - [ ] Competition histories, biographical deep-dives, stylistic analysis articles
 - [ ] Identify authoritative sources per subject area
 - [ ] Build contributor onboarding flow for content writers (not just coders)
+- [ ] Advanced Unified Theory articles: chain wrestling, guard retention systems, leg lock flow charts, passing taxonomies mapped to distance spectrum
 
-**Files:** `content/glossary/*.yml`, `content/templates/`, `docs/style-guide.md`, `scripts/import_glossary.py`
+**Files:** `UNIFIED_THEORY.md`, `content/glossary/*.yml`, `content/templates/`, `docs/style-guide.md`, `scripts/import_glossary.py`
 
 ---
 
@@ -457,13 +500,27 @@ The wiki is only as good as the community that maintains it.
 |---|---|---|
 | **Technique** | Submissions, sweeps, passes, escapes, takedowns | Armbar, Triangle, Berimbolo, Double Leg |
 | **Position** | Guards, pins, dominant positions, scramble states | Mount, Closed Guard, Side Control, Turtle |
-| **Concept** | Principles, strategies, theories | Frames, Pressure, Weight Distribution, Grip Fighting |
+| **Concept** | Principles, strategies, theories, Unified Theory pillars | Frames, Pressure, Grip Fighting, Tempo, Distance Spectrum |
 | **Person** | Practitioners, instructors, competitors, pioneers | Helio Gracie, Marcelo Garcia, Gordon Ryan |
 | **Competition** | Tournaments, rulesets, organizations | ADCC, IBJJF Worlds, EBI |
 | **Glossary** | Terminology, Japanese/Portuguese terms, slang | Oss, Shrimping, Pulling Guard |
 | **Style** | Martial arts disciplines | BJJ, Judo, Wrestling, Sambo, Catch Wrestling |
 
 Technique subcategories: Submissions (chokes, joint locks, leg locks, compression), Sweeps, Guard Passes, Takedowns, Escapes, Transitions.
+
+### Unified Theory Overlay
+
+Every technique and position article maps onto the Unified Theory framework (see `UNIFIED_THEORY.md`):
+
+| Unified Theory Axis | What It Captures | Values |
+|---|---|---|
+| **Gameplay Loop Phase** | Where this sits in the causal chain | Neutral, Grip Fight, Disruption, Takedown, Ground Position, Isolation, Submission |
+| **Distance Spectrum** | Chest-to-chest distance (ground only) | Far (standing/seated), Mid (knee-based, open guards), Close (chest-to-chest pins) |
+| **Orientation** | Facing relationship | Face-to-face, Face-to-back, Side-on |
+| **Grip State** | Dominant grips contested in this position | Position-specific (e.g., underhook vs. whizzer, collar vs. sleeve) |
+| **Options Compressed** | What the opponent can no longer do | Position-specific (e.g., "cannot hip escape toward underhook side") |
+| **Tempo Direction** | Who has initiative | Attacker advantage, Neutral, Scramble |
+| **Force Vector** | Submission finish mechanic (submissions only) | Extension, Compression/Wedge, Torsion, Arterial Compression |
 
 ## Glossary Entry Schema (YAML)
 
@@ -481,6 +538,16 @@ positions_from: ["Mount", "Closed Guard", "Side Control", "Back"]
 priority: high
 target_keyword: "armbar"
 monthly_search_volume: 22000
+
+# --- Unified Theory Fields ---
+gameplay_loop_phase: submission
+distance_spectrum: close       # attacker's hips tight to opponent's shoulder
+orientation: face-to-face      # or face-to-back for belly-down armbar
+force_vector: extension        # hyperextension of the elbow joint
+isolation_mechanism: "Hips pinch the shoulder while legs control the torso, isolating the arm from the body's kinetic chain."
+options_compressed: "Opponent cannot use the trapped arm for frames or grips. Torso rotation is restricted by leg pressure."
+tempo_implications: "Terminal — if grip is secured with proper hip position, defender's options approach zero. Failed attempt returns to positional exchange."
+grip_battle: "Attacker fights to control the wrist and break the defender's grip (clasped hands, pants grip). Defender fights to connect hands and create a unified structure to resist extension."
 ```
 
 ### Initial Seed Categories

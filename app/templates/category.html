@@ -50,14 +50,12 @@
 
         <div class="category-card-grid" id="category-grid">
             {% for article in articles.items %}
-            <article class="category-article-card"
+            <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="category-article-card"
                      data-title="{{ article.title | e }}"
                      data-views="{{ article.view_count | default(0) }}"
                      data-date="{{ article.updated_at.isoformat() }}">
                 <div class="category-article-card-inner">
-                    <h3 class="category-article-title">
-                        <a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a>
-                    </h3>
+                    <h3 class="category-article-title">{{ article.title | e }}</h3>
                     {% if article.summary %}
                     <p class="category-article-summary">{{ article.summary | truncate(120) | e }}</p>
                     {% endif %}
@@ -76,7 +74,7 @@
                     </div>
                     {% endif %}
                 </div>
-            </article>
+            </a>
             {% endfor %}
         </div>
     </section>

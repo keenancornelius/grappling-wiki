@@ -1,0 +1,916 @@
+{% extends "base.html" %}
+
+{% block title %}Explore the Knowledge Graph — GrapplingWiki{% endblock %}
+{% block meta_description %}Interactive neural knowledge graph of grappling techniques, positions, and concepts.{% endblock %}
+
+{% block content %}
+<div class="explore-page" id="explore-page">
+    <canvas id="graph-canvas"></canvas>
+
+    <!-- Tooltip -->
+    <div class="graph-tooltip" id="graph-tooltip">
+        <div class="graph-tooltip-category" id="tooltip-category"></div>
+        <div class="graph-tooltip-title" id="tooltip-title"></div>
+        <div class="graph-tooltip-summary" id="tooltip-summary"></div>
+        <div class="graph-tooltip-hint">Click to open article</div>
+    </div>
+
+    <!-- HUD overlay -->
+    <div class="graph-hud">
+        <a href="/" class="graph-hud-back">&larr; Back to Wiki</a>
+        <div class="graph-hud-title">
+            <span class="graph-hud-icon">&#9670;</span> Knowledge Graph
+        </div>
+        <div class="graph-hud-stats">
+            <span id="hud-nodes">0</span> nodes &middot;
+            <span id="hud-edges">0</span> connections
+        </div>
+        <div class="graph-hud-controls">
+            <button class="graph-hud-btn" id="btn-reset" title="Reset view">Reset</button>
+            <button class="graph-hud-btn" id="btn-focus" title="Focus on center">Focus</button>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="graph-legend">
+        <div class="graph-legend-item"><span class="legend-dot" style="background:rgb(74,158,255)"></span> System Node</div>
+        <div class="graph-legend-item"><span class="legend-dot" style="background:rgb(120,210,190)"></span> Technique</div>
+        <div class="graph-legend-item"><span class="legend-dot" style="background:rgb(160,140,220)"></span> Position</div>
+        <div class="graph-legend-item"><span class="legend-dot" style="background:rgb(200,195,150)"></span> Concept</div>
+    </div>
+</div>
+
+<style>
+/* Override main-content constraints */
+.main-content:has(.explore-page) {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+.explore-page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #050505;
+    overflow: hidden;
+    z-index: 100;
+}
+
+#graph-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+/* Tooltip */
+.graph-tooltip {
+    position: fixed;
+    display: none;
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid rgba(74, 158, 255, 0.3);
+    padding: 12px 16px;
+    max-width: 280px;
+    pointer-events: none;
+    z-index: 200;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 30px rgba(74, 158, 255, 0.08);
+}
+
+.graph-tooltip-category {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #4a9eff;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.graph-tooltip-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+    line-height: 1.2;
+}
+
+.graph-tooltip-summary {
+    font-size: 0.78rem;
+    color: #999;
+    line-height: 1.45;
+    margin-bottom: 8px;
+}
+
+.graph-tooltip-hint {
+    font-size: 0.65rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* HUD */
+.graph-hud {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 150;
+    color: #666;
+    font-size: 0.75rem;
+}
+
+.graph-hud-back {
+    display: inline-block;
+    color: #555;
+    text-decoration: none;
+    font-size: 0.72rem;
+    margin-bottom: 8px;
+    letter-spacing: 0.03em;
+    transition: color 120ms ease-out;
+}
+
+.graph-hud-back:hover {
+    color: #4a9eff;
+}
+
+.graph-hud-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #4a9eff;
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+}
+
+.graph-hud-icon {
+    font-size: 0.7rem;
+}
+
+.graph-hud-stats {
+    margin-bottom: 10px;
+    color: #555;
+}
+
+.graph-hud-controls {
+    display: flex;
+    gap: 6px;
+}
+
+.graph-hud-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #888;
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 120ms ease-out;
+}
+
+.graph-hud-btn:hover {
+    background: rgba(74, 158, 255, 0.1);
+    border-color: rgba(74, 158, 255, 0.3);
+    color: #fff;
+}
+
+/* Legend */
+.graph-legend {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    z-index: 150;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.graph-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.68rem;
+    color: #555;
+}
+
+.legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Hide main nav/footer in explore mode */
+
+@media (max-width: 768px) {
+    .graph-legend {
+        bottom: 8px;
+        left: 8px;
+        gap: 6px;
+    }
+    .graph-legend-item {
+        font-size: 0.6rem;
+    }
+    .graph-hud {
+        top: 8px;
+        left: 8px;
+    }
+}
+</style>
+
+<script>
+(function() {
+    'use strict';
+
+    // Hide navbar and footer for immersive view
+    var nav = document.querySelector('.navbar');
+    var footer = document.querySelector('footer');
+    var main = document.querySelector('main');
+    if (nav) nav.style.display = 'none';
+    if (footer) footer.style.display = 'none';
+    if (main) { main.style.padding = '0'; main.style.minHeight = '0'; }
+
+    // ── Article data from server ──
+    var articles = {{ article_data | tojson }};
+
+    // ── Color palette ──
+    var COLORS = {
+        system:      { r: 74,  g: 158, b: 255 },  // blue - system nodes
+        technique:   { r: 34,  g: 197, b: 94  },   // green
+        position:    { r: 168, g: 85,  b: 247 },   // purple
+        concept:     { r: 234, g: 179, b: 8   },   // yellow
+        person:      { r: 236, g: 72,  b: 153 },   // pink
+        competition: { r: 249, g: 115, b: 22  },   // orange
+        style:       { r: 6,   g: 182, b: 212 },   // cyan
+        glossary:    { r: 150, g: 150, b: 150 },    // gray
+    };
+
+    var GRID_COLOR = 'rgba(34, 197, 94, 0.06)';
+    var GRID_AXIS_COLOR = 'rgba(34, 197, 94, 0.12)';
+    var EDGE_COLOR_BASE = 'rgba(74, 158, 255, 0.08)';
+
+    // ── Build knowledge graph ──
+    // System nodes (not articles — structural nodes in the graph)
+    var systemNodes = [
+        { id: 'sys_standing',       label: 'Standing\nNeutral',    tier: 0, angle: 0 },
+        { id: 'sys_takedowns',      label: 'Takedowns',            tier: 1, angle: -0.6 },
+        { id: 'sys_guard_pull',     label: 'Guard\nPulls',         tier: 1, angle: 0.1 },
+        { id: 'sys_clinch',         label: 'Clinch\nWork',         tier: 1, angle: -1.2 },
+        { id: 'sys_flying',         label: 'Flying\nAttacks',      tier: 1, angle: 0.7 },
+        { id: 'sys_top_game',       label: 'Top\nGame',            tier: 2, angle: -0.9 },
+        { id: 'sys_guard_game',     label: 'Guard\nGame',          tier: 2, angle: 0.3 },
+        { id: 'sys_submissions',    label: 'Submissions',          tier: 2, angle: -0.2 },
+        { id: 'sys_leg_attacks',    label: 'Leg\nAttacks',         tier: 2, angle: 0.9 },
+        { id: 'sys_back_attacks',   label: 'Back\nAttacks',        tier: 2, angle: -1.5 },
+        { id: 'sys_sweeps_passes',  label: 'Sweeps &\nPasses',     tier: 2, angle: 1.4 },
+    ];
+
+    // Map article slugs to system connections
+    var articleConnections = {
+        // Takedowns
+        'double-leg-takedown': ['sys_standing', 'sys_takedowns'],
+        // Guard pulls → guard game
+        'closed-guard':       ['sys_guard_pull', 'sys_guard_game'],
+        'half-guard':         ['sys_guard_game'],
+        'butterfly-guard':    ['sys_guard_game', 'sys_guard_pull'],
+        'de-la-riva-guard':   ['sys_guard_game', 'sys_guard_pull'],
+        // Top positions
+        'mount':              ['sys_top_game'],
+        'side-control':       ['sys_top_game'],
+        'back-control':       ['sys_back_attacks', 'sys_top_game'],
+        'knee-on-belly':      ['sys_top_game'],
+        'turtle-position':    ['sys_takedowns', 'sys_back_attacks'],
+        // Submissions - upper body
+        'rear-naked-choke':   ['sys_back_attacks', 'sys_submissions'],
+        'armbar':             ['sys_submissions', 'sys_guard_game', 'sys_top_game'],
+        'triangle-choke':     ['sys_submissions', 'sys_guard_game'],
+        'guillotine':         ['sys_submissions', 'sys_clinch'],
+        'kimura':             ['sys_submissions', 'sys_top_game', 'sys_guard_game'],
+        'americana':          ['sys_submissions', 'sys_top_game'],
+        'omoplata':           ['sys_submissions', 'sys_guard_game'],
+        'darce-choke':        ['sys_submissions', 'sys_top_game'],
+        // Leg attacks
+        'heel-hook':          ['sys_leg_attacks', 'sys_submissions'],
+        'straight-ankle-lock': ['sys_leg_attacks', 'sys_submissions'],
+        // Sweeps and passes
+        'scissor-sweep':      ['sys_sweeps_passes', 'sys_guard_game'],
+        'guard-passing':      ['sys_sweeps_passes', 'sys_top_game'],
+        'berimbolo':          ['sys_sweeps_passes', 'sys_back_attacks', 'sys_guard_game'],
+        'toreando-pass':      ['sys_sweeps_passes', 'sys_top_game'],
+        // Concepts
+        'frames-and-framing': ['sys_guard_game', 'sys_top_game'],
+        'underhooks':         ['sys_clinch', 'sys_takedowns', 'sys_guard_game'],
+        'shrimping':          ['sys_guard_game'],
+        'grip-fighting':      ['sys_clinch', 'sys_guard_game', 'sys_standing'],
+        'base-and-posture':   ['sys_top_game', 'sys_standing'],
+        // People
+        'marcelo-garcia':     ['sys_guard_game', 'sys_submissions'],
+        'helio-gracie':       ['sys_guard_game'],
+        'gordon-ryan':        ['sys_top_game', 'sys_leg_attacks', 'sys_submissions'],
+        'john-danaher':       ['sys_leg_attacks', 'sys_submissions'],
+        'roger-gracie':       ['sys_top_game', 'sys_submissions'],
+        // Competitions
+        'adcc':               ['sys_submissions'],
+        'ibjjf-world-championship': ['sys_submissions'],
+        'ebi':                ['sys_submissions'],
+        // Styles
+        'brazilian-jiu-jitsu': ['sys_guard_game', 'sys_submissions'],
+        'judo':               ['sys_takedowns', 'sys_clinch'],
+        'wrestling':          ['sys_takedowns', 'sys_clinch', 'sys_top_game'],
+        'sambo':              ['sys_takedowns', 'sys_leg_attacks'],
+    };
+
+    // System-to-system edges (the structural skeleton)
+    var systemEdges = [
+        ['sys_standing', 'sys_takedowns'],
+        ['sys_standing', 'sys_guard_pull'],
+        ['sys_standing', 'sys_clinch'],
+        ['sys_standing', 'sys_flying'],
+        ['sys_takedowns', 'sys_top_game'],
+        ['sys_takedowns', 'sys_back_attacks'],
+        ['sys_guard_pull', 'sys_guard_game'],
+        ['sys_clinch', 'sys_takedowns'],
+        ['sys_flying', 'sys_submissions'],
+        ['sys_flying', 'sys_guard_game'],
+        ['sys_top_game', 'sys_submissions'],
+        ['sys_top_game', 'sys_back_attacks'],
+        ['sys_guard_game', 'sys_submissions'],
+        ['sys_guard_game', 'sys_sweeps_passes'],
+        ['sys_guard_game', 'sys_leg_attacks'],
+        ['sys_sweeps_passes', 'sys_top_game'],
+        ['sys_back_attacks', 'sys_submissions'],
+        ['sys_leg_attacks', 'sys_submissions'],
+    ];
+
+    // Also connect articles to each other based on shared system nodes
+    // (we'll compute these dynamically)
+
+    // ── Canvas setup ──
+    var canvas = document.getElementById('graph-canvas');
+    var ctx = canvas.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var W, H;
+
+    function resize() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ── Camera / pan-zoom ──
+    var cam = { x: 0, y: 0, zoom: 1, targetZoom: 1, targetX: 0, targetY: 0 };
+    var dragging = false;
+    var dragStart = { x: 0, y: 0 };
+    var dragCamStart = { x: 0, y: 0 };
+
+    function screenToWorld(sx, sy) {
+        return {
+            x: (sx - W / 2) / cam.zoom + cam.x,
+            y: (sy - H / 2) / cam.zoom + cam.y
+        };
+    }
+
+    function worldToScreen(wx, wy) {
+        return {
+            x: (wx - cam.x) * cam.zoom + W / 2,
+            y: (wy - cam.y) * cam.zoom + H / 2
+        };
+    }
+
+    // ── Build nodes ──
+    var nodes = [];
+    var edges = [];
+    var nodeMap = {};
+
+    // Place system nodes in a radial layout
+    var tierRadii = [0, 200, 420];
+
+    systemNodes.forEach(function(sn) {
+        var r = tierRadii[sn.tier];
+        var node = {
+            id: sn.id,
+            label: sn.label,
+            x: Math.cos(sn.angle) * r,
+            y: Math.sin(sn.angle) * r,
+            vx: 0, vy: 0,
+            radius: sn.tier === 0 ? 10 : 7,
+            color: COLORS.system,
+            type: 'system',
+            slug: null,
+            summary: null,
+            category: null,
+            fixed: true,
+            tier: sn.tier,
+            pulse: Math.random() * Math.PI * 2,
+        };
+        nodes.push(node);
+        nodeMap[sn.id] = node;
+    });
+
+    // Place article nodes around their connected system nodes
+    articles.forEach(function(a) {
+        var connections = articleConnections[a.slug];
+        var cx = 0, cy = 0;
+
+        if (connections && connections.length > 0) {
+            // Average position of connected system nodes + offset
+            connections.forEach(function(sid) {
+                var sn = nodeMap[sid];
+                if (sn) { cx += sn.x; cy += sn.y; }
+            });
+            cx /= connections.length;
+            cy /= connections.length;
+        } else {
+            // Unconnected articles go to outer ring
+            var ang = Math.random() * Math.PI * 2;
+            cx = Math.cos(ang) * 600;
+            cy = Math.sin(ang) * 600;
+        }
+
+        // Add jitter so nodes don't stack
+        var jitter = 60 + Math.random() * 80;
+        var jAngle = Math.random() * Math.PI * 2;
+        cx += Math.cos(jAngle) * jitter;
+        cy += Math.sin(jAngle) * jitter;
+
+        var cat = (a.category || 'glossary').toLowerCase();
+        var col = COLORS[cat] || COLORS.glossary;
+
+        var node = {
+            id: 'art_' + a.slug,
+            label: a.title,
+            x: cx,
+            y: cy,
+            vx: 0, vy: 0,
+            radius: 4,
+            color: col,
+            type: 'article',
+            slug: a.slug,
+            summary: a.summary,
+            category: a.category,
+            tags: a.tags,
+            fixed: false,
+            pulse: Math.random() * Math.PI * 2,
+        };
+        nodes.push(node);
+        nodeMap['art_' + a.slug] = node;
+    });
+
+    // Build edges: system-to-system
+    systemEdges.forEach(function(e) {
+        if (nodeMap[e[0]] && nodeMap[e[1]]) {
+            edges.push({ from: nodeMap[e[0]], to: nodeMap[e[1]], type: 'system', strength: 1 });
+        }
+    });
+
+    // Build edges: article-to-system
+    articles.forEach(function(a) {
+        var connections = articleConnections[a.slug];
+        if (!connections) return;
+        var artNode = nodeMap['art_' + a.slug];
+        if (!artNode) return;
+
+        connections.forEach(function(sid) {
+            var sn = nodeMap[sid];
+            if (sn) {
+                edges.push({ from: artNode, to: sn, type: 'article', strength: 0.5 });
+            }
+        });
+    });
+
+    // Build edges: article-to-article (shared system connections)
+    var artSlugs = Object.keys(articleConnections);
+    for (var i = 0; i < artSlugs.length; i++) {
+        for (var j = i + 1; j < artSlugs.length; j++) {
+            var connsA = articleConnections[artSlugs[i]];
+            var connsB = articleConnections[artSlugs[j]];
+            if (!connsA || !connsB) continue;
+
+            var shared = connsA.filter(function(c) { return connsB.indexOf(c) !== -1; });
+            if (shared.length > 0) {
+                var nA = nodeMap['art_' + artSlugs[i]];
+                var nB = nodeMap['art_' + artSlugs[j]];
+                if (nA && nB) {
+                    edges.push({ from: nA, to: nB, type: 'peer', strength: shared.length * 0.15 });
+                }
+            }
+        }
+    }
+
+    // Update HUD
+    document.getElementById('hud-nodes').textContent = nodes.length;
+    document.getElementById('hud-edges').textContent = edges.length;
+
+    // ── Signal particles ── (travel along edges)
+    var particles = [];
+    var PARTICLE_COUNT = 40;
+
+    function spawnParticle() {
+        var edge = edges[Math.floor(Math.random() * edges.length)];
+        var reverse = Math.random() > 0.5;
+        particles.push({
+            edge: edge,
+            t: 0,
+            speed: 0.002 + Math.random() * 0.004,
+            reverse: reverse,
+            alpha: 0.4 + Math.random() * 0.4,
+        });
+    }
+
+    for (var p = 0; p < PARTICLE_COUNT; p++) {
+        spawnParticle();
+        particles[p].t = Math.random(); // stagger initial positions
+    }
+
+    // ── Gentle physics (non-overlapping, settled layout) ──
+    function physicsTick() {
+        // Repulsion between nearby article nodes
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].fixed) continue;
+            for (var j = i + 1; j < nodes.length; j++) {
+                if (nodes[j].fixed) continue;
+                var dx = nodes[j].x - nodes[i].x;
+                var dy = nodes[j].y - nodes[i].y;
+                var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                if (dist < 50) {
+                    var force = (50 - dist) * 0.02;
+                    var fx = (dx / dist) * force;
+                    var fy = (dy / dist) * force;
+                    nodes[i].vx -= fx; nodes[i].vy -= fy;
+                    nodes[j].vx += fx; nodes[j].vy += fy;
+                }
+            }
+            // Apply velocity with heavy damping
+            nodes[i].x += nodes[i].vx;
+            nodes[i].y += nodes[i].vy;
+            nodes[i].vx *= 0.85;
+            nodes[i].vy *= 0.85;
+        }
+    }
+
+    // Run a bunch of physics iterations upfront to settle
+    for (var settle = 0; settle < 80; settle++) {
+        physicsTick();
+    }
+
+    // ── Hover / click detection ──
+    var hoveredNode = null;
+    var tooltip = document.getElementById('graph-tooltip');
+    var tooltipTitle = document.getElementById('tooltip-title');
+    var tooltipSummary = document.getElementById('tooltip-summary');
+    var tooltipCategory = document.getElementById('tooltip-category');
+
+    function findNodeAt(sx, sy) {
+        var world = screenToWorld(sx, sy);
+        var best = null;
+        var bestDist = Infinity;
+
+        for (var i = 0; i < nodes.length; i++) {
+            var dx = nodes[i].x - world.x;
+            var dy = nodes[i].y - world.y;
+            var dist = Math.sqrt(dx * dx + dy * dy);
+            var hitRadius = (nodes[i].radius + 8) / cam.zoom;
+            if (dist < hitRadius && dist < bestDist) {
+                best = nodes[i];
+                bestDist = dist;
+            }
+        }
+        return best;
+    }
+
+    canvas.addEventListener('mousemove', function(e) {
+        if (dragging) return;
+        var node = findNodeAt(e.clientX, e.clientY);
+        hoveredNode = node;
+
+        if (node) {
+            canvas.style.cursor = node.slug ? 'pointer' : 'default';
+            tooltipTitle.textContent = node.label.replace(/\n/g, ' ');
+            tooltipCategory.textContent = node.category || (node.type === 'system' ? 'system' : '');
+            tooltipSummary.textContent = node.summary || '';
+
+            // Hide hint for system nodes
+            var hint = tooltip.querySelector('.graph-tooltip-hint');
+            hint.style.display = node.slug ? '' : 'none';
+
+            // Position tooltip
+            var tx = e.clientX + 16;
+            var ty = e.clientY - 10;
+            if (tx + 290 > W) tx = e.clientX - 296;
+            if (ty + 160 > H) ty = H - 170;
+            if (ty < 10) ty = 10;
+            tooltip.style.left = tx + 'px';
+            tooltip.style.top = ty + 'px';
+            tooltip.style.display = 'block';
+
+            // Color the category label
+            var col = node.color;
+            tooltipCategory.style.color = 'rgb(' + col.r + ',' + col.g + ',' + col.b + ')';
+            tooltip.style.borderColor = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0.35)';
+        } else {
+            canvas.style.cursor = 'crosshair';
+            tooltip.style.display = 'none';
+        }
+    });
+
+    canvas.addEventListener('click', function(e) {
+        if (dragging) return;
+        var node = findNodeAt(e.clientX, e.clientY);
+        if (node && node.slug) {
+            window.location.href = '/wiki/' + node.slug;
+        }
+    });
+
+    // ── Pan / zoom ──
+    canvas.addEventListener('mousedown', function(e) {
+        if (e.button !== 0) return;
+        // Only start drag if not on a node
+        var node = findNodeAt(e.clientX, e.clientY);
+        if (node) return;
+
+        dragging = true;
+        dragStart.x = e.clientX;
+        dragStart.y = e.clientY;
+        dragCamStart.x = cam.x;
+        dragCamStart.y = cam.y;
+        canvas.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', function(e) {
+        if (!dragging) return;
+        var dx = (e.clientX - dragStart.x) / cam.zoom;
+        var dy = (e.clientY - dragStart.y) / cam.zoom;
+        cam.targetX = dragCamStart.x - dx;
+        cam.targetY = dragCamStart.y - dy;
+    });
+
+    window.addEventListener('mouseup', function() {
+        dragging = false;
+        canvas.style.cursor = 'crosshair';
+    });
+
+    canvas.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var factor = e.deltaY > 0 ? 0.9 : 1.1;
+        cam.targetZoom = Math.max(0.2, Math.min(4, cam.targetZoom * factor));
+
+        // Zoom toward cursor
+        var world = screenToWorld(e.clientX, e.clientY);
+        cam.targetX += (world.x - cam.x) * (1 - 1 / factor) * 0.3;
+        cam.targetY += (world.y - cam.y) * (1 - 1 / factor) * 0.3;
+    }, { passive: false });
+
+    // Touch support
+    var lastTouchDist = 0;
+    canvas.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 1) {
+            dragging = true;
+            dragStart.x = e.touches[0].clientX;
+            dragStart.y = e.touches[0].clientY;
+            dragCamStart.x = cam.x;
+            dragCamStart.y = cam.y;
+        } else if (e.touches.length === 2) {
+            var dx = e.touches[1].clientX - e.touches[0].clientX;
+            var dy = e.touches[1].clientY - e.touches[0].clientY;
+            lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+        }
+        e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', function(e) {
+        if (e.touches.length === 1 && dragging) {
+            var dx = (e.touches[0].clientX - dragStart.x) / cam.zoom;
+            var dy = (e.touches[0].clientY - dragStart.y) / cam.zoom;
+            cam.targetX = dragCamStart.x - dx;
+            cam.targetY = dragCamStart.y - dy;
+        } else if (e.touches.length === 2) {
+            var dx2 = e.touches[1].clientX - e.touches[0].clientX;
+            var dy2 = e.touches[1].clientY - e.touches[0].clientY;
+            var dist = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+            if (lastTouchDist > 0) {
+                cam.targetZoom = Math.max(0.2, Math.min(4, cam.targetZoom * (dist / lastTouchDist)));
+            }
+            lastTouchDist = dist;
+        }
+        e.preventDefault();
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', function() {
+        dragging = false;
+        lastTouchDist = 0;
+    });
+
+    // ── HUD buttons ──
+    document.getElementById('btn-reset').addEventListener('click', function() {
+        cam.targetX = 0; cam.targetY = 0; cam.targetZoom = 1;
+    });
+    document.getElementById('btn-focus').addEventListener('click', function() {
+        cam.targetX = 0; cam.targetY = 0; cam.targetZoom = 1.5;
+    });
+
+    // ── Draw ──
+    var time = 0;
+
+    function draw() {
+        time += 0.016;
+
+        // Smooth camera
+        cam.x += (cam.targetX - cam.x) * 0.08;
+        cam.y += (cam.targetY - cam.y) * 0.08;
+        cam.zoom += (cam.targetZoom - cam.zoom) * 0.08;
+
+        // Light physics
+        physicsTick();
+
+        ctx.clearRect(0, 0, W, H);
+
+        // ── Grid ──
+        var gridSize = 80;
+        var startWorld = screenToWorld(0, 0);
+        var endWorld = screenToWorld(W, H);
+        var gridStartX = Math.floor(startWorld.x / gridSize) * gridSize;
+        var gridStartY = Math.floor(startWorld.y / gridSize) * gridSize;
+
+        ctx.lineWidth = 0.5;
+        for (var gx = gridStartX; gx < endWorld.x; gx += gridSize) {
+            var sx = worldToScreen(gx, 0).x;
+            ctx.strokeStyle = (gx === 0) ? GRID_AXIS_COLOR : GRID_COLOR;
+            ctx.lineWidth = (gx === 0) ? 1 : 0.5;
+            ctx.beginPath();
+            ctx.moveTo(sx, 0);
+            ctx.lineTo(sx, H);
+            ctx.stroke();
+        }
+        for (var gy = gridStartY; gy < endWorld.y; gy += gridSize) {
+            var sy = worldToScreen(0, gy).y;
+            ctx.strokeStyle = (gy === 0) ? GRID_AXIS_COLOR : GRID_COLOR;
+            ctx.lineWidth = (gy === 0) ? 1 : 0.5;
+            ctx.beginPath();
+            ctx.moveTo(0, sy);
+            ctx.lineTo(W, sy);
+            ctx.stroke();
+        }
+
+        // ── Edges ──
+        for (var ei = 0; ei < edges.length; ei++) {
+            var edge = edges[ei];
+            var fromS = worldToScreen(edge.from.x, edge.from.y);
+            var toS = worldToScreen(edge.to.x, edge.to.y);
+
+            var alpha = 0.04;
+            var lineW = 0.5;
+
+            if (edge.type === 'system') {
+                alpha = 0.15;
+                lineW = 1.2;
+            } else if (edge.type === 'article') {
+                alpha = 0.06;
+                lineW = 0.7;
+            }
+
+            // Highlight edges connected to hovered node
+            if (hoveredNode && (edge.from === hoveredNode || edge.to === hoveredNode)) {
+                var c = hoveredNode.color;
+                ctx.strokeStyle = 'rgba(' + c.r + ',' + c.g + ',' + c.b + ', 0.5)';
+                lineW = 1.8;
+            } else {
+                ctx.strokeStyle = 'rgba(74, 158, 255, ' + alpha + ')';
+            }
+
+            ctx.lineWidth = lineW;
+            ctx.beginPath();
+            ctx.moveTo(fromS.x, fromS.y);
+            ctx.lineTo(toS.x, toS.y);
+            ctx.stroke();
+        }
+
+        // ── Signal particles ──
+        for (var pi = 0; pi < particles.length; pi++) {
+            var part = particles[pi];
+            part.t += part.speed;
+
+            if (part.t >= 1) {
+                // Respawn
+                particles[pi].edge = edges[Math.floor(Math.random() * edges.length)];
+                particles[pi].t = 0;
+                particles[pi].reverse = Math.random() > 0.5;
+                continue;
+            }
+
+            var t = part.reverse ? (1 - part.t) : part.t;
+            var px = part.edge.from.x + (part.edge.to.x - part.edge.from.x) * t;
+            var py = part.edge.from.y + (part.edge.to.y - part.edge.from.y) * t;
+            var ps = worldToScreen(px, py);
+
+            var pc = part.edge.type === 'system' ? COLORS.system : COLORS.technique;
+            var pAlpha = part.alpha * (1 - Math.abs(t - 0.5) * 2) * 0.6;
+
+            ctx.beginPath();
+            ctx.arc(ps.x, ps.y, 1.5 * cam.zoom, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(' + pc.r + ',' + pc.g + ',' + pc.b + ',' + pAlpha + ')';
+            ctx.fill();
+        }
+
+        // ── Nodes ──
+        for (var ni = 0; ni < nodes.length; ni++) {
+            var node = nodes[ni];
+            var ns = worldToScreen(node.x, node.y);
+
+            // Skip if off screen
+            if (ns.x < -50 || ns.x > W + 50 || ns.y < -50 || ns.y > H + 50) continue;
+
+            var r = node.radius * cam.zoom;
+            var col = node.color;
+            var isHovered = (node === hoveredNode);
+
+            // Pulse animation
+            node.pulse += 0.02;
+            var pulseScale = 1 + Math.sin(node.pulse) * 0.08;
+
+            // Glow
+            if (node.type === 'system' || isHovered) {
+                var glowRadius = r * (isHovered ? 4 : 2.5) * pulseScale;
+                var glow = ctx.createRadialGradient(ns.x, ns.y, r * 0.5, ns.x, ns.y, glowRadius);
+                var glowAlpha = isHovered ? 0.25 : 0.1;
+                glow.addColorStop(0, 'rgba(' + col.r + ',' + col.g + ',' + col.b + ',' + glowAlpha + ')');
+                glow.addColorStop(1, 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0)');
+                ctx.beginPath();
+                ctx.arc(ns.x, ns.y, glowRadius, 0, Math.PI * 2);
+                ctx.fillStyle = glow;
+                ctx.fill();
+            }
+
+            // Node circle
+            var drawR = r * (isHovered ? 1.5 : 1) * pulseScale;
+            ctx.beginPath();
+            ctx.arc(ns.x, ns.y, drawR, 0, Math.PI * 2);
+
+            if (isHovered) {
+                ctx.fillStyle = 'rgb(' + col.r + ',' + col.g + ',' + col.b + ')';
+                ctx.shadowColor = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0.6)';
+                ctx.shadowBlur = 20;
+            } else if (node.type === 'system') {
+                ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0.9)';
+            } else {
+                ctx.fillStyle = 'rgba(' + col.r + ',' + col.g + ',' + col.b + ', 0.7)';
+            }
+            ctx.fill();
+            ctx.shadowBlur = 0;
+
+            // White core
+            if (node.type === 'system' || isHovered) {
+                ctx.beginPath();
+                ctx.arc(ns.x, ns.y, drawR * 0.35, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.fill();
+            }
+
+            // Labels for system nodes (always visible) and articles when zoomed in
+            var showLabel = node.type === 'system' || (cam.zoom > 0.8 && r > 2.5) || isHovered;
+            if (showLabel) {
+                var fontSize = node.type === 'system' ? Math.max(9, 11 * cam.zoom) : Math.max(7, 9 * cam.zoom);
+                ctx.font = (node.type === 'system' ? '600 ' : '400 ') + fontSize + 'px Inter, sans-serif';
+                ctx.textAlign = 'center';
+
+                var labelY = ns.y + drawR + fontSize + 3;
+                var lines = node.label.split('\n');
+
+                for (var li = 0; li < lines.length; li++) {
+                    var ly = labelY + li * (fontSize + 2);
+                    // Shadow for readability
+                    ctx.fillStyle = 'rgba(5, 5, 5, 0.85)';
+                    ctx.fillText(lines[li], ns.x + 1, ly + 1);
+                    // Text
+                    if (isHovered) {
+                        ctx.fillStyle = '#fff';
+                    } else if (node.type === 'system') {
+                        ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+                    } else {
+                        ctx.fillStyle = 'rgba(160, 160, 160, 0.6)';
+                    }
+                    ctx.fillText(lines[li], ns.x, ly);
+                }
+            }
+        }
+
+        requestAnimationFrame(draw);
+    }
+
+    requestAnimationFrame(draw);
+
+    // ── Reduced motion ──
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        particles.length = 0;
+        nodes.forEach(function(n) { n.pulse = 0; });
+    }
+
+})();
+</script>
+{% endblock %}

@@ -59,12 +59,22 @@ def view(slug):
             Article.tags.any(Tag.id.in_(tag_ids))
         ).limit(5).all()
 
+    # Article data for contextual knowledge graph
+    all_articles = Article.query.filter_by(is_published=True).all()
+    graph_articles = [
+        {'id': a.id, 'title': a.title, 'slug': a.slug,
+         'summary': a.summary or '', 'category': a.category or '',
+         'tags': [t.name for t in a.tags]}
+        for a in all_articles
+    ]
+
     return render_template(
         'wiki/view.html',
         article=article,
         html_content=html_content,
         revision_count=revision_count,
-        related_articles=related_articles
+        related_articles=related_articles,
+        graph_articles=graph_articles
     )
 
 

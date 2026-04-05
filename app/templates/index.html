@@ -3,10 +3,14 @@
 {% block title %}GrapplingWiki — The Free Encyclopedia of Grappling{% endblock %}
 {% block meta_description %}Explore techniques, positions, terminology, and comprehensive knowledge about jiu-jitsu and grappling.{% endblock %}
 
+{% block head_extra %}
+<script src="{{ url_for('static', filename='js/graph-engine.js') }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="home-page">
 
-    <!-- ── Module: Hero ── -->
+    <!-- ── Module: Hero + Knowledge Graph ── -->
     <section class="gw-module home-hero">
         <div class="home-hero-inner">
             <span class="home-hero-badge">Open Source &middot; Community Driven</span>
@@ -19,6 +23,30 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 </button>
             </form>
+        </div>
+    </section>
+
+    <!-- ── Module: Knowledge Graph (crown jewel) ── -->
+    <section class="gw-module home-graph-module">
+        <div class="home-graph-header">
+            <h2 class="gw-module-heading">Explore the Knowledge Graph</h2>
+            <a href="{{ url_for('main.explore') }}" class="gw-module-link">Fullscreen &rarr;</a>
+        </div>
+        <div class="home-graph-container" id="home-graph-container">
+            <canvas id="home-graph-canvas"></canvas>
+        </div>
+        <div class="home-graph-legend">
+            <span class="graph-legend-item"><span class="legend-dot" style="background:rgb(74,158,255)"></span> System</span>
+            <span class="graph-legend-item"><span class="legend-dot" style="background:rgb(120,210,190)"></span> Technique</span>
+            <span class="graph-legend-item"><span class="legend-dot" style="background:rgb(160,140,220)"></span> Position</span>
+            <span class="graph-legend-item"><span class="legend-dot" style="background:rgb(200,195,150)"></span> Concept</span>
+        </div>
+        <!-- Shared tooltip (fixed position) -->
+        <div class="graph-tooltip" id="home-graph-tooltip">
+            <div class="graph-tooltip-category"></div>
+            <div class="graph-tooltip-title"></div>
+            <div class="graph-tooltip-summary"></div>
+            <div class="graph-tooltip-hint">Click to open article</div>
         </div>
     </section>
 
@@ -68,17 +96,17 @@
         {% if featured_articles %}
         <div class="home-featured-grid">
             {% for article in featured_articles[:5] %}
-            <article class="article-card {{ 'featured-primary' if loop.first else '' }}">
+            <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="article-card {{ 'featured-primary' if loop.first else '' }}">
                 <div class="article-card-content">
                     <div class="article-card-category">{{ article.category | e }}</div>
-                    <h3><a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a></h3>
+                    <h3>{{ article.title | e }}</h3>
                     <p class="article-card-excerpt">{{ article.summary | default('', true) | e }}</p>
                     <div class="article-card-meta">
                         <span class="author">By {{ article.author.username | e }}</span>
                         <span class="date" title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%b %d, %Y') }}</span>
                     </div>
                 </div>
-            </article>
+            </a>
             {% endfor %}
         </div>
         {% else %}
@@ -167,5 +195,17 @@
         }
     }
 }
+</script>
+
+<script>
+(function() {
+    var articles = {{ graph_articles | tojson }};
+    GWGraph.init('home-graph-canvas', 'home-graph-tooltip', articles, {
+        mode: 'home',
+        height: 600,
+        interactive: true,
+        particleCount: 35
+    });
+})();
 </script>
 {% endblock %}

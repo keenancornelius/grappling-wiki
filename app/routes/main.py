@@ -199,6 +199,15 @@ def index():
         Article.is_published == True
     ).order_by(desc(ArticleRevision.created_at)).limit(10).all()
 
+    # Article data for knowledge graph
+    all_articles = Article.query.filter_by(is_published=True).all()
+    graph_articles = [
+        {'id': a.id, 'title': a.title, 'slug': a.slug,
+         'summary': a.summary or '', 'category': a.category or '',
+         'tags': [t.name for t in a.tags]}
+        for a in all_articles
+    ]
+
     return render_template(
         'index.html',
         featured_articles=featured_articles,
@@ -207,7 +216,8 @@ def index():
         total_users=total_users,
         total_edits=total_edits,
         categories=categories,
-        recent_edits=recent_edits
+        recent_edits=recent_edits,
+        graph_articles=graph_articles
     )
 
 
@@ -366,6 +376,26 @@ def sitemap():
     return render_template('sitemap.xml', entries=sitemap_entries), 200, {
         'Content-Type': 'application/xml'
     }
+
+
+@main_bp.route('/explore')
+def explore():
+    """
+    Interactive neural knowledge graph visualization.
+    Shows all articles as nodes in a point cloud with connections.
+    """
+    articles = Article.query.filter_by(is_published=True).all()
+    article_data = []
+    for a in articles:
+        article_data.append({
+            'id': a.id,
+            'title': a.title,
+            'slug': a.slug,
+            'summary': a.summary or '',
+            'category': a.category or '',
+            'tags': [t.name for t in a.tags],
+        })
+    return render_template('explore.html', article_data=article_data)
 
 
 @main_bp.route('/roadmap')

@@ -140,8 +140,8 @@
     if (anchor.target === '_blank' || anchor.hasAttribute('download')) return false;
     // Hash-only links on same page
     if (anchor.pathname === window.location.pathname && anchor.hash) return false;
-    // Logout, admin actions, API calls
-    if (/\/(logout|api\/|static\/)/.test(anchor.pathname)) return false;
+    // Logout, admin actions, API calls, explore (needs full page load)
+    if (/\/(logout|api\/|static\/|explore)/.test(anchor.pathname)) return false;
     // Don't intercept if there's an unsaved edit form
     if (document.querySelector('form[data-edit-form]')) {
       var formInputs = document.querySelectorAll('form[data-edit-form] input, form[data-edit-form] textarea');
@@ -194,8 +194,20 @@
           main.style.opacity = '0';
 
           setTimeout(function() {
-            // Swap content
+            // Swap content and execute inline scripts
             main.innerHTML = newMain.innerHTML;
+            main.querySelectorAll('script').forEach(function(oldScript) {
+              // Skip non-JS scripts (JSON-LD, etc.)
+              var scriptType = (oldScript.type || '').toLowerCase();
+              if (scriptType && scriptType !== 'text/javascript' && scriptType !== 'module') return;
+              var newScript = document.createElement('script');
+              if (oldScript.src) {
+                newScript.src = oldScript.src;
+              } else {
+                newScript.textContent = oldScript.textContent;
+              }
+              oldScript.parentNode.replaceChild(newScript, oldScript);
+            });
 
             // Update title
             if (newTitle) document.title = newTitle.textContent;

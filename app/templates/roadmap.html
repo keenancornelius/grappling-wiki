@@ -238,72 +238,65 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts_extra %}
+<!-- Inline script inside <main> so it re-runs after page transitions -->
 <script>
 (function() {
     // ── Scroll-triggered reveal ──
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach((entry, i) => {
-            if (entry.isIntersecting) {
-                const delay = entry.target.dataset.delay || 0;
-                setTimeout(() => {
-                    entry.target.classList.add('revealed');
-                }, delay);
-                observer.unobserve(entry.target);
-            }
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function initRoadmapReveals() {
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    var delay = entry.target.dataset.delay || 0;
+                    setTimeout(function() {
+                        entry.target.classList.add('revealed');
+                    }, reducedMotion ? 0 : delay);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.05, rootMargin: '0px 0px 0px 0px' });
+
+        document.querySelectorAll('.kanban-column').forEach(function(col, i) {
+            col.dataset.delay = i * 80;
+            col.classList.add('reveal-target');
+            observer.observe(col);
         });
-    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
 
-    // Observe columns and cards
-    document.querySelectorAll('.kanban-column').forEach((col, i) => {
-        col.dataset.delay = i * 80;
-        col.classList.add('reveal-target');
-        observer.observe(col);
-    });
+        document.querySelectorAll('.kanban-card, .kanban-group-header').forEach(function(card, i) {
+            card.dataset.delay = (i % 8) * 40;
+            card.classList.add('reveal-target');
+            observer.observe(card);
+        });
 
-    document.querySelectorAll('.kanban-card, .kanban-group-header').forEach((card, i) => {
-        card.dataset.delay = (i % 8) * 40;
-        card.classList.add('reveal-target');
-        observer.observe(card);
-    });
+        document.querySelectorAll('.roadmap-stat').forEach(function(stat, i) {
+            stat.dataset.delay = i * 60;
+            stat.classList.add('reveal-target');
+            observer.observe(stat);
+        });
+    }
 
-    document.querySelectorAll('.roadmap-stat').forEach((stat, i) => {
-        stat.dataset.delay = i * 60;
-        stat.classList.add('reveal-target');
-        observer.observe(stat);
+    // Defer to next frame so browser has completed layout before observing
+    requestAnimationFrame(function() {
+        requestAnimationFrame(initRoadmapReveals);
     });
 
     // ── Filter buttons ──
-    const filterBtns = document.querySelectorAll('.roadmap-filter');
-    const allCards = document.querySelectorAll('.kanban-card, .kanban-list-item');
-    const allGroups = document.querySelectorAll('.kanban-group-header, .kanban-list-group');
-
-    filterBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            filterBtns.forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.roadmap-filter').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.roadmap-filter').forEach(function(b) { b.classList.remove('active'); });
             btn.classList.add('active');
+            var filter = btn.dataset.filter;
 
-            const filter = btn.dataset.filter;
-
-            allCards.forEach(card => {
-                const status = card.dataset.status;
-                if (filter === 'all') {
-                    card.style.display = '';
-                } else if (filter === 'done') {
-                    card.style.display = status === 'done' ? '' : 'none';
-                } else if (filter === 'active') {
-                    card.style.display = status === 'active' ? '' : 'none';
-                } else if (filter === 'planned') {
-                    card.style.display = status === 'planned' ? '' : 'none';
-                }
+            document.querySelectorAll('.kanban-card, .kanban-list-item').forEach(function(card) {
+                var status = card.dataset.status;
+                card.style.display = (filter === 'all' || status === filter) ? '' : 'none';
             });
 
-            // Show/hide group headers based on visible cards
-            allGroups.forEach(group => {
-                let next = group.nextElementSibling;
-                let hasVisible = false;
+            document.querySelectorAll('.kanban-group-header, .kanban-list-group').forEach(function(group) {
+                var next = group.nextElementSibling;
+                var hasVisible = false;
                 while (next && !next.classList.contains('kanban-group-header') && !next.classList.contains('kanban-list-group')) {
                     if (next.style.display !== 'none' && (next.classList.contains('kanban-card') || next.classList.contains('kanban-list-item'))) {
                         hasVisible = true;
@@ -315,61 +308,53 @@
         });
     });
 
-    // ── View toggle (board / list) ──
-    const viewBtns = document.querySelectorAll('.view-btn');
-    const boardView = document.getElementById('kanbanBoard');
-    const listView = document.getElementById('kanbanList');
-
-    viewBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            viewBtns.forEach(b => b.classList.remove('active'));
+    // ── View toggle ──
+    var boardView = document.getElementById('kanbanBoard');
+    var listView = document.getElementById('kanbanList');
+    document.querySelectorAll('.view-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.view-btn').forEach(function(b) { b.classList.remove('active'); });
             btn.classList.add('active');
-
             if (btn.dataset.view === 'board') {
-                boardView.style.display = '';
-                listView.style.display = 'none';
+                if (boardView) boardView.style.display = '';
+                if (listView) listView.style.display = 'none';
             } else {
-                boardView.style.display = 'none';
-                listView.style.display = '';
+                if (boardView) boardView.style.display = 'none';
+                if (listView) listView.style.display = '';
             }
         });
     });
 
     // ── Collapsible done sections ──
-    document.querySelectorAll('.kanban-done-toggle').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const expanded = btn.getAttribute('aria-expanded') === 'true';
-            const tasks = btn.nextElementSibling;
-
+    document.querySelectorAll('.kanban-done-toggle').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var expanded = btn.getAttribute('aria-expanded') === 'true';
+            var tasks = btn.nextElementSibling;
             btn.setAttribute('aria-expanded', !expanded);
-
             if (expanded) {
-                // Collapse
                 tasks.style.maxHeight = tasks.scrollHeight + 'px';
-                requestAnimationFrame(() => {
+                requestAnimationFrame(function() {
                     tasks.style.transition = 'max-height 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease-out';
                     tasks.style.maxHeight = '0';
                     tasks.style.opacity = '0';
                 });
-                setTimeout(() => { tasks.style.display = 'none'; }, 300);
+                setTimeout(function() { tasks.style.display = 'none'; }, 300);
             } else {
-                // Expand
                 tasks.style.display = '';
                 tasks.style.maxHeight = '0';
                 tasks.style.opacity = '0';
-                requestAnimationFrame(() => {
+                requestAnimationFrame(function() {
                     tasks.style.transition = 'max-height 400ms cubic-bezier(0.16, 1, 0.3, 1), opacity 300ms ease-out';
                     tasks.style.maxHeight = tasks.scrollHeight + 'px';
                     tasks.style.opacity = '1';
                 });
-                setTimeout(() => { tasks.style.maxHeight = 'none'; }, 400);
+                setTimeout(function() { tasks.style.maxHeight = 'none'; }, 400);
             }
         });
     });
 
-    // ── Reduced motion ──
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        document.querySelectorAll('.reveal-target').forEach(el => {
+    if (reducedMotion) {
+        document.querySelectorAll('.reveal-target').forEach(function(el) {
             el.classList.add('revealed');
         });
     }

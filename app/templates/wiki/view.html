@@ -13,6 +13,7 @@
 {% block twitter_description %}{{ article.summary | default('', true) | e }}{% endblock %}
 
 {% block head_extra %}
+<script src="{{ url_for('static', filename='js/graph-engine.js') }}"></script>
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -164,6 +165,23 @@
     </section>
     {% endif %}
 
+    <!-- ── Module: Knowledge Graph Context ── -->
+    <section class="gw-module article-graph-module">
+        <div class="article-graph-header">
+            <h2 class="gw-module-heading">Position in Knowledge Graph</h2>
+            <a href="{{ url_for('main.explore') }}" class="gw-module-link">Explore Full Graph &rarr;</a>
+        </div>
+        <div class="article-graph-container" id="article-graph-container">
+            <canvas id="article-graph-canvas"></canvas>
+        </div>
+        <div class="graph-tooltip" id="article-graph-tooltip">
+            <div class="graph-tooltip-category"></div>
+            <div class="graph-tooltip-title"></div>
+            <div class="graph-tooltip-summary"></div>
+            <div class="graph-tooltip-hint">Click to open article</div>
+        </div>
+    </section>
+
     <!-- ── Module: Revision Footer ── -->
     <section class="gw-module article-revision-module">
         <div class="revision-footer-inner">
@@ -200,4 +218,17 @@
     </section>
 
 </div>
+
+<script>
+(function() {
+    var articles = {{ graph_articles | tojson }};
+    GWGraph.init('article-graph-canvas', 'article-graph-tooltip', articles, {
+        mode: 'article',
+        focusSlug: '{{ article.slug }}',
+        height: 400,
+        interactive: true,
+        particleCount: 15
+    });
+})();
+</script>
 {% endblock %}

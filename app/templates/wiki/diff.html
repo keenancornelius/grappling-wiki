@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Revision Diff: {{ article.title | e }} - GrapplingWiki{% endblock %}
+{% block meta_description %}Compare revisions of {{ article.title | e }}.{% endblock %}
+
+{% block content %}
+<div class="diff-container">
+    <div class="page-header">
+        <h1>Revision Comparison</h1>
+        <p class="page-subtitle">{{ article.title | e }}</p>
+        <a href="{{ url_for('wiki.history', slug=article.slug) }}" class="back-link">← Back to history</a>
+    </div>
+
+    <!-- Diff Versions Info -->
+    <div class="diff-versions">
+        <div class="diff-version-box old-version">
+            <h3>Older Version</h3>
+            <div class="version-meta">
+                <p><strong>Edited by:</strong> <a href="{{ url_for('auth.profile', username=old_revision.editor.username) }}">{{ old_revision.editor.username | e }}</a></p>
+                <p><strong>Date:</strong> <time datetime="{{ old_revision.created_at.isoformat() }}">{{ old_revision.created_at.strftime('%B %d, %Y at %H:%M') }}</time></p>
+                {% if old_revision.edit_summary %}
+                <p><strong>Summary:</strong> {{ old_revision.edit_summary | e }}</p>
+                {% endif %}
+            </div>
+            <a href="{{ url_for('wiki.view', slug=article.slug, revision=old_revision.id) }}" class="button button-secondary button-sm">View Full Version</a>
+        </div>
+
+        <div class="diff-arrow">→</div>
+
+        <div class="diff-version-box new-version">
+            <h3>Newer Version</h3>
+            <div class="version-meta">
+                <p><strong>Edited by:</strong> <a href="{{ url_for('auth.profile', username=new_revision.editor.username) }}">{{ new_revision.editor.username | e }}</a></p>
+                <p><strong>Date:</strong> <time datetime="{{ new_revision.created_at.isoformat() }}">{{ new_revision.created_at.strftime('%B %d, %Y at %H:%M') }}</time></p>
+                {% if new_revision.edit_summary %}
+                <p><strong>Summary:</strong> {{ new_revision.edit_summary | e }}</p>
+                {% endif %}
+            </div>
+            <a href="{{ url_for('wiki.view', slug=article.slug, revision=new_revision.id) }}" class="button button-secondary button-sm">View Full Version</a>
+        </div>
+    </div>
+
+    <!-- Diff Display -->
+    <div class="diff-display">
+        <!-- Side-by-side diff -->
+        <div class="diff-view side-by-side">
+            <div class="diff-column old-column">
+                <div class="diff-column-header">Older Version</div>
+                <div class="diff-content">
+                    {% if diff_lines %}
+                        {% for line in diff_lines %}
+                            {% if line.type == 'removed' %}
+                            <div class="diff-line removed">
+                                <span class="diff-line-num"></span>
+                                <span class="diff-line-content">{{ line.content | e }}</span>
+                            </div>
+                            {% elif line.type == 'same' %}
+                            <div class="diff-line same">
+                                <span class="diff-line-num">{{ line.line_num }}</span>
+                                <span class="diff-line-content">{{ line.content | e }}</span>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <p>No differences to display.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="diff-column new-column">
+                <div class="diff-column-header">Newer Version</div>
+                <div class="diff-content">
+                    {% if diff_lines %}
+                        {% for line in diff_lines %}
+                            {% if line.type == 'added' %}
+                            <div class="diff-line added">
+                                <span class="diff-line-num"></span>
+                                <span class="diff-line-content">{{ line.content | e }}</span>
+                            </div>
+                            {% elif line.type == 'same' %}
+                            <div class="diff-line same">
+                                <span class="diff-line-num">{{ line.line_num }}</span>
+                                <span class="diff-line-content">{{ line.content | e }}</span>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                    <div class="empty-state">
+                        <p>No differences to display.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Inline diff toggle -->
+        <button class="diff-toggle-view" id="toggle-inline-diff">Show Inline View</button>
+
+        <!-- Inline diff (hidden by default) -->
+        <div class="diff-view inline-diff" style="display: none;">
+            <div class="diff-content">
+                {% if diff_lines %}
+                    {% for line in diff_lines %}
+                        {% if line.type == 'removed' %}
+                        <div class="diff-line removed">
+                            <span class="diff-line-marker">−</span>
+                            <span class="diff-line-content">{{ line.content | e }}</span>
+                        </div>
+                        {% elif line.type == 'added' %}
+                        <div class="diff-line added">
+                            <span class="diff-line-marker">+</span>
+                            <span class="diff-line-content">{{ line.content | e }}</span>
+                        </div>
+                        {% elif line.type == 'same' %}
+                        <div class="diff-line same">
+                            <span class="diff-line-marker"></span>
+                            <span class="diff-line-content">{{ line.content | e }}</span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                {% else %}
+                <div class="empty-state">
+                    <p>No differences to display.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="diff-stats">
+        <div class="stat">
+            <span class="stat-label">Lines added:</span>
+            <span class="stat-value added">{{ stats.lines_added }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Lines removed:</span>
+            <span class="stat-value removed">{{ stats.lines_removed }}</span>
+        </div>
+        <div class="stat">
+            <span class="stat-label">Lines changed:</span>
+            <span class="stat-value">{{ stats.lines_changed }}</span>
+        </div>
+    </div>
+
+    <!-- Action Links -->
+    <div class="diff-actions">
+        <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="button button-secondary">View Current Article</a>
+        <a href="{{ url_for('wiki.history', slug=article.slug) }}" class="button button-secondary">View All Revisions</a>
+    </div>
+</div>
+
+{% block scripts_extra %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggle-inline-diff');
+    const sideBySide = document.querySelector('.side-by-side');
+    const inlineDiff = document.querySelector('.inline-diff');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            if (sideBySide.style.display === 'none') {
+                sideBySide.style.display = 'flex';
+                inlineDiff.style.display = 'none';
+                toggleBtn.textContent = 'Show Inline View';
+            } else {
+                sideBySide.style.display = 'none';
+                inlineDiff.style.display = 'block';
+                toggleBtn.textContent = 'Show Side-by-Side View';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

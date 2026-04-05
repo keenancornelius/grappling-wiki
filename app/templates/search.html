@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Search Results{% if query %}: "{{ query | e }}"{% endif %} - GrapplingWiki{% endblock %}
+{% block meta_description %}Search results{% if query %} for "{{ query | e }}"{% endif %} on GrapplingWiki.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "SearchResultsPage",
+    "name": "Search Results{% if query %}: {{ query | e }}{% endif %}",
+    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ request.full_path }}"
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="search-container">
+    <!-- Search Header -->
+    <div class="search-header">
+        <h1>Search Results</h1>
+        {% if query %}
+        <p class="search-query">Results for: <strong>"{{ query | e }}"</strong></p>
+        {% else %}
+        <p class="search-query">Enter a search term to find articles</p>
+        {% endif %}
+    </div>
+
+    <!-- Search Form -->
+    <form action="{{ url_for('wiki.search') }}" method="get" class="search-form-large">
+        <div class="search-input-wrapper">
+            <input
+                type="search"
+                name="q"
+                class="search-input-lg"
+                placeholder="Search articles..."
+                value="{{ query | e }}"
+                aria-label="Search articles"
+                autofocus
+            >
+            <button type="submit" class="search-button-lg">Search</button>
+        </div>
+    </form>
+
+    <!-- Results Section -->
+    {% if query %}
+        {% if results %}
+        <div class="search-results-info">
+            <p>Found <strong>{{ total_results }}</strong> result{{ 's' if total_results != 1 else '' }} in {{ search_time }}ms</p>
+        </div>
+
+        <div class="search-results">
+            {% for result in results %}
+            <article class="search-result">
+                <h2 class="result-title">
+                    <a href="{{ url_for('wiki.view', slug=result.slug) }}">{{ result.title | e }}</a>
+                </h2>
+
+                <p class="result-category">
+                    <a href="{{ url_for('wiki.category', category_slug=result.category.slug) }}">
+                        {{ result.category.name | e }}
+                    </a>
+                </p>
+
+                <p class="result-excerpt">{{ result.excerpt | e }}</p>
+
+                <div class="result-meta">
+                    <span class="meta-author">By <a href="{{ url_for('auth.profile', username=result.author.username) }}">{{ result.author.username | e }}</a></span>
+                    <span class="meta-divider">•</span>
+                    <span class="meta-date" title="{{ result.updated_at.isoformat() }}">{{ result.updated_at.strftime('%b %d, %Y') }}</span>
+                    <span class="meta-divider">•</span>
+                    <span class="meta-views">{{ result.view_count | default(0) }} views</span>
+                </div>
+
+                {% if result.tags %}
+                <div class="result-tags">
+                    {% for tag in result.tags[:3] %}
+                    <a href="{{ url_for('wiki.tag', tag=tag.name) }}" class="tag-link">{{ tag.name | e }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </article>
+            {% endfor %}
+        </div>
+
+        <!-- Pagination -->
+        {% if pages > 1 %}
+        <div class="pagination">
+            {% if current_page > 1 %}
+            <a href="{{ url_for('wiki.search', q=query, page=1) }}" class="pagination-link">« First</a>
+            <a href="{{ url_for('wiki.search', q=query, page=current_page - 1) }}" class="pagination-link">‹ Previous</a>
+            {% endif %}
+
+            <div class="pagination-pages">
+                {% set start = max(1, current_page - 2) %}
+                {% set end = min(pages, current_page + 2) %}
+
+                {% if start > 1 %}
+                <span class="pagination-ellipsis">...</span>
+                {% endif %}
+
+                {% for page_num in range(start, end + 1) %}
+                    {% if page_num == current_page %}
+                    <span class="pagination-current">{{ page_num }}</span>
+                    {% else %}
+                    <a href="{{ url_for('wiki.search', q=query, page=page_num) }}" class="pagination-number">{{ page_num }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if end < pages %}
+                <span class="pagination-ellipsis">...</span>
+                {% endif %}
+            </div>
+
+            {% if current_page < pages %}
+            <a href="{{ url_for('wiki.search', q=query, page=current_page + 1) }}" class="pagination-link">Next ›</a>
+            <a href="{{ url_for('wiki.search', q=query, page=pages) }}" class="pagination-link">Last »</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% else %}
+        <!-- No Results -->
+        <div class="no-results">
+            <div class="no-results-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <path d="m21 21-4.35-4.35"></path>
+                </svg>
+            </div>
+            <h2>No results found</h2>
+            <p>We couldn't find any articles matching <strong>"{{ query | e }}"</strong></p>
+
+            <div class="no-results-suggestions">
+                <h3>Try:</h3>
+                <ul>
+                    <li>Checking your spelling</li>
+                    <li>Using different keywords</li>
+                    <li>Using more general terms</li>
+                    <li>Browsing <a href="{{ url_for('wiki.categories') }}">categories</a></li>
+                </ul>
+            </div>
+
+            {% if current_user.is_authenticated %}
+            <p>Can't find what you're looking for? <a href="{{ url_for('wiki.create') }}">Create a new article</a></p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+    {% else %}
+    <!-- Empty Search -->
+    <div class="empty-search">
+        <div class="empty-search-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+            </svg>
+        </div>
+        <h2>Start searching</h2>
+        <p>Enter a search term above to find articles</p>
+
+        <div class="search-suggestions">
+            <h3>Browse by category</h3>
+            <div class="category-links">
+                {% if categories %}
+                    {% for category in categories[:6] %}
+                    <a href="{{ url_for('wiki.category', category_slug=category.slug) }}" class="category-link-small">
+                        {{ category.name | e }}
+                    </a>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <a href="{{ url_for('wiki.categories') }}" class="button button-secondary button-sm">View All Categories</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

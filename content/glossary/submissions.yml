@@ -1,0 +1,176 @@
+# GrapplingWiki Glossary — Submissions
+
+- term: "Rear Naked Choke"
+  aliases: ["RNC", "Mata Leão", "Lion Killer"]
+  category: technique
+  subcategory: submission
+  japanese_term: "Hadaka Jime"
+  portuguese_term: "Mata Leão"
+  short_definition: "The highest-percentage choke in grappling, applied from back control by threading one arm under the chin and locking a figure-four grip behind the head to compress both carotid arteries."
+  related_terms: ["Back Mount", "Short Choke", "Seatbelt"]
+  positions_from: ["Back Mount"]
+  priority: high
+
+- term: "Armbar"
+  aliases: ["Juji Gatame", "Arm Lock", "Cross Armlock"]
+  category: technique
+  subcategory: submission
+  japanese_term: "十字固め (Juji Gatame)"
+  portuguese_term: "Chave de Braço"
+  short_definition: "A joint lock hyperextending the elbow by isolating the opponent's arm between the legs and hips, applying upward pressure against the natural bend of the joint."
+  related_terms: ["Kimura", "Americana", "Belly-Down Armbar"]
+  positions_from: ["Mount", "Closed Guard", "Side Control", "Back Mount"]
+  priority: high
+
+- term: "Triangle Choke"
+  aliases: ["Triangle", "Sankaku Jime"]
+  category: technique
+  subcategory: submission
+  japanese_term: "三角絞め (Sankaku Jime)"
+  portuguese_term: "Triângulo"
+  short_definition: "A blood choke using the legs to form a triangle around the opponent's neck and one arm, compressing the carotid arteries using the attacker's own thigh and the opponent's trapped shoulder."
+  related_terms: ["Mounted Triangle", "Inverted Triangle", "Arm Triangle"]
+  positions_from: ["Closed Guard", "Mount", "Side Control"]
+  priority: high
+
+- term: "Guillotine Choke"
+  aliases: ["Guillotine", "Standing Guillotine"]
+  category: technique
+  subcategory: submission
+  short_definition: "A front headlock choke wrapping an arm around the opponent's neck and squeezing upward, applicable from standing, guard, or front headlock positions. Variations include arm-in, high-elbow, and Marcelotine."
+  related_terms: ["D'Arce Choke", "Anaconda Choke", "Front Headlock"]
+  positions_from: ["Closed Guard", "Standing", "Front Headlock"]
+  priority: high
+
+- term: "Kimura"
+  aliases: ["Double Wristlock", "Chicken Wing"]
+  category: technique
+  subcategory: submission
+  japanese_term: "Ude Garami"
+  short_definition: "A shoulder lock using a figure-four grip on the opponent's wrist and forearm, rotating the arm behind the back. Named after Masahiko Kimura who used it to defeat Helio Gracie in 1951."
+  related_terms: ["Americana", "Armbar", "Kimura Trap"]
+  positions_from: ["Closed Guard", "Side Control", "North-South", "Half Guard"]
+  priority: high
+
+- term: "Americana"
+  aliases: ["Keylock", "V-Lock", "Paint Brush"]
+  category: technique
+  subcategory: submission
+  japanese_term: "Ude Garami (reverse)"
+  short_definition: "A shoulder lock similar to the Kimura but applied in the opposite rotational direction, pinning the opponent's wrist to the mat and levering the elbow upward."
+  related_terms: ["Kimura", "Armbar", "Mount"]
+  positions_from: ["Mount", "Side Control"]
+  priority: high
+
+- term: "Omoplata"
+  aliases: ["Ashi Sankaku Garami"]
+  category: technique
+  subcategory: submission
+  japanese_term: "足三角固め"
+  short_definition: "A shoulder lock applied using the legs, threading one leg over the opponent's shoulder and rotating to apply pressure to the shoulder joint. Also used as a sweep and control position."
+  related_terms: ["Triangle Choke", "Armbar", "Wrist Lock"]
+  positions_from: ["Closed Guard", "Open Guard", "Rubber Guard"]
+  priority: high
+
+- term: "D'Arce Choke"
+  aliases: ["Darce", "Brabo Choke", "No-Arm Triangle"]
+  category: technique
+  subcategory: submission
+  short_definition: "An arm triangle choke applied by threading the arm under the opponent's neck and through their armpit, completing a figure-four lock. Named after Joe D'Arce."
+  related_terms: ["Anaconda Choke", "Arm Triangle", "Front Headlock"]
+  positions_from: ["Side Control", "Half Guard Top", "Front Headlock"]
+  priority: high
+
+- term: "Heel Hook"
+  aliases: ["Inside Heel Hook", "Outside Heel Hook"]
+  category: technique
+  subcategory: submission
+  short_definition: "A devastating leg lock that attacks the knee by controlling the foot and rotating the heel, applying torsional force to the knee ligaments. Inside heel hooks attack the medial knee structures; outside heel hooks attack the lateral side."
+  related_terms: ["Ashi Garami", "Inside Sankaku", "Toe Hold", "50/50"]
+  positions_from: ["Ashi Garami", "Inside Sankaku", "50/50", "Outside Ashi"]
+  priority: high
+
+- term: "Bow and Arrow Choke"
+  aliases: ["Bow and Arrow"]
+  category: technique
+  subcategory: submission
+  japanese_term: null
+  short_definition: "A powerful gi choke from back control using a cross-collar grip and pulling the opponent's far leg to stretch them out, creating immense choking pressure with the lapel."
+  related_terms: ["Rear Naked Choke", "Back Mount", "Collar Choke"]
+  positions_from: ["Back Mount"]
+  priority: medium
+
+- term: "Ezekiel Choke"
+  aliases: ["Ezequiel", "Sode Guruma Jime"]
+  category: technique
+  subcategory: submission
+  japanese_term: "袖車絞め"
+  short_definition: "A choke using the sleeve of the gi (or a fist in no-gi) threaded behind the opponent's head while the other hand drives into the throat. Named after Brazilian judoka Ezequiel Paraguassú."
+  related_terms: ["Cross Collar Choke", "Mount", "Inside Guard"]
+  positions_from: ["Mount", "Inside Closed Guard", "Side Control"]
+  priority: medium
+
+- term: "Straight Ankle Lock"
+  aliases: ["Ankle Lock", "Achilles Lock"]
+  category: technique
+  subcategory: submission
+  japanese_term: "Ashi Hishigi"
+  short_definition: "A leg lock compressing the Achilles tendon by wrapping the forearm (blade) around the ankle and arching backward while controlling the opponent's leg with an ashi garami entanglement."
+  related_terms: ["Heel Hook", "Toe Hold", "Kneebar"]
+  positions_from: ["Ashi Garami", "50/50", "Single Leg X"]
+  priority: high
+
+- term: "Kneebar"
+  aliases: ["Knee Bar"]
+  category: technique
+  subcategory: submission
+  short_definition: "A leg lock hyperextending the knee joint by trapping the opponent's leg and applying hip pressure against the knee, similar to an armbar but applied to the leg."
+  related_terms: ["Heel Hook", "Toe Hold", "Calf Slicer"]
+  positions_from: ["Ashi Garami", "Top Position", "Guard"]
+  priority: medium
+
+- term: "Toe Hold"
+  aliases: ["Toe Lock"]
+  category: technique
+  subcategory: submission
+  japanese_term: null
+  short_definition: "A foot lock twisting the foot using a figure-four grip, applying rotational pressure to the ankle and knee. Legal at brown belt and above in IBJJF gi competition."
+  related_terms: ["Heel Hook", "Straight Ankle Lock", "Kneebar"]
+  positions_from: ["50/50", "Ashi Garami", "Half Guard"]
+  priority: medium
+
+- term: "Calf Slicer"
+  aliases: ["Calf Crush", "Calf Lock"]
+  category: technique
+  subcategory: submission
+  short_definition: "A compression lock driving the shin or forearm into the back of the opponent's calf against their own thigh, causing intense pain and potential muscle/joint damage."
+  related_terms: ["Kneebar", "Bicep Slicer", "Truck"]
+  positions_from: ["Truck", "Back Control", "Half Guard"]
+  priority: medium
+
+- term: "Von Flue Choke"
+  aliases: ["Von Flue"]
+  category: technique
+  subcategory: submission
+  short_definition: "A shoulder pressure choke applied from side control when the opponent maintains a guillotine grip. The top player drives their shoulder into the neck while the opponent's own arm blocks escape. Named after Jason Von Flue."
+  related_terms: ["Guillotine Choke", "Side Control"]
+  positions_from: ["Side Control"]
+  priority: medium
+
+- term: "Buggy Choke"
+  aliases: []
+  category: technique
+  subcategory: submission
+  short_definition: "A modern submission from bottom side control where the attacker threads their top leg over the opponent's head and uses the leg and arm to create a triangle-like choke. Popularized in competition since 2020."
+  related_terms: ["Triangle Choke", "Side Control Escape"]
+  positions_from: ["Bottom Side Control"]
+  priority: medium
+
+- term: "Tarikoplata"
+  aliases: []
+  category: technique
+  subcategory: submission
+  short_definition: "A modern shoulder lock combining elements of the Kimura and Omoplata, invented by Tarik Hopstock. The attacker uses their legs to assist a rolling Kimura grip for extreme leverage."
+  related_terms: ["Kimura", "Omoplata", "Baratoplata"]
+  positions_from: ["Guard", "Side Control"]
+  priority: low

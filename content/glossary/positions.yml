@@ -1,0 +1,152 @@
+# GrapplingWiki Glossary — Positions
+# Each entry seeds an article stub when imported
+
+- term: "Mount"
+  aliases: ["Full Mount", "Mounted Position"]
+  category: position
+  japanese_term: "Tate Shiho Gatame"
+  short_definition: "A dominant top position where the attacker sits on the opponent's torso with knees on either side, providing superior control and attack opportunities."
+  related_terms: ["S-Mount", "Technical Mount", "Low Mount", "High Mount"]
+  priority: high
+
+- term: "Closed Guard"
+  aliases: ["Full Guard"]
+  category: position
+  japanese_term: "Do-Osae"
+  portuguese_term: "Guarda Fechada"
+  short_definition: "A fundamental bottom position where the guard player wraps their legs around the opponent's waist, locking ankles behind the back to control distance and posture."
+  related_terms: ["Open Guard", "High Guard", "Rubber Guard"]
+  priority: high
+
+- term: "Side Control"
+  aliases: ["Side Mount", "Cross Side", "Hundred Kilos"]
+  category: position
+  japanese_term: "Yoko Shiho Gatame"
+  short_definition: "A dominant pinning position where the top player lies chest-to-chest perpendicular to the opponent, controlling with underhooks, crossface, or knee-hip pressure."
+  related_terms: ["Kesa Gatame", "North-South", "Knee on Belly"]
+  priority: high
+
+- term: "Back Mount"
+  aliases: ["Back Control", "Back Take", "Rear Mount"]
+  category: position
+  japanese_term: "Ushiro Kesa Gatame"
+  short_definition: "The most dominant position in grappling, achieved by attaching to the opponent's back with both hooks (feet) in and seatbelt grip, providing access to chokes while the opponent cannot see or attack."
+  related_terms: ["Body Triangle", "Rear Naked Choke", "Seatbelt Grip"]
+  priority: high
+
+- term: "Half Guard"
+  aliases: ["Half Guard Bottom", "Half Guard Top"]
+  category: position
+  portuguese_term: "Meia Guarda"
+  short_definition: "A guard position where the bottom player controls one of the top player's legs between their own, creating a halfway point between full guard and a passed position."
+  related_terms: ["Deep Half Guard", "Z-Guard", "Knee Shield", "Lockdown"]
+  priority: high
+
+- term: "Butterfly Guard"
+  aliases: ["Seated Guard", "Hooks Guard"]
+  category: position
+  short_definition: "An open guard played seated with both feet hooked inside the opponent's thighs, enabling powerful elevation-based sweeps and entries to leg attacks."
+  related_terms: ["Single Leg X", "X-Guard", "Butterfly Sweep"]
+  priority: high
+
+- term: "De La Riva Guard"
+  aliases: ["DLR", "DLR Guard"]
+  category: position
+  short_definition: "An open guard where the bottom player hooks the outside of the opponent's lead leg with their same-side foot while controlling the ankle, named after Ricardo De La Riva."
+  related_terms: ["Reverse De La Riva", "Berimbolo", "Baby Bolo"]
+  priority: high
+
+- term: "Spider Guard"
+  aliases: []
+  category: position
+  short_definition: "A gi-based open guard using sleeve grips with feet planted on the opponent's biceps, creating distance and controlling the opponent's arms for sweeps and submissions."
+  related_terms: ["Lasso Guard", "De La Riva Guard"]
+  priority: medium
+
+- term: "X-Guard"
+  aliases: ["X Guard"]
+  category: position
+  short_definition: "A guard position underneath the opponent with legs forming an X shape around one of their legs, providing powerful off-balancing and sweep options. Popularized by Marcelo Garcia."
+  related_terms: ["Single Leg X", "Butterfly Guard", "Technical Stand-Up"]
+  priority: medium
+
+- term: "Turtle"
+  aliases: ["Turtle Position", "All Fours"]
+  category: position
+  japanese_term: null
+  short_definition: "A defensive position on hands and knees with the head tucked, used to prevent the opponent from establishing a controlling pin but vulnerable to back takes and front headlocks."
+  related_terms: ["Sprawl", "Front Headlock", "Back Take"]
+  priority: high
+
+- term: "North-South"
+  aliases: ["North South", "69 Position"]
+  category: position
+  japanese_term: "Kami Shiho Gatame"
+  short_definition: "A top control position where the pinner lies chest-to-chest facing the opposite direction of the bottom player, controlling with weight and hip pressure."
+  related_terms: ["North-South Choke", "Side Control", "Kimura"]
+  priority: medium
+
+- term: "Knee on Belly"
+  aliases: ["Knee on Stomach", "KOB", "Knee Ride"]
+  category: position
+  portuguese_term: "Joelho na Barriga"
+  short_definition: "A dynamic top position where one knee is driven into the opponent's midsection while standing on the other foot, scoring points and creating submission opportunities."
+  related_terms: ["Side Control", "Mount", "Armbar"]
+  priority: medium
+
+- term: "50/50"
+  aliases: ["Fifty-Fifty"]
+  category: position
+  short_definition: "A leg entanglement where both players mirror each other's leg positioning, each controlling one of the other's legs. Common in modern leg lock exchanges."
+  related_terms: ["Inside Sankaku", "Heel Hook", "Ashi Garami"]
+  priority: medium
+
+- term: "Ashi Garami"
+  aliases: ["Single Leg X Entanglement", "Leg Entanglement"]
+  category: position
+  japanese_term: "足絡み"
+  short_definition: "A fundamental leg entanglement position controlling the opponent's leg for heel hook and other leg lock attacks. The foundation of the Danaher leg lock system."
+  related_terms: ["Inside Sankaku", "Outside Ashi", "Cross Ashi", "50/50", "Heel Hook"]
+  priority: high
+
+- term: "Inside Sankaku"
+  aliases: ["Saddle", "Honeyhole", "411"]
+  category: position
+  short_definition: "The strongest leg entanglement for inside heel hooks, where the attacker's legs form a triangle around the opponent's trapped leg with inside knee line exposure."
+  related_terms: ["Ashi Garami", "Heel Hook", "50/50"]
+  priority: high
+
+- term: "Rubber Guard"
+  aliases: []
+  category: position
+  short_definition: "A flexible closed guard variation developed by Eddie Bravo where the guard player pulls their own foot to their opposite shoulder, creating a high guard with overhook control."
+  related_terms: ["Mission Control", "Zombie", "Gogoplata", "10th Planet"]
+  priority: medium
+
+- term: "Worm Guard"
+  aliases: []
+  category: position
+  short_definition: "A modern lapel guard created by Keenan Cornelius where the guard player feeds the opponent's lapel around their leg and grips it, creating powerful off-balancing and sweep entries."
+  related_terms: ["Squid Guard", "Lapel Guard", "De La Riva Guard"]
+  priority: medium
+
+- term: "Deep Half Guard"
+  aliases: ["Deep Half"]
+  category: position
+  short_definition: "A half guard variation where the bottom player slides deep underneath the opponent, nearly reaching the far hip, using the position for sweeps and back takes. Associated with Jeff Glover and Bernardo Faria."
+  related_terms: ["Half Guard", "Waiter Sweep", "Sweep"]
+  priority: medium
+
+- term: "Headquarters"
+  aliases: ["Headquarters Position", "HQ"]
+  category: position
+  short_definition: "A standing or kneeling guard passing position with one knee between the opponent's legs, providing multiple passing options in different directions."
+  related_terms: ["Knee Slice", "Toreando Pass", "Leg Drag"]
+  priority: medium
+
+- term: "Lasso Guard"
+  aliases: ["Lasso Spider Guard"]
+  category: position
+  short_definition: "A gi guard where the bottom player wraps their leg around the opponent's arm while gripping the sleeve, creating a lasso that restricts movement and enables sweeps."
+  related_terms: ["Spider Guard", "Omoplata", "Triangle Choke"]
+  priority: medium

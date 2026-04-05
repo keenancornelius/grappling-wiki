@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Access Denied - GrapplingWiki{% endblock %}
+{% block meta_description %}You don't have permission to access this page.{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-content">
+        <div class="error-code">403</div>
+        <h1 class="error-title">Access Denied</h1>
+        <p class="error-description">
+            You don't have permission to access this page or resource.
+        </p>
+
+        <div class="error-suggestions">
+            <h2>Here's what you can do:</h2>
+            <ul>
+                <li>
+                    <a href="{{ url_for('main.index') }}">Return to the homepage</a>
+                </li>
+                {% if not current_user.is_authenticated %}
+                <li>
+                    <a href="{{ url_for('auth.login') }}">Log in to your account</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('auth.register') }}">Create a new account</a>
+                </li>
+                {% else %}
+                <li>
+                    <a href="{{ url_for('auth.profile', username=current_user.username) }}">View your profile</a>
+                </li>
+                {% endif %}
+                <li>
+                    <a href="{{ url_for('wiki.help') }}">Read our guidelines</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('main.contact') }}">Contact us for help</a>
+                </li>
+            </ul>
+        </div>
+
+        <p class="error-detail">
+            If you believe you should have access to this content, please <a href="{{ url_for('main.contact') }}">contact us</a> for assistance.
+        </p>
+    </div>
+
+    <div class="error-illustration">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="80" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+            <circle cx="100" cy="100" r="50" stroke="currentColor" stroke-width="2" fill="none" opacity="0.2"/>
+            <line x1="75" y1="75" x2="125" y2="125" stroke="currentColor" stroke-width="3" opacity="0.2"/>
+            <line x1="125" y1="75" x2="75" y2="125" stroke="currentColor" stroke-width="3" opacity="0.2"/>
+        </svg>
+    </div>
+</div>
+{% endblock %}

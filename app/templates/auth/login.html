@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Log In - GrapplingWiki{% endblock %}
+{% block meta_description %}Log in to your GrapplingWiki account.{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-box">
+        <div class="auth-header">
+            <h1>Log In</h1>
+            <p>Access your GrapplingWiki account</p>
+        </div>
+
+        <form method="POST" class="auth-form" novalidate>
+            {{ form.csrf_token }}
+
+            <!-- Username/Email Field -->
+            <div class="form-group">
+                <label for="username" class="form-label">Username or Email</label>
+                {{ form.username(id="username", class="form-input", placeholder="Enter your username or email", required=true, autofocus=true) }}
+                {% if form.username.errors %}
+                <div class="form-errors">
+                    {% for error in form.username.errors %}
+                    <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Password Field -->
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                {{ form.password(id="password", class="form-input", placeholder="Enter your password", required=true) }}
+                {% if form.password.errors %}
+                <div class="form-errors">
+                    {% for error in form.password.errors %}
+                    <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Remember Me -->
+            <div class="form-group form-checkbox">
+                {{ form.remember_me(id="remember_me") }}
+                <label for="remember_me" class="checkbox-label">Remember me</label>
+            </div>
+
+            <!-- Submit Button -->
+            <button type="submit" class="button button-primary button-lg button-block">
+                Log In
+            </button>
+        </form>
+
+        <!-- Form Errors -->
+        {% if form.errors %}
+        <div class="form-errors-block">
+            {% for field, errors in form.errors.items() %}
+                {% if field != 'csrf_token' %}
+                    {% for error in errors %}
+                    <div class="error-message">{{ error }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Divider -->
+        <div class="auth-divider">
+            <span>or</span>
+        </div>
+
+        <!-- Additional Links -->
+        <div class="auth-links">
+            <a href="{{ url_for('auth.forgot_password') }}" class="auth-link">Forgot your password?</a>
+        </div>
+
+        <!-- Sign Up Link -->
+        <div class="auth-footer">
+            <p>Don't have an account? <a href="{{ url_for('auth.register') }}" class="auth-link-highlight">Sign up</a></p>
+        </div>
+    </div>
+
+    <!-- Info Box -->
+    <aside class="auth-info">
+        <h2>Welcome to GrapplingWiki</h2>
+        <p>Join our community of grappling enthusiasts and contribute to the largest free wiki for jiu-jitsu and grappling knowledge.</p>
+
+        <h3>Why create an account?</h3>
+        <ul class="info-list">
+            <li>Contribute articles and share your knowledge</li>
+            <li>Edit and improve existing articles</li>
+            <li>Track your contributions and edits</li>
+            <li>Join discussions with the community</li>
+            <li>Bookmark favorite articles</li>
+            <li>Receive notifications on watched articles</li>
+        </ul>
+    </aside>
+</div>
+{% endblock %}

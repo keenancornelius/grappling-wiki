@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Instance folder (database, local config)
+instance/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flask
+*.db
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Migrations (keep directory, ignore auto-generated)
+migrations/versions/*.pyc

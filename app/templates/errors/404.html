@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - GrapplingWiki{% endblock %}
+{% block meta_description %}The page you're looking for could not be found.{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-content">
+        <div class="error-code">404</div>
+        <h1 class="error-title">Page Not Found</h1>
+        <p class="error-description">
+            The page you're looking for doesn't exist or has been moved.
+        </p>
+
+        <div class="error-suggestions">
+            <h2>What you can do:</h2>
+            <ul>
+                <li>
+                    <a href="{{ url_for('main.index') }}">Return to the homepage</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('wiki.categories') }}">Browse categories</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('wiki.recent_changes') }}">View recent changes</a>
+                </li>
+                <li>
+                    <form action="{{ url_for('wiki.search') }}" method="get" style="display: inline;">
+                        <input
+                            type="search"
+                            name="q"
+                            placeholder="Search for something"
+                            class="error-search-input"
+                            required
+                        >
+                        <button type="submit" class="error-search-button">Search</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+
+        {% if current_user.is_authenticated %}
+        <p class="error-create">
+            Looking for something that doesn't exist? <a href="{{ url_for('wiki.create') }}">Create an article</a>
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="error-illustration">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="80" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+            <text x="100" y="120" text-anchor="middle" font-size="60" font-weight="bold" fill="currentColor" opacity="0.2">404</text>
+        </svg>
+    </div>
+</div>
+{% endblock %}

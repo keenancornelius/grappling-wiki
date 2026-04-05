@@ -1,0 +1,123 @@
+# GrapplingWiki Glossary — Concepts & Principles
+
+- term: "Frames"
+  aliases: ["Framing", "Defensive Frames"]
+  category: concept
+  short_definition: "Skeletal structures created using the forearms, elbows, and knees to create space between yourself and the opponent. Frames use bone structure rather than muscular strength to resist pressure."
+  related_terms: ["Shrimping", "Guard Retention", "Escapes"]
+  priority: high
+
+- term: "Underhook"
+  aliases: ["Underhooks"]
+  category: concept
+  short_definition: "A grip or position where the arm goes underneath the opponent's arm from the inside, controlling the far shoulder or hip. Widely considered the most important clinch control in grappling."
+  related_terms: ["Overhook", "Pummeling", "Half Guard"]
+  priority: high
+
+- term: "Shrimping"
+  aliases: ["Hip Escape", "Elbow-Knee Escape"]
+  category: concept
+  japanese_term: "Ebi"
+  short_definition: "The fundamental hip escape movement where the practitioner bridges slightly and slides their hips away from the opponent, creating space. The single most important defensive movement in grappling."
+  related_terms: ["Frames", "Bridging", "Guard Recovery"]
+  priority: high
+
+- term: "Bridging"
+  aliases: ["Bridge", "Upa"]
+  category: concept
+  portuguese_term: "Ponte"
+  short_definition: "An explosive hip thrust driving the hips upward to off-balance a top player. A fundamental escape mechanism from bottom mount and other pinned positions."
+  related_terms: ["Shrimping", "Mount Escape", "Trap and Roll"]
+  priority: high
+
+- term: "Base"
+  aliases: ["Establishing Base"]
+  category: concept
+  short_definition: "The stability and balance foundation of any grappling position. Good base means distributing weight effectively to resist sweeps and reversals while maintaining the ability to attack."
+  related_terms: ["Posture", "Pressure", "Weight Distribution"]
+  priority: high
+
+- term: "Posture"
+  aliases: ["Posturing Up"]
+  category: concept
+  short_definition: "The alignment of the spine and head relative to the opponent. In guard, maintaining upright posture protects against submissions; breaking posture is essential for attacks from bottom."
+  related_terms: ["Base", "Closed Guard", "Guard Passing"]
+  priority: high
+
+- term: "Pressure"
+  aliases: ["Pressure Passing", "Top Pressure"]
+  category: concept
+  short_definition: "The application of body weight and positional leverage to restrict the opponent's movement and breathing. Effective pressure makes the opponent carry your weight on their weakest structures."
+  related_terms: ["Weight Distribution", "Cross-Face", "Smash Pass"]
+  priority: high
+
+- term: "Grip Fighting"
+  aliases: ["Grip Breaks", "Grip Strategy"]
+  category: concept
+  short_definition: "The battle for dominant grips before and during exchanges. In gi, this means fighting for collar and sleeve control; in no-gi, it means controlling wrists, necks, and underhooks."
+  related_terms: ["Pummeling", "Collar Tie", "Underhook"]
+  priority: high
+
+- term: "Guard Retention"
+  aliases: ["Guard Recovery", "Re-Guarding"]
+  category: concept
+  short_definition: "The skill of maintaining or recovering guard position when the opponent attempts to pass. Involves hip movement, frames, leg pummeling, and re-establishing guard hooks."
+  related_terms: ["Shrimping", "Frames", "Leg Pummeling"]
+  priority: high
+
+- term: "Kuzushi"
+  aliases: ["Off-Balancing", "Breaking Balance"]
+  category: concept
+  japanese_term: "崩し"
+  short_definition: "The principle of breaking an opponent's balance before executing a technique. Originally a judo concept, it applies universally: sweeps, throws, and submissions all require disrupting equilibrium first."
+  related_terms: ["Judo", "Takedowns", "Sweeps"]
+  priority: high
+
+- term: "Chain Wrestling"
+  aliases: ["Chain Attacks", "Combinations"]
+  category: concept
+  short_definition: "The practice of linking techniques in sequence so that the opponent's defense to one attack opens them to the next. The hallmark of high-level grappling — no single move in isolation, always combinations."
+  related_terms: ["Submission Chains", "Sweeps", "Scrambles"]
+  priority: medium
+
+- term: "Inside Position"
+  aliases: ["Inside Control", "Inside Ties"]
+  category: concept
+  short_definition: "The principle that controlling the space between the opponent's limbs (inside biceps, inside thighs) provides superior leverage and attack options compared to outside control."
+  related_terms: ["Underhook", "Pummeling", "Leg Entanglements"]
+  priority: medium
+
+- term: "Weight Distribution"
+  aliases: ["Weight Shifting"]
+  category: concept
+  short_definition: "The deliberate placement and shifting of body weight to maximize control in top position or create movement from bottom. Elite grapplers constantly adjust where their weight sits."
+  related_terms: ["Pressure", "Base", "Transitions"]
+  priority: medium
+
+- term: "Leg Pummeling"
+  aliases: ["Leg Pummel", "Knee-Elbow Connection"]
+  category: concept
+  short_definition: "Using the legs to re-establish guard position by threading them inside the opponent's legs during passing attempts. The lower-body equivalent of upper-body pummeling for underhooks."
+  related_terms: ["Guard Retention", "Pummeling", "Knee Shield"]
+  priority: medium
+
+- term: "Pummeling"
+  aliases: ["Pummel", "Hand Fighting"]
+  category: concept
+  short_definition: "The process of fighting to replace an opponent's underhook with your own by swimming the arm underneath. A fundamental clinch skill from wrestling that applies across all grappling contexts."
+  related_terms: ["Underhook", "Overhook", "Clinch"]
+  priority: high
+
+- term: "Connection"
+  aliases: ["Staying Connected", "Closing Distance"]
+  category: concept
+  short_definition: "The principle of maintaining physical contact and eliminating space between you and the opponent. Connection enables control; space enables escape. Top players seek connection, bottom players manage it."
+  related_terms: ["Pressure", "Frames", "Distance Management"]
+  priority: medium
+
+- term: "Timing"
+  aliases: ["Tempo", "Rhythm"]
+  category: concept
+  short_definition: "The ability to execute techniques at the precise moment when the opponent is most vulnerable — during transitions, weight shifts, or after defensive reactions. Often separates good from great grapplers."
+  related_terms: ["Chain Wrestling", "Scrambles", "Anticipation"]
+  priority: medium

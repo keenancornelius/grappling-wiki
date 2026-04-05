@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error - GrapplingWiki{% endblock %}
+{% block meta_description %}An error occurred on our server. Please try again later.{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-content">
+        <div class="error-code">500</div>
+        <h1 class="error-title">Server Error</h1>
+        <p class="error-description">
+            Something went wrong on our end. Our team has been notified and is working to fix it.
+        </p>
+
+        <div class="error-suggestions">
+            <h2>In the meantime, you can:</h2>
+            <ul>
+                <li>
+                    <a href="{{ url_for('main.index') }}">Return to the homepage</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('wiki.recent_changes') }}">View recent changes</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('wiki.categories') }}">Browse categories</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('main.contact') }}">Report this issue to us</a>
+                </li>
+            </ul>
+        </div>
+
+        <p class="error-detail">
+            <strong>Error ID:</strong> <code>{{ error_id | e if error_id else 'N/A' }}</code><br>
+            If this problem persists, please include the Error ID when contacting support.
+        </p>
+
+        <div class="error-support">
+            <p>Need immediate help? <a href="{{ url_for('main.contact') }}">Contact our support team</a></p>
+        </div>
+    </div>
+
+    <div class="error-illustration">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="80" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+            <path d="M 100 60 L 110 100 L 90 100 Z" fill="currentColor" opacity="0.2"/>
+            <circle cx="100" cy="130" r="5" fill="currentColor" opacity="0.2"/>
+        </svg>
+    </div>
+</div>
+
+<style>
+.error-container {
+    min-height: calc(100vh - 200px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.error-content {
+    flex: 1;
+    max-width: 500px;
+}
+
+.error-code {
+    font-size: 120px;
+    font-weight: bold;
+    color: #8B0000;
+    opacity: 0.1;
+    margin: 0;
+    line-height: 1;
+}
+
+.error-title {
+    margin-top: -40px;
+    margin-bottom: 1rem;
+    color: #2C3E50;
+}
+
+.error-description {
+    font-size: 1.1rem;
+    color: #555;
+    margin-bottom: 2rem;
+}
+
+.error-suggestions h2 {
+    margin-bottom: 1rem;
+    color: #2C3E50;
+}
+
+.error-suggestions ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 2rem;
+}
+
+.error-suggestions li {
+    margin-bottom: 0.75rem;
+}
+
+.error-suggestions a {
+    color: #8B0000;
+    text-decoration: none;
+    border-bottom: 1px solid #8B0000;
+}
+
+.error-suggestions a:hover {
+    background-color: #f0f0f0;
+}
+
+.error-detail {
+    background-color: #f9f9f9;
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+.error-detail code {
+    background-color: #e8e8e8;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.error-support {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e0e0e0;
+}
+
+.error-illustration {
+    display: none;
+}
+
+@media (min-width: 768px) {
+    .error-container {
+        justify-content: space-between;
+        gap: 4rem;
+    }
+
+    .error-illustration {
+        display: block;
+        flex: 1;
+        width: 200px;
+        height: 200px;
+        color: #8B0000;
+        opacity: 0.3;
+    }
+}
+</style>
+{% endblock %}

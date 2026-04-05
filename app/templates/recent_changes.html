@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Recent Changes - GrapplingWiki{% endblock %}
+{% block meta_description %}View the most recent edits and changes across GrapplingWiki.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Recent Changes",
+    "description": "Recent edits and changes on GrapplingWiki",
+    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.recent_changes') }}"
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="recent-changes-container">
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>Recent Changes</h1>
+        <p class="page-subtitle">The latest edits across GrapplingWiki</p>
+    </div>
+
+    <!-- Filters -->
+    <form method="get" class="filters-form">
+        <div class="filters-group">
+            <label for="days" class="filter-label">Last:</label>
+            <select name="days" id="days" class="filter-select" onchange="this.form.submit()">
+                <option value="1" {% if request.args.get('days', '7') == '1' %}selected{% endif %}>24 Hours</option>
+                <option value="7" {% if request.args.get('days', '7') == '7' %}selected{% endif %}>7 Days</option>
+                <option value="30" {% if request.args.get('days', '7') == '30' %}selected{% endif %}>30 Days</option>
+                <option value="90" {% if request.args.get('days', '7') == '90' %}selected{% endif %}>90 Days</option>
+            </select>
+        </div>
+
+        <div class="filters-group">
+            <label for="sort" class="filter-label">Sort:</label>
+            <select name="sort" id="sort" class="filter-select" onchange="this.form.submit()">
+                <option value="newest" {% if request.args.get('sort', 'newest') == 'newest' %}selected{% endif %}>Newest First</option>
+                <option value="oldest" {% if request.args.get('sort', 'oldest') == 'oldest' %}selected{% endif %}>Oldest First</option>
+            </select>
+        </div>
+
+        <div class="filters-group">
+            <label for="type" class="filter-label">Type:</label>
+            <select name="type" id="type" class="filter-select" onchange="this.form.submit()">
+                <option value="all" {% if request.args.get('type', 'all') == 'all' %}selected{% endif %}>All Changes</option>
+                <option value="new" {% if request.args.get('type', 'all') == 'new' %}selected{% endif %}>New Articles</option>
+                <option value="edit" {% if request.args.get('type', 'all') == 'edit' %}selected{% endif %}>Edits</option>
+            </select>
+        </div>
+    </form>
+
+    <!-- Changes List -->
+    {% if changes %}
+    <div class="changes-list">
+        {% set current_date = none %}
+
+        {% for change in changes %}
+            {% set change_date = change.created_at.strftime('%Y-%m-%d') %}
+
+            <!-- Date Separator -->
+            {% if change_date != current_date %}
+                {% if current_date is not none %}</div>{% endif %}
+                <div class="changes-date-group">
+                    <h2 class="changes-date">{{ change.created_at.strftime('%A, %B %d, %Y') }}</h2>
+                    <div class="changes-group">
+                {% set current_date = change_date %}
+            {% endif %}
+
+                <div class="change-item">
+                    <!-- Change Type Badge -->
+                    <div class="change-badge" title="{% if change.type == 'new' %}New article{% else %}Article edited{% endif %}">
+                        {% if change.type == 'new' %}
+                        <span class="badge badge-new">NEW</span>
+                        {% else %}
+                        <span class="badge badge-edit">EDIT</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Change Info -->
+                    <div class="change-info">
+                        <div class="change-title">
+                            <a href="{{ url_for('wiki.view', slug=change.article.slug) }}">
+                                {{ change.article.title | e }}
+                            </a>
+                        </div>
+
+                        <div class="change-meta">
+                            <span class="meta-time" title="{{ change.created_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+                                {{ change.created_at.strftime('%H:%M') }}
+                            </span>
+                            <span class="meta-divider">•</span>
+                            <span class="meta-editor">
+                                <a href="{{ url_for('auth.profile', username=change.editor.username) }}">
+                                    {{ change.editor.username | e }}
+                                </a>
+                            </span>
+                        </div>
+
+                        {% if change.edit_summary %}
+                        <div class="change-summary">
+                            <em>{{ change.edit_summary | e }}</em>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Change Stats -->
+                    <div class="change-stats">
+                        {% if change.size_change > 0 %}
+                        <span class="size-change increase" title="{{ change.size_change }} bytes added">
+                            +{{ change.size_change }}
+                        </span>
+                        {% elif change.size_change < 0 %}
+                        <span class="size-change decrease" title="{{ -change.size_change }} bytes removed">
+                            {{ change.size_change }}
+                        </span>
+                        {% else %}
+                        <span class="size-change unchanged">
+                            ={{change.size_change }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="change-actions">
+                        <a href="{{ url_for('wiki.view', slug=change.article.slug) }}" class="action-link">View</a>
+                        <a href="{{ url_for('wiki.history', slug=change.article.slug) }}" class="action-link">History</a>
+                    </div>
+                </div>
+
+            {% endfor %}
+
+        </div>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if pages > 1 %}
+    <div class="pagination">
+        {% if current_page > 1 %}
+        <a href="{{ url_for('wiki.recent_changes', page=1, **request.args) }}" class="pagination-link">« First</a>
+        <a href="{{ url_for('wiki.recent_changes', page=current_page - 1, **request.args) }}" class="pagination-link">‹ Previous</a>
+        {% endif %}
+
+        <div class="pagination-pages">
+            {% set start = max(1, current_page - 2) %}
+            {% set end = min(pages, current_page + 2) %}
+
+            {% if start > 1 %}
+            <span class="pagination-ellipsis">...</span>
+            {% endif %}
+
+            {% for page_num in range(start, end + 1) %}
+                {% if page_num == current_page %}
+                <span class="pagination-current">{{ page_num }}</span>
+                {% else %}
+                <a href="{{ url_for('wiki.recent_changes', page=page_num, **request.args) }}" class="pagination-number">{{ page_num }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if end < pages %}
+            <span class="pagination-ellipsis">...</span>
+            {% endif %}
+        </div>
+
+        {% if current_page < pages %}
+        <a href="{{ url_for('wiki.recent_changes', page=current_page + 1, **request.args) }}" class="pagination-link">Next ›</a>
+        <a href="{{ url_for('wiki.recent_changes', page=pages, **request.args) }}" class="pagination-link">Last »</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- No Changes -->
+    <div class="empty-state">
+        <div class="empty-state-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2-8.83"></path>
+            </svg>
+        </div>
+        <h2>No changes found</h2>
+        <p>There are no recent changes matching your filters.</p>
+        <a href="{{ url_for('wiki.recent_changes') }}" class="button button-secondary">Reset filters</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

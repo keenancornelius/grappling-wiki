@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="theme-color" content="#2C3E50">
+
+    <!-- SEO Meta Tags -->
+    <title>{% block title %}GrapplingWiki - Jiu-Jitsu & Grappling Knowledge Base{% endblock %}</title>
+    <meta name="description" content="{% block meta_description %}The comprehensive wiki for jiu-jitsu, grappling techniques, terminology, and martial arts knowledge.{% endblock %}">
+    <meta name="keywords" content="jiu-jitsu, grappling, martial arts, techniques, submissions, positions, BJJ, wrestling">
+    <meta name="author" content="GrapplingWiki Community">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="{% block canonical %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ request.path }}{% endblock %}">
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}GrapplingWiki - Jiu-Jitsu & Grappling Knowledge Base{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}The comprehensive wiki for jiu-jitsu, grappling techniques, terminology, and martial arts knowledge.{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ request.path }}{% endblock %}">
+    <meta property="og:site_name" content="GrapplingWiki">
+    <meta property="og:image" content="{% block og_image %}{{ config.SITE_URL | default('http://localhost:5000', true) }}/static/img/og-image.png{% endblock %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}GrapplingWiki{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}The comprehensive wiki for jiu-jitsu and grappling.{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{{ config.SITE_URL | default('http://localhost:5000', true) }}/static/img/og-image.png{% endblock %}">
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "GrapplingWiki",
+        "description": "The comprehensive wiki for jiu-jitsu, grappling techniques, terminology, and martial arts knowledge",
+        "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}",
+        "image": "{{ config.SITE_URL | default('http://localhost:5000', true) }}/static/img/logo.png",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "{{ config.SITE_URL | default('http://localhost:5000', true) }}/search?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+        },
+        "sameAs": [
+            "https://twitter.com/grapplingwiki",
+            "https://www.facebook.com/grapplingwiki"
+        ]
+    }
+    </script>
+
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ config.ASSET_VERSION | default('1.0', true) }}">
+    {% block head_extra %}{% endblock %}
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <a href="{{ url_for('main.index') }}" class="navbar-logo">
+                    <svg class="navbar-logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 6v6l4 2"></path>
+                    </svg>
+                    <span class="navbar-logo-text">GrapplingWiki</span>
+                </a>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="navbar-search">
+                <form action="{{ url_for('wiki.search') }}" method="get" class="search-form">
+                    <input
+                        type="search"
+                        name="q"
+                        class="search-input"
+                        placeholder="Search articles..."
+                        value="{{ request.args.get('q', '') | e }}"
+                        aria-label="Search articles"
+                    >
+                    <button type="submit" class="search-button" aria-label="Search">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Navigation Links -->
+            <div class="navbar-menu">
+                <a href="{{ url_for('main.index') }}" class="navbar-link">Home</a>
+                <a href="{{ url_for('wiki.categories') }}" class="navbar-link">Categories</a>
+                <a href="{{ url_for('wiki.recent_changes') }}" class="navbar-link">Recent Changes</a>
+                <a href="{{ url_for('wiki.random') }}" class="navbar-link">Random</a>
+            </div>
+
+            <!-- Auth Links -->
+            <div class="navbar-auth">
+                {% if current_user.is_authenticated %}
+                    <div class="user-menu">
+                        <button class="user-menu-trigger" aria-haspopup="true" aria-expanded="false">
+                            <span class="user-avatar">{{ current_user.username[0].upper() }}</span>
+                            <span class="user-name">{{ current_user.username | e }}</span>
+                            <svg class="menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+                        <div class="user-menu-dropdown">
+                            <a href="{{ url_for('auth.profile', username=current_user.username) }}" class="user-menu-item">Profile</a>
+                            <a href="{{ url_for('wiki.create') }}" class="user-menu-item">New Article</a>
+                            {% if current_user.is_admin %}
+                                <a href="{{ url_for('admin.dashboard') }}" class="user-menu-item">Admin</a>
+                            {% endif %}
+                            <hr class="user-menu-divider">
+                            <a href="{{ url_for('auth.logout') }}" class="user-menu-item logout">Logout</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="auth-button secondary">Login</a>
+                    <a href="{{ url_for('auth.register') }}" class="auth-button primary">Register</a>
+                {% endif %}
+            </div>
+
+            <!-- Mobile Menu Toggle -->
+            <button class="navbar-toggle" aria-label="Toggle navigation menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="alerts-container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">
+                        <div class="alert-content">
+                            {% if category == 'error' %}
+                                <svg class="alert-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                </svg>
+                            {% elif category == 'success' %}
+                                <svg class="alert-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                </svg>
+                            {% elif category == 'info' %}
+                                <svg class="alert-icon" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                </svg>
+                            {% endif %}
+                            <span>{{ message | e }}</span>
+                        </div>
+                        <button class="alert-close" aria-label="Close alert">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-section">
+                <h3 class="footer-title">About GrapplingWiki</h3>
+                <p>A free, community-driven wiki dedicated to jiu-jitsu, grappling, and martial arts knowledge.</p>
+            </div>
+
+            <div class="footer-section">
+                <h3 class="footer-title">Navigation</h3>
+                <ul class="footer-links">
+                    <li><a href="{{ url_for('main.index') }}">Home</a></li>
+                    <li><a href="{{ url_for('wiki.categories') }}">Categories</a></li>
+                    <li><a href="{{ url_for('wiki.recent_changes') }}">Recent Changes</a></li>
+                    <li><a href="{{ url_for('wiki.random') }}">Random Article</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h3 class="footer-title">Community</h3>
+                <ul class="footer-links">
+                    <li><a href="{{ url_for('wiki.help') }}">Help & Guidelines</a></li>
+                    <li><a href="{{ url_for('wiki.contribute') }}">How to Contribute</a></li>
+                    <li><a href="{{ url_for('main.contact') }}">Contact Us</a></li>
+                    <li><a href="{{ url_for('main.donate') }}">Donate</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-section">
+                <h3 class="footer-title">Legal</h3>
+                <ul class="footer-links">
+                    <li><a href="{{ url_for('main.privacy') }}">Privacy Policy</a></li>
+                    <li><a href="{{ url_for('main.terms') }}">Terms of Service</a></li>
+                    <li><a href="{{ url_for('main.license') }}">License</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2026 GrapplingWiki. Licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></p>
+            <p>Made with knowledge and respect for the grappling arts.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/wiki.js') }}?v={{ config.ASSET_VERSION | default('1.0', true) }}"></script>
+    {% block scripts_extra %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}{{ profile_user.username | e }} - User Profile - GrapplingWiki{% endblock %}
+{% block meta_description %}Profile of {{ profile_user.username | e }}, a contributor to GrapplingWiki.{% endblock %}
+
+{% block head_extra %}
+<script type="application/ld+json">
+{
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "{{ profile_user.username | e }}",
+    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('auth.profile', username=profile_user.username) }}",
+    "image": "{{ profile_user.avatar_url | e if profile_user.avatar_url else '' }}",
+    "description": "{{ profile_user.bio | e if profile_user.bio else '' }}"
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="profile-avatar">
+            {% if profile_user.avatar_url %}
+            <img src="{{ profile_user.avatar_url | e }}" alt="{{ profile_user.username | e }}" class="avatar-image">
+            {% else %}
+            <div class="avatar-placeholder">{{ profile_user.username[0].upper() }}</div>
+            {% endif %}
+        </div>
+
+        <div class="profile-info">
+            <h1 class="profile-username">{{ profile_user.username | e }}</h1>
+
+            {% if profile_user.bio %}
+            <p class="profile-bio">{{ profile_user.bio | e }}</p>
+            {% endif %}
+
+            <div class="profile-meta">
+                <span class="meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
+                        <path d="M21 3v5h-5"></path>
+                        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
+                        <path d="M3 21v-5h5"></path>
+                    </svg>
+                    <span>Member since {{ profile_user.created_at.strftime('%B %Y') }}</span>
+                </span>
+
+                {% if profile_user.location %}
+                <span class="meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span>{{ profile_user.location | e }}</span>
+                </span>
+                {% endif %}
+
+                {% if profile_user.website %}
+                <span class="meta-item">
+                    <a href="{{ profile_user.website | e }}" target="_blank" rel="noopener noreferrer">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                        </svg>
+                        <span>Website</span>
+                    </a>
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Edit Profile Button (if current user) -->
+        {% if current_user.is_authenticated and current_user.id == profile_user.id %}
+        <div class="profile-actions">
+            <a href="{{ url_for('auth.edit_profile') }}" class="button button-secondary">Edit Profile</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Profile Grid -->
+    <div class="profile-grid">
+        <!-- Statistics -->
+        <section class="profile-section stats-section">
+            <h2 class="section-title">Contribution Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">{{ stats.articles_created | default(0) }}</div>
+                    <div class="stat-label">Articles Created</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ stats.total_edits | default(0) }}</div>
+                    <div class="stat-label">Total Edits</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ stats.discussions_posted | default(0) }}</div>
+                    <div class="stat-label">Discussions Posted</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ stats.views_received | default(0) }}</div>
+                    <div class="stat-label">Total Views</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Edits -->
+        <section class="profile-section">
+            <div class="section-header">
+                <h2 class="section-title">Recent Edits</h2>
+                <a href="{{ url_for('wiki.user_edits', username=profile_user.username) }}" class="view-all-link">View All</a>
+            </div>
+
+            {% if recent_edits %}
+            <div class="edits-list">
+                {% for edit in recent_edits[:10] %}
+                <div class="edit-item">
+                    <div class="edit-info">
+                        <a href="{{ url_for('wiki.view', slug=edit.article.slug) }}" class="edit-article-title">
+                            {{ edit.article.title | e }}
+                        </a>
+                        <p class="edit-summary">{{ edit.edit_summary | e if edit.edit_summary else '(no summary)' }}</p>
+                    </div>
+                    <div class="edit-meta">
+                        <time datetime="{{ edit.created_at.isoformat() }}" title="{{ edit.created_at.strftime('%B %d, %Y %H:%M:%S') }}">
+                            {{ edit.created_at.strftime('%b %d, %Y') }}
+                        </time>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No edits yet.</p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- Articles Created -->
+        <section class="profile-section">
+            <div class="section-header">
+                <h2 class="section-title">Articles Created</h2>
+                {% if stats.articles_created > 5 %}
+                <a href="{{ url_for('wiki.user_articles', username=profile_user.username) }}" class="view-all-link">View All</a>
+                {% endif %}
+            </div>
+
+            {% if articles_created %}
+            <ul class="articles-list">
+                {% for article in articles_created[:5] %}
+                <li>
+                    <a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a>
+                    <span class="article-date">{{ article.created_at.strftime('%b %d, %Y') }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <p>No articles created yet.</p>
+            </div>
+            {% endif %}
+        </section>
+    </div>
+
+    <!-- About Section -->
+    {% if profile_user.bio or profile_user.interests %}
+    <section class="profile-about">
+        <h2>About</h2>
+
+        {% if profile_user.bio %}
+        <div class="about-section">
+            <h3>Bio</h3>
+            <p>{{ profile_user.bio | e }}</p>
+        </div>
+        {% endif %}
+
+        {% if profile_user.interests %}
+        <div class="about-section">
+            <h3>Interests & Specialties</h3>
+            <div class="interests-list">
+                {% for interest in profile_user.interests %}
+                <span class="interest-tag">{{ interest | e }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if profile_user.rank %}
+        <div class="about-section">
+            <h3>Rank & Experience</h3>
+            <p>{{ profile_user.rank | e }}</p>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <!-- Badges (if applicable) -->
+    {% if badges %}
+    <section class="profile-badges">
+        <h2>Badges & Recognition</h2>
+        <div class="badges-grid">
+            {% for badge in badges %}
+            <div class="badge-card" title="{{ badge.description }}">
+                <div class="badge-icon">{{ badge.icon }}</div>
+                <div class="badge-name">{{ badge.name | e }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

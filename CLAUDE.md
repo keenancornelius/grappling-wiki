@@ -230,6 +230,42 @@ GrapplingWiki's primary traffic acquisition channel is organic search. This mean
 
 Each stream is an independent work surface. Contributors claim a stream and work within it. Streams run in parallel. Every task should be approached with the understanding that this project demands craft — not just functionality.
 
+### How to Pick Up Work
+
+1. **Check the live kanban first.** Visit the [Work in Progress board](https://grappling-wiki.onrender.com/roadmap) (or `/roadmap` locally). This always reflects the current state of `main` — it's the single source of truth for what's done, what's active, and what's open.
+2. **Pick the next unchecked task** in the stream you're working on. Work top to bottom within a stream — tasks are ordered by priority.
+3. **Claim it by setting the Owner field** on the stream to your name (or GitHub handle) in your PR. If a stream already has an owner, coordinate with them or pick a different stream.
+4. **One stream at a time.** Finish or hand off your stream before jumping to another.
+5. **When a stream is fully complete** (all boxes checked), update its Status to `✅ Complete`, and move to the next unowned stream.
+
+### How Task Status Works
+
+This file IS the task database. The live kanban board at `/roadmap` parses these checkboxes in real-time from `main`:
+
+- `- [ ]` = **Open** — available to pick up
+- `- [x]` = **Done** — completed and merged to main
+- Stream **Status** field tells you the overall state (scaffolded, in progress, planning, complete)
+- Stream **Owner** field tells you who's working on it
+
+### Staying in Sync From a Feature Branch
+
+You're on `stream-d/animation-system` but need to know what's happening on `main`? Two options:
+
+- **Check the live site:** The `/roadmap` page always shows `main`. Bookmark it. That's your dashboard.
+- **Pull latest main into your branch:** `git fetch origin && git merge origin/main` — this updates your local CLAUDE.md with any tasks that were checked off by other contributors.
+
+### When You Complete a Task
+
+Your PR must include two things:
+1. The code changes for the task
+2. The checkbox update in this file: change `- [ ]` to `- [x]` for each task you completed
+
+This way, when your PR merges to `main`, the kanban board updates automatically. No extra steps.
+
+### Proposing New Tasks
+
+Open a [GitHub Issue](https://github.com/keenancornelius/grappling-wiki/issues) with the stream label (e.g., `Stream D`, `Stream F`). Describe what you want to build and why. Once approved, it gets added to this file and appears on the board.
+
 ---
 
 ### Stream A — Foundation & Infrastructure
@@ -469,7 +505,9 @@ See `CONTRIBUTING.md` for the full guide.
 - PRs require 1 review before merge
 - Commits reference their stream: `[Stream D] Add scroll-triggered module reveals`
 - Conventional commit style preferred
+- **Every PR that completes a task must check the box in CLAUDE.md** — this updates the live kanban
 - **Frontend PRs must pass the Manifesto check:** does it match the design system? Is it fast? Is it fluid?
+- Before starting work, check `/roadmap` on the live site to see current project state
 
 ## Getting Started
 

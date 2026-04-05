@@ -2806,6 +2806,136 @@ textarea {
   transform: translateY(0);
 }
 
+
+/* ═══════════════════════════════════════════════════════
+   PAGE TRANSITION ENGINE — Progress Bar
+   ═══════════════════════════════════════════════════════ */
+
+.gw-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #4a9eff 0%, #7ab8ff 50%, #4a9eff 100%);
+  background-size: 200% 100%;
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.gw-progress-bar.gw-progress-active {
+  opacity: 1;
+  width: 70%;
+  transition: width 2s cubic-bezier(0.1, 0.5, 0.3, 1), opacity 150ms ease;
+  animation: gw-progress-shimmer 1.5s ease-in-out infinite;
+}
+
+.gw-progress-bar.gw-progress-done {
+  width: 100% !important;
+  transition: width 200ms ease-out, opacity 300ms ease 200ms;
+  opacity: 0;
+}
+
+@keyframes gw-progress-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Active nav link highlight */
+.navbar-link.active {
+  color: #4a9eff;
+}
+
+.navbar-link.active::after {
+  transform: scaleX(1);
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   SKELETON LOADING SCREENS — Shimmer Placeholders
+   ═══════════════════════════════════════════════════════ */
+
+.gw-skeleton-page {
+  max-width: 900px;
+  margin: 3rem auto;
+  padding: 0 1.5rem;
+}
+
+.gw-skeleton-block {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.08) 40%,
+    rgba(255,255,255,0.04) 80%
+  );
+  background-size: 400% 100%;
+  animation: gw-skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 0;
+}
+
+.gw-skeleton-title {
+  height: 2.5rem;
+  width: 60%;
+  margin-bottom: 2rem;
+}
+
+.gw-skeleton-text {
+  height: 1rem;
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+
+.gw-skeleton-text.short {
+  width: 45%;
+}
+
+.gw-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  margin-top: 3rem;
+}
+
+.gw-skeleton-card {
+  height: 180px;
+  width: 100%;
+}
+
+@keyframes gw-skeleton-shimmer {
+  0% { background-position: 400% 0; }
+  100% { background-position: -400% 0; }
+}
+
+@media (max-width: 768px) {
+  .gw-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+  .gw-skeleton-title {
+    width: 80%;
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════
+   SEARCH AUTOCOMPLETE — Staggered Fade Animation
+   ═══════════════════════════════════════════════════════ */
+
+.search-autocomplete-item.gw-ac-enter {
+  opacity: 0;
+  transform: translateY(-4px);
+  animation: gw-ac-slide-in 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes gw-ac-slide-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
 /* Reduced motion: disable everything */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -2823,6 +2953,20 @@ textarea {
   }
 
   .kanban-pulse {
+    animation: none;
+  }
+
+  .gw-progress-bar {
+    display: none;
+  }
+
+  .gw-skeleton-block {
+    animation: none;
+  }
+
+  .search-autocomplete-item.gw-ac-enter {
+    opacity: 1;
+    transform: none;
     animation: none;
   }
 }

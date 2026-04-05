@@ -8,8 +8,6 @@
 // ============================================================
 (function() {
   // ── Scroll-triggered module reveals ──
-  // Elements with .gw-reveal fade/slide in when they enter the viewport.
-  // Stagger delay is set via data-gw-delay or auto-calculated for siblings.
   const REVEAL_SELECTOR = [
     '.stat-card',
     '.article-card',
@@ -34,7 +32,7 @@
   function initReveals() {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    const observer = new IntersectionObserver(function(entries) {
+    var observer = new IntersectionObserver(function(entries) {
       entries.forEach(function(entry) {
         if (entry.isIntersecting) {
           var delay = parseInt(entry.target.dataset.gwDelay, 10) || 0;
@@ -50,8 +48,9 @@
     var parentMap = new Map();
 
     elements.forEach(function(el) {
+      // Skip elements already revealed (e.g. after page transition)
+      if (el.classList.contains('gw-visible')) return;
       el.classList.add('gw-reveal');
-      // Auto-stagger siblings
       var parent = el.parentElement;
       if (!parentMap.has(parent)) parentMap.set(parent, 0);
       var index = parentMap.get(parent);
@@ -62,7 +61,6 @@
   }
 
   // ── Click ripple feedback ──
-  // A subtle scale pulse on click for buttons and interactive elements.
   function initClickFeedback() {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
@@ -79,6 +77,10 @@
     });
   }
 
+  // Expose initReveals globally so the page transition engine can re-run it
+  window.__gw = window.__gw || {};
+  window.__gw.initReveals = initReveals;
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
       initReveals();
@@ -89,6 +91,234 @@
     initClickFeedback();
   }
 })();
+
+// ============================================================
+// Page Transition Engine — Fetch + DOM Swap with Crossfade
+// ============================================================
+(function() {
+  var TRANSITION_MS = 250; // per manifesto: 250ms ease-in-out crossfade
+  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var isTransitioning = false;
+
+  // ── Progress bar ──
+  var progressBar = document.createElement('div');
+  progressBar.className = 'gw-progress-bar';
+  document.body.appendChild(progressBar);
+
+  function showProgress() {
+    progressBar.classList.add('gw-progress-active');
+  }
+
+  function hideProgress() {
+    progressBar.classList.add('gw-progress-done');
+    setTimeout(function() {
+      progressBar.classList.remove('gw-progress-active', 'gw-progress-done');
+    }, 300);
+  }
+
+  // ── Skeleton loader ──
+  function showSkeleton(main) {
+    main.innerHTML =
+      '<div class="gw-skeleton-page">' +
+        '<div class="gw-skeleton-block gw-skeleton-title"></div>' +
+        '<div class="gw-skeleton-block gw-skeleton-text"></div>' +
+        '<div class="gw-skeleton-block gw-skeleton-text short"></div>' +
+        '<div class="gw-skeleton-block gw-skeleton-text"></div>' +
+        '<div class="gw-skeleton-grid">' +
+          '<div class="gw-skeleton-block gw-skeleton-card"></div>' +
+          '<div class="gw-skeleton-block gw-skeleton-card"></div>' +
+          '<div class="gw-skeleton-block gw-skeleton-card"></div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // ── Should we intercept this click? ──
+  function shouldIntercept(anchor) {
+    // External links
+    if (anchor.origin !== window.location.origin) return false;
+    // New tab / download / special attrs
+    if (anchor.target === '_blank' || anchor.hasAttribute('download')) return false;
+    // Hash-only links on same page
+    if (anchor.pathname === window.location.pathname && anchor.hash) return false;
+    // Logout, admin actions, API calls
+    if (/\/(logout|api\/|static\/)/.test(anchor.pathname)) return false;
+    // Don't intercept if there's an unsaved edit form
+    if (document.querySelector('form[data-edit-form]')) {
+      var formInputs = document.querySelectorAll('form[data-edit-form] input, form[data-edit-form] textarea');
+      for (var i = 0; i < formInputs.length; i++) {
+        if (formInputs[i].dataset.changed === 'true') return false;
+      }
+    }
+    return true;
+  }
+
+  // ── Perform the transition ──
+  function navigateTo(url, pushState) {
+    if (isTransitioning) return;
+    isTransitioning = true;
+
+    var main = document.querySelector('main.main-content');
+    if (!main) { window.location.href = url; return; }
+
+    var duration = reducedMotion ? 0 : TRANSITION_MS;
+
+    showProgress();
+
+    // Fade out current content
+    main.style.transition = duration ? ('opacity ' + duration + 'ms ease-in-out') : 'none';
+    main.style.opacity = '0';
+
+    // After fade-out, show skeleton & fetch
+    setTimeout(function() {
+      showSkeleton(main);
+      main.style.opacity = '1';
+
+      fetch(url, { headers: { 'X-Requested-With': 'GWTransition' } })
+        .then(function(response) {
+          if (!response.ok) throw new Error(response.status);
+          return response.text();
+        })
+        .then(function(html) {
+          var parser = new DOMParser();
+          var doc = parser.parseFromString(html, 'text/html');
+          var newMain = doc.querySelector('main.main-content');
+          var newTitle = doc.querySelector('title');
+
+          if (!newMain) {
+            // Fallback: full page load
+            window.location.href = url;
+            return;
+          }
+
+          // Fade out skeleton
+          main.style.opacity = '0';
+
+          setTimeout(function() {
+            // Swap content
+            main.innerHTML = newMain.innerHTML;
+
+            // Update title
+            if (newTitle) document.title = newTitle.textContent;
+
+            // Update URL
+            if (pushState !== false) {
+              window.history.pushState({ gwTransition: true }, '', url);
+            }
+
+            // Update active nav link
+            updateActiveNav(url);
+
+            // Fade in new content
+            main.style.opacity = '1';
+
+            // Re-initialize dynamic features on new content
+            setTimeout(function() {
+              main.style.transition = '';
+              main.style.opacity = '';
+              reinitPage();
+              hideProgress();
+              isTransitioning = false;
+              window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
+            }, duration);
+          }, duration);
+        })
+        .catch(function() {
+          hideProgress();
+          isTransitioning = false;
+          window.location.href = url;
+        });
+    }, duration);
+  }
+
+  // ── Highlight the current nav link ──
+  function updateActiveNav(url) {
+    var path = new URL(url, window.location.origin).pathname;
+    document.querySelectorAll('.navbar-link').forEach(function(link) {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === path) {
+        link.classList.add('active');
+      }
+    });
+  }
+
+  // ── Re-init JS features after content swap ──
+  function reinitPage() {
+    // Re-run scroll reveals on new content
+    if (window.__gw && window.__gw.initReveals) {
+      window.__gw.initReveals();
+    }
+    // Re-init TOC if present
+    var tocContainer = document.querySelector('.toc ul');
+    var articleContent = document.querySelector('.article-content');
+    if (tocContainer && articleContent) {
+      generateTOC(tocContainer, articleContent);
+    }
+    // Re-init search autocomplete stagger
+    initSearchAutocompleteAnimation();
+    // Re-bind smooth scroll anchors
+    bindSmoothScrollAnchors();
+    // Fire a custom event so other scripts can hook in
+    document.dispatchEvent(new CustomEvent('gw:pageload'));
+  }
+
+  // ── Click handler ──
+  document.addEventListener('click', function(e) {
+    // Ignore modified clicks (new tab, etc.)
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button !== 0) return;
+
+    var anchor = e.target.closest('a[href]');
+    if (!anchor) return;
+    if (!shouldIntercept(anchor)) return;
+
+    e.preventDefault();
+    navigateTo(anchor.href, true);
+  });
+
+  // ── Back/Forward navigation ──
+  window.addEventListener('popstate', function() {
+    navigateTo(window.location.href, false);
+  });
+
+  // Mark initial page state
+  window.history.replaceState({ gwTransition: true }, '');
+})();
+
+// ============================================================
+// Search Autocomplete — Staggered Fade Animation
+// ============================================================
+function initSearchAutocompleteAnimation() {
+  // Observe the autocomplete container for new children
+  var container = document.querySelector('.search-autocomplete');
+  if (!container) return;
+  if (container._gwObserver) return; // already watching
+
+  var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var mo = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+      if (m.type !== 'childList' || !m.addedNodes.length) return;
+      var items = container.querySelectorAll('.search-autocomplete-item');
+      items.forEach(function(item, i) {
+        if (reducedMotion) {
+          item.style.opacity = '1';
+          return;
+        }
+        item.classList.add('gw-ac-enter');
+        item.style.animationDelay = (i * 50) + 'ms';
+      });
+    });
+  });
+
+  mo.observe(container, { childList: true });
+  container._gwObserver = mo;
+}
+
+// Run on initial load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initSearchAutocompleteAnimation);
+} else {
+  initSearchAutocompleteAnimation();
+}
 
 // ============================================================
 // Mobile Hamburger Menu
@@ -275,63 +505,55 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================================
 // Auto-generate Table of Contents from Article Headings
 // ============================================================
+function generateTOC(tocContainer, articleContent) {
+  var headings = articleContent.querySelectorAll('h2, h3, h4');
+  var toc = [];
+  var currentH2 = null;
+  var currentH3 = null;
+
+  headings.forEach(function(heading, index) {
+    if (!heading.id) heading.id = 'heading-' + index;
+    var level = parseInt(heading.tagName[1]);
+    var text = heading.textContent;
+
+    if (level === 2) {
+      currentH2 = { text: text, id: heading.id, children: [] };
+      toc.push(currentH2);
+    } else if (level === 3 && currentH2) {
+      currentH3 = { text: text, id: heading.id, children: [] };
+      currentH2.children.push(currentH3);
+    } else if (level === 4 && currentH3) {
+      currentH3.children.push({ text: text, id: heading.id });
+    }
+  });
+
+  var html = '';
+  toc.forEach(function(item) {
+    html += '<li><a href="#' + item.id + '">' + item.text + '</a>';
+    if (item.children.length > 0) {
+      html += '<ul>';
+      item.children.forEach(function(child) {
+        html += '<li><a href="#' + child.id + '">' + child.text + '</a>';
+        if (child.children && child.children.length > 0) {
+          html += '<ul>';
+          child.children.forEach(function(sub) {
+            html += '<li><a href="#' + sub.id + '">' + sub.text + '</a></li>';
+          });
+          html += '</ul>';
+        }
+        html += '</li>';
+      });
+      html += '</ul>';
+    }
+    html += '</li>';
+  });
+  tocContainer.innerHTML = html;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-  const tocContainer = document.querySelector('.toc ul');
-  const articleContent = document.querySelector('.article-content');
-
-  if (tocContainer && articleContent) {
-    generateTableOfContents();
-  }
-
-  function generateTableOfContents() {
-    const headings = articleContent.querySelectorAll('h2, h3, h4');
-    const toc = [];
-    let currentH2 = null;
-    let currentH3 = null;
-
-    headings.forEach((heading, index) => {
-      if (!heading.id) {
-        heading.id = 'heading-' + index;
-      }
-
-      const level = parseInt(heading.tagName[1]);
-      const text = heading.textContent;
-
-      if (level === 2) {
-        currentH2 = { text, id: heading.id, children: [] };
-        toc.push(currentH2);
-      } else if (level === 3 && currentH2) {
-        currentH3 = { text, id: heading.id, children: [] };
-        currentH2.children.push(currentH3);
-      } else if (level === 4 && currentH3) {
-        currentH3.children.push({ text, id: heading.id });
-      }
-    });
-
-    // Build HTML
-    let tocHtml = '';
-    toc.forEach(item => {
-      tocHtml += `<li><a href="#${item.id}">${item.text}</a>`;
-      if (item.children.length > 0) {
-        tocHtml += '<ul>';
-        item.children.forEach(child => {
-          tocHtml += `<li><a href="#${child.id}">${child.text}</a>`;
-          if (child.children && child.children.length > 0) {
-            tocHtml += '<ul>';
-            child.children.forEach(subchild => {
-              tocHtml += `<li><a href="#${subchild.id}">${subchild.text}</a></li>`;
-            });
-            tocHtml += '</ul>';
-          }
-          tocHtml += '</li>';
-        });
-        tocHtml += '</ul>';
-      }
-      tocHtml += '</li>';
-    });
-
-    tocContainer.innerHTML = tocHtml;
-  }
+  var tocContainer = document.querySelector('.toc ul');
+  var articleContent = document.querySelector('.article-content');
+  if (tocContainer && articleContent) generateTOC(tocContainer, articleContent);
 });
 
 // ============================================================
@@ -461,32 +683,32 @@ document.addEventListener('DOMContentLoaded', function() {
 // ============================================================
 // Smooth Scroll to Anchors
 // ============================================================
-document.addEventListener('DOMContentLoaded', function() {
-  const links = document.querySelectorAll('a[href^="#"]');
+function bindSmoothScrollAnchors() {
+  var main = document.querySelector('main.main-content');
+  if (!main) return;
+  var links = main.querySelectorAll('a[href^="#"]');
 
-  links.forEach(link => {
+  links.forEach(function(link) {
+    // Avoid double-binding
+    if (link._gwSmooth) return;
+    link._gwSmooth = true;
+
     link.addEventListener('click', function(e) {
-      const href = this.getAttribute('href');
+      var href = this.getAttribute('href');
       if (href === '#') return;
-
-      const target = document.querySelector(href);
+      var target = document.querySelector(href);
       if (!target) return;
-
       e.preventDefault();
-
-      const headerHeight = document.querySelector('header').offsetHeight;
-      const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - headerHeight - 20;
-
-      window.scrollTo({
-        top: targetPosition,
-        behavior: 'smooth'
-      });
-
-      // Update URL without page reload
+      var nav = document.querySelector('.navbar');
+      var headerH = nav ? nav.offsetHeight : 0;
+      var pos = target.getBoundingClientRect().top + window.pageYOffset - headerH - 20;
+      window.scrollTo({ top: pos, behavior: 'smooth' });
       window.history.pushState(null, null, href);
     });
   });
-});
+}
+
+document.addEventListener('DOMContentLoaded', bindSmoothScrollAnchors);
 
 // ============================================================
 // Revision Checkbox Selection for Diff Comparison

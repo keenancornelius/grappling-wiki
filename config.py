@@ -37,6 +37,8 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
+        'sqlite:////tmp/grappling_wiki.db'
 
 
 class TestingConfig(Config):

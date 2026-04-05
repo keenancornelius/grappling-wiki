@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}Work in Progress — GrapplingWiki{% endblock %}
+{% block meta_description %}Live development roadmap and task board for GrapplingWiki. See what's being built, what's next, and how you can contribute.{% endblock %}
+
+{% block content %}
+<div class="roadmap-page">
+
+    <!-- Hero Header -->
+    <div class="roadmap-hero">
+        <div class="roadmap-hero-content">
+            <div class="roadmap-hero-badge">LIVE ROADMAP</div>
+            <h1 class="roadmap-title">Work in Progress</h1>
+            <p class="roadmap-subtitle">Every task. Every stream. Real-time from the source.</p>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="roadmap-stats">
+            <div class="roadmap-stat">
+                <span class="roadmap-stat-value">{{ stats.total }}</span>
+                <span class="roadmap-stat-label">Total Tasks</span>
+            </div>
+            <div class="roadmap-stat">
+                <span class="roadmap-stat-value">{{ stats.done }}</span>
+                <span class="roadmap-stat-label">Completed</span>
+            </div>
+            <div class="roadmap-stat">
+                <span class="roadmap-stat-value">{{ stats.in_progress }}</span>
+                <span class="roadmap-stat-label">Active</span>
+            </div>
+            <div class="roadmap-stat">
+                <span class="roadmap-stat-value">{{ stats.todo }}</span>
+                <span class="roadmap-stat-label">Queued</span>
+            </div>
+            <div class="roadmap-stat roadmap-stat-progress">
+                <div class="roadmap-progress-ring" data-progress="{{ stats.progress_pct }}">
+                    <svg viewBox="0 0 48 48">
+                        <circle class="progress-bg" cx="24" cy="24" r="20" />
+                        <circle class="progress-fill" cx="24" cy="24" r="20"
+                            stroke-dasharray="{{ (stats.progress_pct / 100 * 125.6)|round(1) }} 125.6" />
+                    </svg>
+                    <span class="progress-text">{{ stats.progress_pct }}%</span>
+                </div>
+                <span class="roadmap-stat-label">Overall</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="roadmap-filters">
+        <button class="roadmap-filter active" data-filter="all">
+            All Tasks
+            <span class="filter-count">{{ stats.total }}</span>
+        </button>
+        <button class="roadmap-filter" data-filter="active">
+            Active
+            <span class="filter-count">{{ stats.in_progress }}</span>
+        </button>
+        <button class="roadmap-filter" data-filter="planned">
+            Planned
+        </button>
+        <button class="roadmap-filter" data-filter="done">
+            Done
+            <span class="filter-count">{{ stats.done }}</span>
+        </button>
+        <div class="roadmap-view-toggle">
+            <button class="view-btn active" data-view="board" aria-label="Board view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                </svg>
+            </button>
+            <button class="view-btn" data-view="list" aria-label="List view">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="kanban-board" id="kanbanBoard">
+        {% for column in columns %}
+        <div class="kanban-column" data-column="{{ column.id }}">
+            <!-- Column Header -->
+            <div class="kanban-column-header">
+                <div class="kanban-column-title-row">
+                    <span class="kanban-column-dot" style="background: {{ column.color }}"></span>
+                    <h2 class="kanban-column-title">{{ column.label }}</h2>
+                    <span class="kanban-column-count">{{ column.total }}</span>
+                </div>
+                <div class="kanban-column-progress">
+                    <div class="kanban-column-progress-bar">
+                        <div class="kanban-column-progress-fill" style="width: {{ column.progress_pct }}%; background: {{ column.color }}"></div>
+                    </div>
+                    <span class="kanban-column-progress-text">{{ column.done_count }}/{{ column.total }}</span>
+                </div>
+            </div>
+
+            <!-- Column Cards -->
+            <div class="kanban-cards">
+                {% set ns = namespace(current_sub='') %}
+                {% for task in column.tasks %}
+                    {% if task.sub_stream != ns.current_sub %}
+                        {% set ns.current_sub = task.sub_stream %}
+                        <div class="kanban-group-header">
+                            <span class="kanban-group-tag" style="border-color: {{ column.color }}">{{ task.stream }}</span>
+                            <span class="kanban-group-name">{{ task.sub_stream }}</span>
+                        </div>
+                    {% endif %}
+                    <div class="kanban-card {% if task.done %}kanban-card-done{% endif %}" data-status="{{ task.status }}" data-stream="{{ task.stream_letter }}">
+                        <div class="kanban-card-status">
+                            {% if task.done %}
+                                <svg class="kanban-check done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
+                            {% elif task.status == 'active' %}
+                                <span class="kanban-pulse" style="background: {{ column.color }}"></span>
+                            {% else %}
+                                <span class="kanban-dot-empty"></span>
+                            {% endif %}
+                        </div>
+                        <span class="kanban-card-text">{{ task.text }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- List View (hidden by default) -->
+    <div class="kanban-list-view" id="kanbanList" style="display: none;">
+        {% for column in columns %}
+        <div class="kanban-list-section">
+            <div class="kanban-list-header">
+                <span class="kanban-column-dot" style="background: {{ column.color }}"></span>
+                <h2>{{ column.label }}</h2>
+                <span class="kanban-column-count">{{ column.done_count }}/{{ column.total }}</span>
+            </div>
+            {% set ns = namespace(current_sub='') %}
+            {% for task in column.tasks %}
+                {% if task.sub_stream != ns.current_sub %}
+                    {% set ns.current_sub = task.sub_stream %}
+                    <div class="kanban-list-group">{{ task.stream }} — {{ task.sub_stream }}</div>
+                {% endif %}
+                <div class="kanban-list-item {% if task.done %}kanban-card-done{% endif %}" data-status="{{ task.status }}" data-stream="{{ task.stream_letter }}">
+                    <div class="kanban-card-status">
+                        {% if task.done %}
+                            <svg class="kanban-check done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        {% elif task.status == 'active' %}
+                            <span class="kanban-pulse" style="background: {{ column.color }}"></span>
+                        {% else %}
+                            <span class="kanban-dot-empty"></span>
+                        {% endif %}
+                    </div>
+                    <span class="kanban-card-text">{{ task.text }}</span>
+                    <span class="kanban-list-stream" style="color: {{ column.color }}">{{ task.stream }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- CTA -->
+    <div class="roadmap-cta">
+        <div class="roadmap-cta-inner">
+            <h2>Want to help build this?</h2>
+            <p>GrapplingWiki is open source. Pick a stream, claim a task, ship a PR.</p>
+            <a href="https://github.com/keenancornelius/grappling-wiki" class="roadmap-cta-button" target="_blank" rel="noopener">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+                View on GitHub
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+(function() {
+    // ── Scroll-triggered reveal ──
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry, i) => {
+            if (entry.isIntersecting) {
+                const delay = entry.target.dataset.delay || 0;
+                setTimeout(() => {
+                    entry.target.classList.add('revealed');
+                }, delay);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+    // Observe columns and cards
+    document.querySelectorAll('.kanban-column').forEach((col, i) => {
+        col.dataset.delay = i * 80;
+        col.classList.add('reveal-target');
+        observer.observe(col);
+    });
+
+    document.querySelectorAll('.kanban-card, .kanban-group-header').forEach((card, i) => {
+        card.dataset.delay = (i % 8) * 40;
+        card.classList.add('reveal-target');
+        observer.observe(card);
+    });
+
+    document.querySelectorAll('.roadmap-stat').forEach((stat, i) => {
+        stat.dataset.delay = i * 60;
+        stat.classList.add('reveal-target');
+        observer.observe(stat);
+    });
+
+    // ── Filter buttons ──
+    const filterBtns = document.querySelectorAll('.roadmap-filter');
+    const allCards = document.querySelectorAll('.kanban-card, .kanban-list-item');
+    const allGroups = document.querySelectorAll('.kanban-group-header, .kanban-list-group');
+
+    filterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const filter = btn.dataset.filter;
+
+            allCards.forEach(card => {
+                const status = card.dataset.status;
+                if (filter === 'all') {
+                    card.style.display = '';
+                } else if (filter === 'done') {
+                    card.style.display = status === 'done' ? '' : 'none';
+                } else if (filter === 'active') {
+                    card.style.display = status === 'active' ? '' : 'none';
+                } else if (filter === 'planned') {
+                    card.style.display = status === 'planned' ? '' : 'none';
+                }
+            });
+
+            // Show/hide group headers based on visible cards
+            allGroups.forEach(group => {
+                let next = group.nextElementSibling;
+                let hasVisible = false;
+                while (next && !next.classList.contains('kanban-group-header') && !next.classList.contains('kanban-list-group')) {
+                    if (next.style.display !== 'none' && (next.classList.contains('kanban-card') || next.classList.contains('kanban-list-item'))) {
+                        hasVisible = true;
+                    }
+                    next = next.nextElementSibling;
+                }
+                group.style.display = (filter === 'all' || hasVisible) ? '' : 'none';
+            });
+        });
+    });
+
+    // ── View toggle (board / list) ──
+    const viewBtns = document.querySelectorAll('.view-btn');
+    const boardView = document.getElementById('kanbanBoard');
+    const listView = document.getElementById('kanbanList');
+
+    viewBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            viewBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            if (btn.dataset.view === 'board') {
+                boardView.style.display = '';
+                listView.style.display = 'none';
+            } else {
+                boardView.style.display = 'none';
+                listView.style.display = '';
+            }
+        });
+    });
+
+    // ── Card click expand ──
+    document.querySelectorAll('.kanban-card').forEach(card => {
+        card.addEventListener('click', () => {
+            card.classList.toggle('kanban-card-expanded');
+        });
+    });
+
+    // ── Reduced motion ──
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.querySelectorAll('.reveal-target').forEach(el => {
+            el.classList.add('revealed');
+        });
+    }
+})();
+</script>
+{% endblock %}

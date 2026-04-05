@@ -32,7 +32,7 @@ def index():
     total_edits = ArticleRevision.query.count()
 
     return render_template(
-        'main/index.html',
+        'index.html',
         featured_articles=featured_articles,
         recent_revisions=recent_revisions,
         total_articles=total_articles,
@@ -70,7 +70,7 @@ def search():
         )
 
     return render_template(
-        'main/search.html',
+        'search.html',
         query=query,
         results=results,
         page=page
@@ -93,7 +93,7 @@ def categories():
             'count': count
         })
 
-    return render_template('main/categories.html', tag_data=tag_data)
+    return render_template('categories.html', tag_data=tag_data)
 
 
 @main_bp.route('/category/<name>')
@@ -110,7 +110,7 @@ def category(name):
     ).paginate(page=page, per_page=per_page)
 
     return render_template(
-        'main/category.html',
+        'category.html',
         tag=tag,
         articles=articles,
         page=page
@@ -130,7 +130,7 @@ def recent_changes():
     ).paginate(page=page, per_page=per_page)
 
     return render_template(
-        'main/recent_changes.html',
+        'recent_changes.html',
         revisions=revisions,
         page=page
     )
@@ -187,6 +187,6 @@ def sitemap():
             'priority': '0.9'
         })
 
-    return render_template('main/sitemap.xml', entries=sitemap_entries), 200, {
+    return render_template('sitemap.xml', entries=sitemap_entries), 200, {
         'Content-Type': 'application/xml'
     }

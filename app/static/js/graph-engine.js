@@ -32,6 +32,12 @@ var GWGraph = (function() {
     concept:     { r: 200, g: 195, b: 150 },   // warm silver — concepts
     style:       { r: 130, g: 195, b: 210 },   // ice blue — styles/disciplines
     glossary:    { r: 170, g: 170, b: 180 },   // cool gray — glossary/uncategorized
+    // Force vector colors — submission finish mechanics
+    // Each submission type gets a distinct visual encoding
+    fv_arterial:     { r: 190, g: 100, b: 100 },   // desaturated crimson — chokes (blood restriction)
+    fv_extension:    { r: 210, g: 140, b: 110 },   // warm coral — armbars, kneebars (hyperextension)
+    fv_torsion:      { r: 200, g: 175, b: 100 },   // amber — kimura, heel hook (rotation)
+    fv_compression:  { r: 100, g: 180, b: 175 },   // cool teal — slicers, can opener (crush)
   };
 
   // ── Excluded categories (not mapped in the graph) ──
@@ -40,48 +46,86 @@ var GWGraph = (function() {
   // ══════════════════════════════════════════════════════════
   // ── INVERSE TREE: OPTION COMPRESSION MODEL ──
   // ══════════════════════════════════════════════════════════
-  // Standing Neutral at top (max optionality, highest Y).
-  // Tree branches downward through takedowns → positions →
-  // submissions (zero options = tap).
   //
-  // Y axis = optionality. High = many options. Low = end state.
-  // Guards sorted by distance: far (higher) → close (lower).
-  // Sweeps = polarity flips (edges between positions).
-  // Passes = distance compressions (edges between guard tiers).
+  // THREE SEMANTIC AXES:
   //
-  // Coordinates are explicit (x, y, z) for tree layout.
-  // Negative Y = top of screen. Positive Y = bottom.
+  //   X axis = Guard leg reconnection spectrum
+  //            LEFT  = most closed (legs locked around opponent)
+  //            RIGHT = most open (feet on opponent, connected only by grips)
+  //            → wraps back to standing at far right
+  //            Spectrum: Closed Guard → Half → Deep Half → Knee Shield →
+  //            SLX/Ashi (leg locks) → Lasso → DLR → Spider → Sit-up → Standing
+  //
+  //   Y axis = Optionality / causal chain progression
+  //            TOP    = max options (standing)
+  //            BOTTOM = end states (submissions / tap)
+  //            Guards sit ABOVE dominant positions (you must pass guard
+  //            to reach side control/mount — passing is a step DOWN the chain)
+  //
+  //   Z axis = Offense / defense spectrum
+  //            POSITIVE Z = offensive perspective (attacks, passes, submissions)
+  //            NEGATIVE Z = defensive perspective (frames, retention, escapes)
+  //            ZERO       = neutral / symmetrical (standing, 50/50)
+  //
+  // Sweeps = polarity flips (edges between guard and dominant position).
+  // Passes = distance compressions (edges from guard → past guard).
   // ──────────────────────────────────────────────────────────
 
   var SYSTEM_NODES = [
     // ── Tier 0: Standing — max optionality, top of tree ──
-    { id: 'sys_standing', label: 'Standing\nNeutral', tier: 0, x: 0, y: -320, z: 0 },
+    // X far right: standing is the "most open" state (no guard at all)
+    // Z=0: neutral
+    { id: 'sys_standing', label: 'Standing\nNeutral', tier: 0, x: 200, y: -340, z: 0 },
 
     // ── Tier 1: Takedown types ──
-    { id: 'sys_upper_td', label: 'Upper Body\nTakedowns', tier: 1, x: -160, y: -180, z: 40 },
-    { id: 'sys_lower_td', label: 'Lower Body\nTakedowns', tier: 1, x: 160,  y: -180, z: -40 },
+    // Z positive: takedowns are offensive actions
+    { id: 'sys_upper_td', label: 'Upper Body\nTakedowns', tier: 1, x: 100,  y: -200, z: 50 },
+    { id: 'sys_lower_td', label: 'Lower Body\nTakedowns', tier: 1, x: 300,  y: -200, z: 50 },
 
-    // ── Tier 2: Guards — sorted by distance, descending Y ──
-    { id: 'sys_far_guard',   label: 'Far Distance\nGuards',   tier: 2, x: -340, y: -30,  z: -50 },
-    { id: 'sys_mid_guard',   label: 'Mid Distance\nGuards',   tier: 2, x: -200, y: 50,   z: 30 },
-    { id: 'sys_close_guard', label: 'Close Distance\nGuards', tier: 2, x: -70,  y: 120,  z: -20 },
+    // ── Tier 2: Guards — ordered by leg reconnection on X axis ──
+    // LEFT = most closed (legs fully locked) → RIGHT = most open
+    // Z negative: guards are defensive (bottom player maintaining space)
 
-    // ── Tier 2: Passed / dominant positions ──
-    { id: 'sys_side_control', label: 'Side\nControl',  tier: 2, x: 100,  y: 20,  z: 50 },
-    { id: 'sys_mount',        label: 'Mount',          tier: 2, x: 240,  y: 70,  z: -30 },
-    { id: 'sys_kob',          label: 'Knee on\nBelly', tier: 2, x: 360,  y: 10,  z: 30 },
-    { id: 'sys_back_control', label: 'Back\nControl',  tier: 2, x: 400,  y: 110, z: -60 },
+    // Closed guards: legs fully reconnect around the opponent
+    { id: 'sys_close_guard', label: 'Close Distance\nGuards', tier: 2, x: -420, y: -40, z: -20 },
 
-    // ── Tier 3: Submission end states — bottom of tree ──
-    { id: 'sys_guard_subs', label: 'Guard\nSubmissions', tier: 3, x: -200, y: 270, z: 0 },
-    { id: 'sys_top_subs',   label: 'Top\nSubmissions',   tier: 3, x: 170,  y: 270, z: 20 },
-    { id: 'sys_back_subs',  label: 'Back\nSubmissions',  tier: 3, x: 400,  y: 270, z: -30 },
+    // Mid guards: partial leg entanglement (half guard, deep half, knee shield)
+    { id: 'sys_mid_guard',   label: 'Mid Distance\nGuards',   tier: 2, x: -260, y: -10, z: -30 },
+
+    // Leg entanglements: legs control opponent's leg (the leg lock game)
+    // Z near zero: symmetrical — both players can attack (esp. 50/50)
+    { id: 'sys_leg_entangle', label: 'Leg\nEntanglements', tier: 2, x: -100, y: 10, z: 5 },
+
+    // Far/open guards: feet on opponent, connected by grips (DLR, spider, lasso)
+    // Closest to standing on the X spectrum
+    { id: 'sys_far_guard',   label: 'Far Distance\nGuards',   tier: 2, x: 60,  y: -30, z: -40 },
+
+    // Front headlock: face-to-back control from sprawls/snap-downs.
+    // OPPOSITE of close guard on X axis (mirrored), offensive Z.
+    // Gateway to guillotines, darces, anacondas.
+    { id: 'sys_front_headlock', label: 'Front\nHeadlock', tier: 2, x: 420, y: -40, z: 30 },
+
+    // ── Tier 3: Passed / dominant positions — BELOW guards on Y ──
+    // Passing guard is a step down the causal chain (fewer options for bottom)
+    // Z positive: dominant positions are offensive (top player controls)
+    { id: 'sys_side_control', label: 'Side\nControl',  tier: 3, x: -300, y: 140, z: 40 },
+    { id: 'sys_mount',        label: 'Mount',          tier: 3, x: -120, y: 170, z: 55 },
+    { id: 'sys_kob',          label: 'Knee on\nBelly', tier: 3, x: 60,   y: 130, z: 45 },
+    { id: 'sys_back_control', label: 'Back\nControl',  tier: 3, x: 240,  y: 160, z: 65 },
+
+    // Submissions are NOT system nodes — they are green article nodes
+    // that connect to the positions they're available from. Lightning
+    // travels to individual submission articles as endpoints.
   ];
 
   var SYSTEM_EDGES = [
     // ── Standing → takedowns ──
     ['sys_standing', 'sys_upper_td'],
     ['sys_standing', 'sys_lower_td'],
+
+    // ── Standing ↔ far guard (guard pull / wrestle-up) ──
+    ['sys_standing', 'sys_far_guard'],        // guard pull → open guard
+    ['sys_far_guard', 'sys_standing'],        // wrestle-up → back to feet
 
     // ── Upper body TDs → positions ──
     ['sys_upper_td', 'sys_side_control'],     // throw → land in side control
@@ -94,10 +138,18 @@ var GWGraph = (function() {
     ['sys_lower_td', 'sys_mid_guard'],        // single leg → land in half guard
     ['sys_lower_td', 'sys_far_guard'],        // guard pull → open guard
     ['sys_lower_td', 'sys_close_guard'],      // takedown → closed guard
+    ['sys_lower_td', 'sys_leg_entangle'],     // imanari roll, failed shot → leg entangle
 
-    // ── Distance transitions (passes compress, escapes create distance) ──
-    ['sys_far_guard', 'sys_mid_guard'],       // pass: far → mid
-    ['sys_mid_guard', 'sys_close_guard'],     // pass: mid → close
+    // ── Guard transitions along X spectrum (openness) ──
+    // Moving right = opening guard, moving left = closing guard
+    ['sys_close_guard', 'sys_mid_guard'],     // open up from closed → half
+    ['sys_mid_guard', 'sys_leg_entangle'],    // half guard → leg entangle
+    ['sys_mid_guard', 'sys_far_guard'],       // half → open guard (recover)
+    ['sys_leg_entangle', 'sys_far_guard'],    // disengage legs → open guard
+    ['sys_far_guard', 'sys_mid_guard'],       // opponent closes distance → half
+    ['sys_close_guard', 'sys_leg_entangle'],  // closed guard → leg entangle entry
+
+    // ── Guard → passed (passes drop DOWN on Y) ──
     ['sys_far_guard', 'sys_side_control'],    // pass: far → past guard
     ['sys_mid_guard', 'sys_side_control'],    // pass: mid → past guard
     ['sys_close_guard', 'sys_side_control'],  // pass: close → past guard
@@ -113,76 +165,221 @@ var GWGraph = (function() {
     ['sys_far_guard', 'sys_back_control'],
     ['sys_mid_guard', 'sys_back_control'],
 
-    // ── Guards → guard submissions ──
-    ['sys_far_guard', 'sys_guard_subs'],
-    ['sys_mid_guard', 'sys_guard_subs'],
-    ['sys_close_guard', 'sys_guard_subs'],
+    // ── Front headlock — face-to-back control zone ──
+    // Entries: snap down from standing, sprawl on shots, failed clinch
+    ['sys_standing', 'sys_front_headlock'],    // snap down → front headlock
+    ['sys_lower_td', 'sys_front_headlock'],    // sprawl on shot → front headlock
+    ['sys_upper_td', 'sys_front_headlock'],    // clinch fight → front headlock
+    // Exits: advance to dominant positions
+    ['sys_front_headlock', 'sys_side_control'], // snap to mat → side control
+    ['sys_front_headlock', 'sys_back_control'], // spin behind → back control
+    // Recovery: opponent pulls guard from front headlock
+    ['sys_front_headlock', 'sys_close_guard'],  // opponent pulls guard
+    ['sys_front_headlock', 'sys_mid_guard'],    // scramble → half guard
 
-    // ── Dominant positions → top submissions ──
-    ['sys_side_control', 'sys_top_subs'],
-    ['sys_mount', 'sys_top_subs'],
-    ['sys_kob', 'sys_top_subs'],
-
-    // ── Back → back submissions ──
-    ['sys_back_control', 'sys_back_subs'],
   ];
 
-  // ── Article → system node mapping ──
-  // Each article connects to where it lives in the tree.
-  // Submissions connect to their position + the submission zone below it.
+  // ── Article → Combat Zone mapping ──
+  // Each article connects to the Combat Zone(s) where it lives in the tree.
+  // Submissions connect to every position they're available from.
   // Sweeps are polarity flips: connect guard origin → dominant position destination.
-  // Passes connect far guard → dominant position (distance compression).
+  // Passes connect guard → dominant position (distance compression).
   var ARTICLE_CONNECTIONS = {
-    // ── Standing concepts ──
+    // ══════════════════════════════════════════════════════════
+    // STANDING CONCEPTS
+    // ══════════════════════════════════════════════════════════
     'grip-fighting':        ['sys_standing'],
     'underhooks':           ['sys_standing', 'sys_upper_td'],
     'base-and-posture':     ['sys_standing'],
+    'inside-position':      ['sys_standing', 'sys_mid_guard'],
+    'chain-wrestling':      ['sys_standing', 'sys_upper_td', 'sys_lower_td'],
 
-    // ── Upper body takedowns ──
+    // ══════════════════════════════════════════════════════════
+    // UPPER BODY TAKEDOWNS (throws, clinch takedowns)
+    // ══════════════════════════════════════════════════════════
+    'osoto-gari':           ['sys_upper_td'],
+    'seoi-nage':            ['sys_upper_td'],
+    'uchi-mata':            ['sys_upper_td'],
+    'snap-down':            ['sys_upper_td', 'sys_back_control'],
+    'arm-drag':             ['sys_upper_td', 'sys_back_control'],
+
+    // ══════════════════════════════════════════════════════════
+    // LOWER BODY TAKEDOWNS (shots, leg attacks)
+    // ══════════════════════════════════════════════════════════
     'double-leg-takedown':  ['sys_lower_td'],
+    'single-leg-takedown':  ['sys_lower_td'],
+    'ankle-pick':           ['sys_lower_td'],
+    'high-crotch':          ['sys_lower_td'],
 
-    // ── Far distance guards ──
+    // ══════════════════════════════════════════════════════════
+    // FAR DISTANCE GUARDS
+    // ══════════════════════════════════════════════════════════
     'de-la-riva-guard':     ['sys_far_guard'],
-    'butterfly-guard':      ['sys_mid_guard', 'sys_far_guard'],
+    'spider-guard':         ['sys_far_guard'],
+    'x-guard':              ['sys_far_guard'],
+    'lasso-guard':          ['sys_far_guard'],
+    'reverse-de-la-riva':   ['sys_far_guard'],
 
-    // ── Mid distance guards ──
+    // ══════════════════════════════════════════════════════════
+    // MID DISTANCE GUARDS
+    // ══════════════════════════════════════════════════════════
     'half-guard':           ['sys_mid_guard'],
-    'closed-guard':         ['sys_close_guard'],
+    'butterfly-guard':      ['sys_mid_guard', 'sys_far_guard'],
+    'z-guard':              ['sys_mid_guard'],
+    'deep-half-guard':      ['sys_mid_guard'],
 
-    // ── Dominant positions ──
+    // ══════════════════════════════════════════════════════════
+    // CLOSE DISTANCE GUARDS
+    // ══════════════════════════════════════════════════════════
+    'closed-guard':         ['sys_close_guard'],
+    'rubber-guard':         ['sys_close_guard'],
+    'worm-guard':           ['sys_close_guard'],
+
+    // ══════════════════════════════════════════════════════════
+    // LEG ENTANGLEMENT POSITIONS (the leg lock game)
+    // These are guard positions where control is through leg-on-leg.
+    // ══════════════════════════════════════════════════════════
+    'single-leg-x':         ['sys_leg_entangle'],
+    'ashi-garami':          ['sys_leg_entangle'],
+    'inside-sankaku':       ['sys_leg_entangle'],
+    'fifty-fifty':          ['sys_leg_entangle'],
+    'outside-ashi':         ['sys_leg_entangle'],
+    'cross-ashi':           ['sys_leg_entangle'],
+
+    // ══════════════════════════════════════════════════════════
+    // DOMINANT POSITIONS
+    // ══════════════════════════════════════════════════════════
     'side-control':         ['sys_side_control'],
+    'north-south':          ['sys_side_control'],
+    'kesa-gatame':          ['sys_side_control'],
+    'reverse-kesa-gatame':  ['sys_side_control'],
+    'double-under-side-control': ['sys_side_control'],
+    'reverse-side-control': ['sys_side_control'],
+    'shoulder-pressure':    ['sys_side_control'],
     'mount':                ['sys_mount'],
     'knee-on-belly':        ['sys_kob'],
     'back-control':         ['sys_back_control'],
     'turtle-position':      ['sys_back_control'],
 
-    // ── Polarity flips (sweeps) — guard → position achieved ──
+    // ══════════════════════════════════════════════════════════
+    // POLARITY FLIPS (sweeps) — guard origin → position achieved
+    // ══════════════════════════════════════════════════════════
     'scissor-sweep':        ['sys_close_guard', 'sys_mount'],
+    'hip-bump-sweep':       ['sys_close_guard', 'sys_mount'],
+    'flower-sweep':         ['sys_close_guard', 'sys_mount'],
+    'tripod-sweep':         ['sys_far_guard', 'sys_side_control'],
     'berimbolo':            ['sys_far_guard', 'sys_back_control'],
 
-    // ── Distance compressions (passes) — guard → past guard ──
+    // ══════════════════════════════════════════════════════════
+    // DISTANCE COMPRESSIONS (passes) — guard → past guard
+    // ══════════════════════════════════════════════════════════
     'guard-passing':        ['sys_far_guard', 'sys_side_control'],
     'toreando-pass':        ['sys_far_guard', 'sys_side_control'],
+    'knee-slice-pass':      ['sys_mid_guard', 'sys_side_control'],
+    'leg-drag-pass':        ['sys_far_guard', 'sys_side_control', 'sys_back_control'],
+    'body-lock-pass':       ['sys_close_guard', 'sys_mid_guard', 'sys_side_control'],
 
-    // ── Concepts ──
+    // ══════════════════════════════════════════════════════════
+    // CONCEPTS (connect to where the concept is most contested)
+    // ══════════════════════════════════════════════════════════
     'frames-and-framing':   ['sys_close_guard', 'sys_side_control'],
     'shrimping':            ['sys_close_guard', 'sys_side_control'],
+    'guard-retention':      ['sys_far_guard', 'sys_mid_guard', 'sys_close_guard'],
+    'pressure':             ['sys_side_control', 'sys_mount'],
+    'weight-distribution':  ['sys_side_control', 'sys_mount', 'sys_kob'],
 
-    // ── Guard submissions ──
-    'triangle-choke':       ['sys_close_guard', 'sys_guard_subs'],
-    'omoplata':             ['sys_close_guard', 'sys_guard_subs'],
-    'guillotine':           ['sys_close_guard', 'sys_guard_subs'],
-    'armbar':               ['sys_close_guard', 'sys_guard_subs', 'sys_mount', 'sys_top_subs'],
-    'heel-hook':            ['sys_far_guard', 'sys_guard_subs'],
-    'straight-ankle-lock':  ['sys_far_guard', 'sys_guard_subs'],
+    // ══════════════════════════════════════════════════════════
+    // SUBMISSIONS — connect to the positions they're available from.
+    // These are terminal endpoints (green technique nodes).
+    // Lightning travels to these as final destinations.
+    // ══════════════════════════════════════════════════════════
 
-    // ── Top submissions ──
-    'kimura':               ['sys_side_control', 'sys_top_subs'],
-    'americana':            ['sys_mount', 'sys_top_subs'],
-    'darce-choke':          ['sys_side_control', 'sys_top_subs'],
+    // Guard submissions
+    'triangle-choke':       ['sys_close_guard'],
+    'omoplata':             ['sys_close_guard'],
+    'guillotine':           ['sys_close_guard', 'sys_standing', 'sys_front_headlock'],
+    'armbar':               ['sys_close_guard', 'sys_mount'],
+    'buggy-choke':          ['sys_side_control'],
 
-    // ── Back submissions ──
-    'rear-naked-choke':     ['sys_back_control', 'sys_back_subs'],
+    // Leg lock submissions (from leg entanglements)
+    'heel-hook':            ['sys_leg_entangle'],
+    'straight-ankle-lock':  ['sys_leg_entangle'],
+    'kneebar':              ['sys_leg_entangle'],
+    'toe-hold':             ['sys_leg_entangle'],
+    'calf-slicer':          ['sys_leg_entangle'],
+
+    // Front headlock submissions
+    'darce-choke':          ['sys_front_headlock', 'sys_side_control', 'sys_mid_guard'],
+    'anaconda-choke':       ['sys_front_headlock', 'sys_side_control'],
+    'peruvian-necktie':     ['sys_front_headlock'],
+    'japanese-necktie':     ['sys_front_headlock'],
+
+    // Top submissions (from dominant positions)
+    'kimura':               ['sys_side_control', 'sys_close_guard'],
+    'americana':            ['sys_mount', 'sys_side_control'],
+    'ezekiel-choke':        ['sys_mount', 'sys_close_guard'],
+    'north-south-choke':    ['sys_side_control'],
+    'arm-triangle':         ['sys_side_control', 'sys_mount'],
+    'cross-collar-choke':   ['sys_mount', 'sys_close_guard'],
+    'wrist-lock':           ['sys_mount', 'sys_close_guard'],
+
+    // Back submissions
+    'rear-naked-choke':     ['sys_back_control'],
+    'bow-and-arrow-choke':  ['sys_back_control'],
+  };
+
+  // ── Submission slugs — lightning endpoints ──
+  // Every submission article slug. Lightning bolts travel down
+  // the tree and terminate at these green nodes with a flash.
+  var SUBMISSION_SLUGS = [
+    'triangle-choke', 'omoplata', 'guillotine', 'armbar', 'buggy-choke',
+    'heel-hook', 'straight-ankle-lock', 'kneebar', 'toe-hold', 'calf-slicer',
+    'kimura', 'americana', 'darce-choke', 'anaconda-choke', 'ezekiel-choke',
+    'north-south-choke', 'arm-triangle', 'cross-collar-choke', 'wrist-lock',
+    'rear-naked-choke', 'bow-and-arrow-choke',
+    'peruvian-necktie', 'japanese-necktie',
+  ];
+
+  // ── Force vector classification ──
+  // Determines submission node color. Each force vector type
+  // maps to a distinct hue so you can read the finish mechanic at a glance.
+  //
+  //   arterial    = chokes (blood/air restriction)
+  //   extension   = hyperextension of a joint (armbar, kneebar)
+  //   torsion     = rotation of a joint (kimura, heel hook)
+  //   compression = crushing tissue against bone (slicers, can opener)
+  //
+  var FORCE_VECTORS = {
+    // Arterial compression (chokes)
+    'triangle-choke':       'arterial',
+    'guillotine':           'arterial',
+    'darce-choke':          'arterial',
+    'anaconda-choke':       'arterial',
+    'ezekiel-choke':        'arterial',
+    'north-south-choke':    'arterial',
+    'cross-collar-choke':   'arterial',
+    'rear-naked-choke':     'arterial',
+    'bow-and-arrow-choke':  'arterial',
+    'buggy-choke':          'arterial',
+    'arm-triangle':         'arterial',
+    'peruvian-necktie':     'arterial',
+    'japanese-necktie':     'arterial',
+
+    // Extension (hyperextension)
+    'armbar':               'extension',
+    'kneebar':              'extension',
+    'straight-ankle-lock':  'extension',
+
+    // Torsion (rotation)
+    'kimura':               'torsion',
+    'americana':            'torsion',
+    'omoplata':             'torsion',
+    'heel-hook':            'torsion',
+    'toe-hold':             'torsion',
+    'wrist-lock':           'torsion',
+
+    // Compression / wedge
+    'calf-slicer':          'compression',
   };
 
   function rgba(c, a) { return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + a + ')'; }
@@ -213,7 +410,7 @@ var GWGraph = (function() {
         x: sn.x * scale,
         y: sn.y * scale,
         z: sn.z * scale,
-        radius: sn.tier === 0 ? 9 * scale : (sn.tier === 3 ? 5 * scale : 6 * scale),
+        radius: sn.tier === 0 ? 9 * scale : 6 * scale,
         color: C.system, type: 'system',
         slug: null, summary: null, category: null,
         tier: sn.tier, pulse: Math.random() * Math.PI * 2,
@@ -254,12 +451,20 @@ var GWGraph = (function() {
 
       var cat = (a.category || 'glossary').toLowerCase();
       var nodeColor = C[cat] || C.glossary;
+
+      // Override color for submissions: use force vector type
+      var fv = FORCE_VECTORS[a.slug];
+      if (fv) {
+        nodeColor = C['fv_' + fv] || nodeColor;
+      }
+
       var node = {
         id: 'art_' + a.slug, label: a.title,
         x: cx, y: cy, z: cz,
         radius: 3.5 * scale,
         color: nodeColor, type: 'article',
         slug: a.slug, summary: a.summary, category: a.category,
+        forceVector: fv || null,
         tags: a.tags, pulse: Math.random() * Math.PI * 2,
         dimmed: false,
       };
@@ -467,7 +672,12 @@ var GWGraph = (function() {
       if (node && tooltip) {
         canvas.style.cursor = node.slug ? 'pointer' : 'default';
         ttTitle.textContent = node.label.replace(/\n/g, ' ');
-        ttCategory.textContent = node.category || (node.type === 'system' ? 'System' : '');
+        var catLabel = node.category || (node.type === 'system' ? 'Combat Zone' : '');
+        if (node.forceVector) {
+          var fvLabels = { arterial: 'Arterial', extension: 'Extension', torsion: 'Torsion', compression: 'Compression' };
+          catLabel = (fvLabels[node.forceVector] || node.forceVector) + ' Submission';
+        }
+        ttCategory.textContent = catLabel;
         ttSummary.textContent = node.summary || '';
         if (ttHint) ttHint.style.display = node.slug ? '' : 'none';
         var tx = e.clientX + 16, ty = e.clientY - 10;
@@ -491,6 +701,10 @@ var GWGraph = (function() {
     canvas.addEventListener('click', function(e) {
       if (dragging) return;
       var node = findNodeAt(e.clientX, e.clientY);
+      if (editorMouseHandler && editorMouseHandler.onClick) {
+        editorMouseHandler.onClick(e, node);
+        return;
+      }
       if (node && node.slug) opts.onNodeClick(node.slug);
     });
 
@@ -498,6 +712,10 @@ var GWGraph = (function() {
       canvas.addEventListener('mousedown', function(e) {
         if (e.button !== 0) return;
         var node = findNodeAt(e.clientX, e.clientY);
+        if (editorMouseHandler && editorMouseHandler.onMouseDown) {
+          editorMouseHandler.onMouseDown(e, node);
+          return;
+        }
         if (node) return;
         dragging = true;
         dragStart.x = e.clientX; dragStart.y = e.clientY;
@@ -505,6 +723,9 @@ var GWGraph = (function() {
         cam.autoRotate = false;
       });
       window.addEventListener('mousemove', function(e) {
+        if (editorMouseHandler && editorMouseHandler.onMouseMove) {
+          editorMouseHandler.onMouseMove(e);
+        }
         if (!dragging) return;
         var dx = e.clientX - dragStart.x;
         var dy = e.clientY - dragStart.y;
@@ -514,7 +735,10 @@ var GWGraph = (function() {
         cam.targetRotX = Math.max(-1.2, Math.min(1.2, cam.targetRotX));
         dragStart.x = e.clientX; dragStart.y = e.clientY;
       });
-      window.addEventListener('mouseup', function() {
+      window.addEventListener('mouseup', function(e) {
+        if (editorMouseHandler && editorMouseHandler.onMouseUp) {
+          editorMouseHandler.onMouseUp(e);
+        }
         if (dragging) { dragging = false; canvas.style.cursor = 'grab'; }
       });
       canvas.addEventListener('wheel', function(e) {
@@ -522,6 +746,103 @@ var GWGraph = (function() {
         var factor = e.deltaY > 0 ? 0.92 : 1.08;
         cam.targetZoom = Math.max(0.3, Math.min(3.5, cam.targetZoom * factor));
       }, { passive: false });
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ── LIGHTNING / ELECTRICITY PATH SYSTEM ──
+    // ══════════════════════════════════════════════════════════
+    // Lightning travels DOWN the tree from sys_standing through
+    // game states, then jumps to a green submission article node
+    // as the terminal endpoint. Flash on arrival.
+
+    // Build downward adjacency from SYSTEM_EDGES
+    var adjDown = {};
+    SYSTEM_EDGES.forEach(function(e) {
+      var fromNode = graph.nodeMap[e[0]];
+      var toNode = graph.nodeMap[e[1]];
+      if (!fromNode || !toNode) return;
+      if (toNode.tier > fromNode.tier || (toNode.tier === fromNode.tier && toNode.y > fromNode.y)) {
+        if (!adjDown[e[0]]) adjDown[e[0]] = [];
+        adjDown[e[0]].push(e[1]);
+      }
+    });
+
+    // Build map of submission article IDs and which system nodes they connect to
+    var subArticleIds = {};  // 'art_slug' → true
+    var subBySystem = {};    // 'sys_xxx' → ['art_slug1', 'art_slug2', ...]
+    SUBMISSION_SLUGS.forEach(function(slug) {
+      var artId = 'art_' + slug;
+      if (!graph.nodeMap[artId]) return; // article not in graph
+      subArticleIds[artId] = true;
+      var conns = ARTICLE_CONNECTIONS[slug] || [];
+      conns.forEach(function(sysId) {
+        if (!subBySystem[sysId]) subBySystem[sysId] = [];
+        subBySystem[sysId].push(artId);
+      });
+    });
+
+    // Add edges from system nodes → their connected submission articles
+    // These are the final hops in lightning paths
+    Object.keys(subBySystem).forEach(function(sysId) {
+      if (!adjDown[sysId]) adjDown[sysId] = [];
+      subBySystem[sysId].forEach(function(artId) {
+        adjDown[sysId].push(artId);
+      });
+    });
+
+    // Find all paths from sys_standing to submission article nodes via DFS
+    var lightningPaths = [];
+    function findPaths(current, path) {
+      path.push(current);
+      if (subArticleIds[current]) {
+        lightningPaths.push(path.slice()); // clone — reached a submission
+      }
+      var children = adjDown[current] || [];
+      for (var i = 0; i < children.length; i++) {
+        if (path.indexOf(children[i]) === -1) { // no cycles
+          findPaths(children[i], path);
+        }
+      }
+      path.pop();
+    }
+    findPaths('sys_standing', []);
+
+    // Active lightning bolts
+    var lightningBolts = [];
+    var lightningFlashes = []; // {nodeId, startTime, duration}
+    var lightningTimer = 0;
+    var lightningInterval = 1.2; // seconds between new bolts
+
+    function spawnLightningBolt() {
+      if (lightningPaths.length === 0) return;
+      var pathIds = lightningPaths[Math.floor(Math.random() * lightningPaths.length)];
+      // Build path of node references
+      var pathNodes = [];
+      for (var i = 0; i < pathIds.length; i++) {
+        var n = graph.nodeMap[pathIds[i]];
+        if (n) pathNodes.push(n);
+      }
+      if (pathNodes.length < 2) return;
+
+      // Calculate total path length for consistent speed
+      var totalLen = 0;
+      for (var j = 1; j < pathNodes.length; j++) {
+        var dx = pathNodes[j].x - pathNodes[j-1].x;
+        var dy = pathNodes[j].y - pathNodes[j-1].y;
+        var dz = pathNodes[j].z - pathNodes[j-1].z;
+        totalLen += Math.sqrt(dx*dx + dy*dy + dz*dz);
+      }
+
+      lightningBolts.push({
+        path: pathNodes,
+        pathIds: pathIds,
+        t: 0,                          // 0 = at start, 1 = at end
+        speed: 0.008 + 0.003 / Math.max(1, pathNodes.length - 1), // ~2-3 seconds to traverse
+        totalLen: totalLen,
+        forkSeed: Math.random() * 100,  // for jagged offsets
+        width: 1.5 + Math.random() * 1.5,
+        opacity: 0.8 + Math.random() * 0.2,
+      });
     }
 
     // ══════════════════════════════════════════════════════════
@@ -632,6 +953,144 @@ var GWGraph = (function() {
         }
       }
 
+      // ── Lightning bolts ──
+      if (!reducedMotion) {
+        lightningTimer += 0.016;
+        if (lightningTimer >= lightningInterval) {
+          lightningTimer = 0;
+          spawnLightningBolt();
+          // Vary interval slightly for organic feel
+          lightningInterval = 0.8 + Math.random() * 1.0;
+        }
+
+        // Update and draw active bolts
+        for (var bi = lightningBolts.length - 1; bi >= 0; bi--) {
+          var bolt = lightningBolts[bi];
+          bolt.t += bolt.speed; // per frame (~60fps)
+          bolt.t = Math.min(bolt.t, 1);
+
+          var pathNodes = bolt.path;
+          var segCount = pathNodes.length - 1;
+          // How far along the path (in segments) has the bolt reached
+          var headPos = bolt.t * segCount;
+          var tailPos = Math.max(0, headPos - 1.8); // trailing fade
+
+          // Draw each segment the bolt has reached
+          for (var si = 0; si < segCount; si++) {
+            // Skip segments the bolt hasn't reached
+            if (si > headPos) break;
+
+            var segStart = si;
+            var segEnd = si + 1;
+            var fromN = pathNodes[segStart];
+            var toN = pathNodes[segEnd];
+
+            // Segment visibility (fade in head, fade out tail)
+            var segMid = si + 0.5;
+            var headDist = headPos - segMid;
+            var tailDist = segMid - tailPos;
+            var segAlpha = Math.min(1, headDist * 2) * Math.min(1, tailDist * 0.8);
+            if (segAlpha <= 0) continue;
+            segAlpha *= bolt.opacity;
+
+            // Project endpoints
+            var pf = project(fromN.x, fromN.y, fromN.z);
+            var pt = project(toN.x, toN.y, toN.z);
+
+            // Draw jagged lightning between the two projected points
+            var steps = 8;
+            var jag = 6 * (pf.scale + pt.scale) * 0.5; // scale jag with perspective
+
+            ctx.beginPath();
+            ctx.moveTo(pf.x, pf.y);
+            for (var k = 1; k < steps; k++) {
+              var frac = k / steps;
+              var mx = pf.x + (pt.x - pf.x) * frac;
+              var my = pf.y + (pt.y - pf.y) * frac;
+              // Deterministic-ish jag based on seed + segment + step + time
+              var jagAngle = Math.sin(bolt.forkSeed * 7.3 + si * 13.7 + k * 5.1 + time * 8) * jag;
+              var jagAngle2 = Math.cos(bolt.forkSeed * 11.1 + si * 9.3 + k * 3.7 + time * 6) * jag * 0.5;
+              // Perpendicular offset
+              var edx = pt.x - pf.x, edy = pt.y - pf.y;
+              var edLen = Math.sqrt(edx*edx + edy*edy) || 1;
+              var perpX = -edy / edLen, perpY = edx / edLen;
+              mx += perpX * jagAngle + perpY * jagAngle2 * 0.3;
+              my += perpY * jagAngle + perpX * jagAngle2 * 0.3;
+              ctx.lineTo(mx, my);
+            }
+            ctx.lineTo(pt.x, pt.y);
+
+            // Bright core
+            ctx.strokeStyle = 'rgba(180,220,255,' + (segAlpha * 0.9) + ')';
+            ctx.lineWidth = bolt.width * (pf.scale + pt.scale) * 0.4;
+            ctx.stroke();
+
+            // Outer glow
+            ctx.strokeStyle = 'rgba(74,158,255,' + (segAlpha * 0.4) + ')';
+            ctx.lineWidth = bolt.width * (pf.scale + pt.scale) * 1.2;
+            ctx.stroke();
+          }
+
+          // If bolt reached the end, trigger flash at endpoint
+          if (bolt.t >= 1) {
+            var endNode = pathNodes[pathNodes.length - 1];
+            lightningFlashes.push({
+              node: endNode,
+              startTime: time,
+              duration: 0.6,
+            });
+            lightningBolts.splice(bi, 1);
+          }
+        }
+
+        // Draw flashes at submission endpoints
+        for (var fi = lightningFlashes.length - 1; fi >= 0; fi--) {
+          var flash = lightningFlashes[fi];
+          var flashProgress = (time - flash.startTime) / flash.duration;
+          if (flashProgress >= 1) {
+            lightningFlashes.splice(fi, 1);
+            continue;
+          }
+          var fn = flash.node;
+          var fp = project(fn.x, fn.y, fn.z);
+
+          // Flash: bright expanding ring + core burst
+          var flashAlpha = 1 - flashProgress;
+          flashAlpha = flashAlpha * flashAlpha; // ease-out curve
+          var flashR = (15 + flashProgress * 40) * fp.scale;
+
+          // Outer ring
+          var ringGrad = ctx.createRadialGradient(fp.x, fp.y, 0, fp.x, fp.y, flashR);
+          ringGrad.addColorStop(0, 'rgba(180,220,255,' + (flashAlpha * 0.6) + ')');
+          ringGrad.addColorStop(0.3, 'rgba(74,158,255,' + (flashAlpha * 0.3) + ')');
+          ringGrad.addColorStop(1, 'rgba(74,158,255,0)');
+          ctx.beginPath(); ctx.arc(fp.x, fp.y, flashR, 0, Math.PI * 2);
+          ctx.fillStyle = ringGrad; ctx.fill();
+
+          // Bright core
+          var coreR = (4 + flashProgress * 8) * fp.scale;
+          ctx.beginPath(); ctx.arc(fp.x, fp.y, coreR, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(255,255,255,' + (flashAlpha * 0.8) + ')';
+          ctx.fill();
+
+          // Spark lines radiating outward
+          var sparkCount = 6;
+          for (var spi = 0; spi < sparkCount; spi++) {
+            var sparkAngle = (spi / sparkCount) * Math.PI * 2 + flash.startTime * 3;
+            var sparkLen = (10 + flashProgress * 25) * fp.scale;
+            var sparkInner = flashR * 0.3;
+            var sx1 = fp.x + Math.cos(sparkAngle) * sparkInner;
+            var sy1 = fp.y + Math.sin(sparkAngle) * sparkInner;
+            var sx2 = fp.x + Math.cos(sparkAngle) * sparkLen;
+            var sy2 = fp.y + Math.sin(sparkAngle) * sparkLen;
+            ctx.beginPath(); ctx.moveTo(sx1, sy1); ctx.lineTo(sx2, sy2);
+            ctx.strokeStyle = 'rgba(180,220,255,' + (flashAlpha * 0.5) + ')';
+            ctx.lineWidth = 1.5 * fp.scale;
+            ctx.stroke();
+          }
+        }
+      }
+
       // ── Nodes (sorted back-to-front for proper depth) ──
       var projected = [];
       for (var ni = 0; ni < nodes.length; ni++) {
@@ -724,6 +1183,8 @@ var GWGraph = (function() {
           }
         }
       }
+      // ── Editor overlay (called at end of every frame) ──
+      if (editorOverlayFn) editorOverlayFn(ctx, project, W, H, cam);
     }
     // Start draw loop — use both rAF and a setTimeout fallback
     // to handle cases where rAF is deferred (e.g. during page transitions)
@@ -742,15 +1203,59 @@ var GWGraph = (function() {
       }
     }, 500);
 
-    return {
+    var api = {
       resetView: function() {
         cam.targetRotY = 0; cam.targetRotX = -0.15;
         cam.targetZoom = 1; cam.targetPanX = 0; cam.targetPanY = 0;
       },
       nodeCount: nodes.length,
       edgeCount: edges.length,
+      // ── Editor API ──
+      // Expose internals for graph-editor.js
+      graph: graph,
+      cam: cam,
+      canvas: canvas,
+      ctx: ctx,
+      project: project,
+      findNodeAt: findNodeAt,
+      resize: resize,
+      getW: function() { return W; },
+      getH: function() { return H; },
+      setRotation: function(rx, ry) {
+        cam.targetRotX = rx; cam.targetRotY = ry;
+        cam.autoRotate = false;
+      },
+      setEditorOverlay: function(fn) {
+        // fn(ctx, project, W, H, cam) called at end of each draw frame
+        editorOverlayFn = fn;
+      },
+      setEditorMouseHandler: function(handler) {
+        // handler = { onMouseDown, onMouseMove, onMouseUp, onClick }
+        editorMouseHandler = handler;
+      },
+      // Export graph state as JSON
+      exportState: function() {
+        var sysNodes = [];
+        SYSTEM_NODES.forEach(function(sn) {
+          var n = graph.nodeMap[sn.id];
+          if (n) sysNodes.push({ id: sn.id, label: sn.label, tier: sn.tier, x: n.x, y: n.y, z: n.z });
+        });
+        return {
+          systemNodes: sysNodes,
+          systemEdges: SYSTEM_EDGES.slice(),
+          articleConnections: JSON.parse(JSON.stringify(ARTICLE_CONNECTIONS)),
+          submissionSlugs: SUBMISSION_SLUGS.slice(),
+          forceVectors: JSON.parse(JSON.stringify(FORCE_VECTORS)),
+        };
+      },
     };
+
+    // Editor overlay hook — called at end of each draw frame
+    var editorOverlayFn = null;
+    var editorMouseHandler = null;
+
+    return api;
   }
 
-  return { init: init, COLORS: C };
+  return { init: init, COLORS: C, SYSTEM_NODES: SYSTEM_NODES, SYSTEM_EDGES: SYSTEM_EDGES, ARTICLE_CONNECTIONS: ARTICLE_CONNECTIONS, SUBMISSION_SLUGS: SUBMISSION_SLUGS, FORCE_VECTORS: FORCE_VECTORS };
 })();

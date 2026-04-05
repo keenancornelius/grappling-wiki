@@ -44,38 +44,34 @@
 
     <!-- Results Section -->
     {% if query %}
-        {% if results %}
+        {% if results.items %}
         <div class="search-results-info">
-            <p>Found <strong>{{ total_results }}</strong> result{{ 's' if total_results != 1 else '' }} in {{ search_time }}ms</p>
+            <p>Found <strong>{{ results.total }}</strong> result{{ 's' if results.total != 1 else '' }}</p>
         </div>
 
         <div class="search-results">
-            {% for result in results %}
+            {% for result in results.items %}
             <article class="search-result">
                 <h2 class="result-title">
                     <a href="{{ url_for('wiki.view', slug=result.slug) }}">{{ result.title | e }}</a>
                 </h2>
 
-                <p class="result-category">
-                    <a href="{{ url_for('wiki.category', category_slug=result.category.slug) }}">
-                        {{ result.category.name | e }}
-                    </a>
-                </p>
+                <p class="result-category">{{ result.category | e }}</p>
 
-                <p class="result-excerpt">{{ result.excerpt | e }}</p>
+                <p class="result-excerpt">{{ result.summary | default('', true) | e }}</p>
 
                 <div class="result-meta">
                     <span class="meta-author">By <a href="{{ url_for('auth.profile', username=result.author.username) }}">{{ result.author.username | e }}</a></span>
-                    <span class="meta-divider">•</span>
+                    <span class="meta-divider">&bull;</span>
                     <span class="meta-date" title="{{ result.updated_at.isoformat() }}">{{ result.updated_at.strftime('%b %d, %Y') }}</span>
-                    <span class="meta-divider">•</span>
+                    <span class="meta-divider">&bull;</span>
                     <span class="meta-views">{{ result.view_count | default(0) }} views</span>
                 </div>
 
                 {% if result.tags %}
                 <div class="result-tags">
                     {% for tag in result.tags[:3] %}
-                    <a href="{{ url_for('wiki.tag', tag=tag.name) }}" class="tag-link">{{ tag.name | e }}</a>
+                    <a href="{{ url_for('main.category', name=tag.slug) }}" class="tag-link">{{ tag.name | e }}</a>
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -84,37 +80,18 @@
         </div>
 
         <!-- Pagination -->
-        {% if pages > 1 %}
+        {% if results.pages > 1 %}
         <div class="pagination">
-            {% if current_page > 1 %}
-            <a href="{{ url_for('wiki.search', q=query, page=1) }}" class="pagination-link">« First</a>
-            <a href="{{ url_for('wiki.search', q=query, page=current_page - 1) }}" class="pagination-link">‹ Previous</a>
+            {% if results.has_prev %}
+            <a href="{{ url_for('main.search', q=query, page=1) }}" class="pagination-link">&laquo; First</a>
+            <a href="{{ url_for('main.search', q=query, page=results.prev_num) }}" class="pagination-link">&lsaquo; Previous</a>
             {% endif %}
 
-            <div class="pagination-pages">
-                {% set start = max(1, current_page - 2) %}
-                {% set end = min(pages, current_page + 2) %}
+            <span class="pagination-info">Page {{ results.page }} of {{ results.pages }}</span>
 
-                {% if start > 1 %}
-                <span class="pagination-ellipsis">...</span>
-                {% endif %}
-
-                {% for page_num in range(start, end + 1) %}
-                    {% if page_num == current_page %}
-                    <span class="pagination-current">{{ page_num }}</span>
-                    {% else %}
-                    <a href="{{ url_for('wiki.search', q=query, page=page_num) }}" class="pagination-number">{{ page_num }}</a>
-                    {% endif %}
-                {% endfor %}
-
-                {% if end < pages %}
-                <span class="pagination-ellipsis">...</span>
-                {% endif %}
-            </div>
-
-            {% if current_page < pages %}
-            <a href="{{ url_for('wiki.search', q=query, page=current_page + 1) }}" class="pagination-link">Next ›</a>
-            <a href="{{ url_for('wiki.search', q=query, page=pages) }}" class="pagination-link">Last »</a>
+            {% if results.has_next %}
+            <a href="{{ url_for('main.search', q=query, page=results.next_num) }}" class="pagination-link">Next &rsaquo;</a>
+            <a href="{{ url_for('main.search', q=query, page=results.pages) }}" class="pagination-link">Last &raquo;</a>
             {% endif %}
         </div>
         {% endif %}
@@ -122,12 +99,6 @@
         {% else %}
         <!-- No Results -->
         <div class="no-results">
-            <div class="no-results-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"></circle>
-                    <path d="m21 21-4.35-4.35"></path>
-                </svg>
-            </div>
             <h2>No results found</h2>
             <p>We couldn't find any articles matching <strong>"{{ query | e }}"</strong></p>
 
@@ -150,28 +121,9 @@
     {% else %}
     <!-- Empty Search -->
     <div class="empty-search">
-        <div class="empty-search-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <path d="m21 21-4.35-4.35"></path>
-            </svg>
-        </div>
         <h2>Start searching</h2>
         <p>Enter a search term above to find articles</p>
-
-        <div class="search-suggestions">
-            <h3>Browse by category</h3>
-            <div class="category-links">
-                {% if categories %}
-                    {% for category in categories[:6] %}
-                    <a href="{{ url_for('wiki.category', category_slug=category.slug) }}" class="category-link-small">
-                        {{ category.name | e }}
-                    </a>
-                    {% endfor %}
-                {% endif %}
-            </div>
-            <a href="{{ url_for('main.categories') }}" class="button button-secondary button-sm">View All Categories</a>
-        </div>
+        <p><a href="{{ url_for('main.categories') }}" class="button button-secondary button-sm">Browse All Categories</a></p>
     </div>
     {% endif %}
 </div>

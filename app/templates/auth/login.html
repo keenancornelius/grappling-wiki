@@ -11,39 +11,25 @@
             <p>Access your GrapplingWiki account</p>
         </div>
 
-        <form method="POST" class="auth-form" novalidate>
-            {{ form.csrf_token }}
-
-            <!-- Username/Email Field -->
+        <form method="POST" class="auth-form">
+            <!-- Username Field -->
             <div class="form-group">
-                <label for="username" class="form-label">Username or Email</label>
-                {{ form.username(id="username", class="form-input", placeholder="Enter your username or email", required=true, autofocus=true) }}
-                {% if form.username.errors %}
-                <div class="form-errors">
-                    {% for error in form.username.errors %}
-                    <div class="error-message">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-input"
+                       placeholder="Enter your username" required autofocus>
             </div>
 
             <!-- Password Field -->
             <div class="form-group">
                 <label for="password" class="form-label">Password</label>
-                {{ form.password(id="password", class="form-input", placeholder="Enter your password", required=true) }}
-                {% if form.password.errors %}
-                <div class="form-errors">
-                    {% for error in form.password.errors %}
-                    <div class="error-message">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                <input type="password" id="password" name="password" class="form-input"
+                       placeholder="Enter your password" required>
             </div>
 
             <!-- Remember Me -->
             <div class="form-group form-checkbox">
-                {{ form.remember_me(id="remember_me") }}
-                <label for="remember_me" class="checkbox-label">Remember me</label>
+                <input type="checkbox" id="remember" name="remember">
+                <label for="remember" class="checkbox-label">Remember me</label>
             </div>
 
             <!-- Submit Button -->
@@ -52,27 +38,9 @@
             </button>
         </form>
 
-        <!-- Form Errors -->
-        {% if form.errors %}
-        <div class="form-errors-block">
-            {% for field, errors in form.errors.items() %}
-                {% if field != 'csrf_token' %}
-                    {% for error in errors %}
-                    <div class="error-message">{{ error }}</div>
-                    {% endfor %}
-                {% endif %}
-            {% endfor %}
-        </div>
-        {% endif %}
-
         <!-- Divider -->
         <div class="auth-divider">
             <span>or</span>
-        </div>
-
-        <!-- Additional Links -->
-        <div class="auth-links">
-            <a href="{{ url_for('auth.forgot_password') }}" class="auth-link">Forgot your password?</a>
         </div>
 
         <!-- Sign Up Link -->
@@ -92,8 +60,6 @@
             <li>Edit and improve existing articles</li>
             <li>Track your contributions and edits</li>
             <li>Join discussions with the community</li>
-            <li>Bookmark favorite articles</li>
-            <li>Receive notifications on watched articles</li>
         </ul>
     </aside>
 </div>

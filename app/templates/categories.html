@@ -25,51 +25,28 @@
 
     <!-- Categories Grid -->
     <div class="categories-grid">
-        {% if categories %}
-            {% for category in categories %}
+        {% if tag_data %}
+            {% for item in tag_data %}
             <article class="category-card">
                 <header class="category-card-header">
                     <h2 class="category-card-title">
-                        <a href="{{ url_for('wiki.category', category_slug=category.slug) }}">
-                            {{ category.name | e }}
+                        <a href="{{ url_for('main.category', name=item.tag.slug) }}">
+                            {{ item.tag.name | e }}
                         </a>
                     </h2>
                     <div class="category-card-count">
-                        <span class="count">{{ category.article_count }}</span>
-                        <span class="label">article{{ 's' if category.article_count != 1 else '' }}</span>
+                        <span class="count">{{ item.count }}</span>
+                        <span class="label">article{{ 's' if item.count != 1 else '' }}</span>
                     </div>
                 </header>
 
-                {% if category.description %}
-                <p class="category-card-description">{{ category.description | e }}</p>
-                {% endif %}
-
-                {% if category.subcategories %}
-                <div class="category-subcategories">
-                    <h3 class="subcategories-title">Subcategories:</h3>
-                    <ul class="subcategories-list">
-                        {% for subcat in category.subcategories[:5] %}
-                        <li>
-                            <a href="{{ url_for('wiki.category', category_slug=subcat.slug) }}">
-                                {{ subcat.name | e }}
-                            </a>
-                            <span class="subcat-count">({{ subcat.article_count }})</span>
-                        </li>
-                        {% endfor %}
-                        {% if category.subcategories | length > 5 %}
-                        <li class="more-subcategories">
-                            <a href="{{ url_for('wiki.category', category_slug=category.slug) }}">
-                                +{{ category.subcategories | length - 5 }} more
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </div>
+                {% if item.tag.description %}
+                <p class="category-card-description">{{ item.tag.description | e }}</p>
                 {% endif %}
 
                 <div class="category-card-footer">
-                    <a href="{{ url_for('wiki.category', category_slug=category.slug) }}" class="category-card-link">
-                        View all articles →
+                    <a href="{{ url_for('main.category', name=item.tag.slug) }}" class="category-card-link">
+                        View all articles &rarr;
                     </a>
                 </div>
             </article>
@@ -84,15 +61,15 @@
     <!-- Statistics -->
     <section class="categories-stats">
         <div class="stat">
-            <div class="stat-number">{{ total_categories }}</div>
+            <div class="stat-number">{{ total_categories | default(0) }}</div>
             <div class="stat-label">Total Categories</div>
         </div>
         <div class="stat">
-            <div class="stat-number">{{ total_articles }}</div>
+            <div class="stat-number">{{ total_articles | default(0) }}</div>
             <div class="stat-label">Articles Across All Categories</div>
         </div>
         <div class="stat">
-            <div class="stat-number">{{ avg_articles }}</div>
+            <div class="stat-number">{{ avg_articles | default(0) }}</div>
             <div class="stat-label">Average Articles per Category</div>
         </div>
     </section>

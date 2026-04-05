@@ -32,20 +32,16 @@
     <section class="stats-section">
         <div class="stats-container">
             <div class="stat-card">
-                <div class="stat-number">{{ stats.article_count | default(0) }}</div>
+                <div class="stat-number">{{ total_articles | default(0) }}</div>
                 <div class="stat-label">Articles</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stats.editor_count | default(0) }}</div>
+                <div class="stat-number">{{ total_users | default(0) }}</div>
                 <div class="stat-label">Editors</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ stats.total_edits | default(0) }}</div>
+                <div class="stat-number">{{ total_edits | default(0) }}</div>
                 <div class="stat-label">Edits</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">{{ stats.page_views | default(0) }}</div>
-                <div class="stat-label">Page Views</div>
             </div>
         </div>
     </section>
@@ -55,21 +51,15 @@
         <section class="featured-section">
             <div class="section-header">
                 <h2>Featured Articles</h2>
-                <a href="{{ url_for('wiki.featured') }}" class="view-all-link">View All</a>
             </div>
             <div class="articles-grid">
                 {% if featured_articles %}
                     {% for article in featured_articles[:4] %}
                     <article class="article-card featured">
-                        {% if article.featured_image %}
-                        <div class="article-card-image">
-                            <img src="{{ article.featured_image | e }}" alt="{{ article.title | e }}" loading="lazy">
-                        </div>
-                        {% endif %}
                         <div class="article-card-content">
                             <div class="article-card-category">{{ article.category | e }}</div>
                             <h3><a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a></h3>
-                            <p class="article-card-excerpt">{{ article.excerpt | e }}</p>
+                            <p class="article-card-excerpt">{{ article.summary | default('', true) | e }}</p>
                             <div class="article-card-meta">
                                 <span class="author">By {{ article.author.username | e }}</span>
                                 <span class="date" title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%b %d, %Y') }}</span>
@@ -95,15 +85,10 @@
                 {% if recent_articles %}
                     {% for article in recent_articles[:4] %}
                     <article class="article-card">
-                        {% if article.featured_image %}
-                        <div class="article-card-image">
-                            <img src="{{ article.featured_image | e }}" alt="{{ article.title | e }}" loading="lazy">
-                        </div>
-                        {% endif %}
                         <div class="article-card-content">
                             <div class="article-card-category">{{ article.category | e }}</div>
                             <h3><a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a></h3>
-                            <p class="article-card-excerpt">{{ article.excerpt | e }}</p>
+                            <p class="article-card-excerpt">{{ article.summary | default('', true) | e }}</p>
                             <div class="article-card-meta">
                                 <span class="author">By {{ article.author.username | e }}</span>
                                 <span class="date" title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%b %d, %Y') }}</span>
@@ -129,7 +114,7 @@
         <div class="categories-grid">
             {% if categories %}
                 {% for category in categories[:6] %}
-                <a href="{{ url_for('wiki.category', category_slug=category.slug) }}" class="category-link">
+                <a href="{{ url_for('main.category', name=category.slug) }}" class="category-link">
                     <div class="category-name">{{ category.name | e }}</div>
                     <div class="category-count">{{ category.article_count }} articles</div>
                 </a>

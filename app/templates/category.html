@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}{{ category.name | e }} - GrapplingWiki{% endblock %}
-{% block meta_description %}Browse all articles in the {{ category.name | e }} category on GrapplingWiki.{% endblock %}
-{% block canonical %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.category', category_slug=category.slug) }}{% endblock %}
+{% block title %}{{ tag.name | e }} - GrapplingWiki{% endblock %}
+{% block meta_description %}Browse all articles in the {{ tag.name | e }} category on GrapplingWiki.{% endblock %}
+{% block canonical %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('main.category', name=tag.slug) }}{% endblock %}
 
 {% block og_type %}category{% endblock %}
-{% block og_title %}{{ category.name | e }} - GrapplingWiki{% endblock %}
-{% block og_description %}Browse all articles in the {{ category.name | e }} category.{% endblock %}
+{% block og_title %}{{ tag.name | e }} - GrapplingWiki{% endblock %}
+{% block og_description %}Browse all articles in the {{ tag.name | e }} category.{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    "name": "{{ category.name | e }}",
-    "description": "Articles in the {{ category.name | e }} category",
-    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.category', category_slug=category.slug) }}"
+    "name": "{{ tag.name | e }}",
+    "description": "Articles in the {{ tag.name | e }} category",
+    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('main.category', name=tag.slug) }}"
 }
 </script>
 {% endblock %}
@@ -24,89 +24,53 @@
 <div class="category-container">
     <!-- Page Header -->
     <div class="page-header">
-        <h1>{{ category.name | e }}</h1>
-        {% if category.description %}
-        <p class="page-description">{{ category.description | e }}</p>
+        <h1>{{ tag.name | e }}</h1>
+        {% if tag.description %}
+        <p class="page-description">{{ tag.description | e }}</p>
         {% endif %}
     </div>
 
     <!-- Category Info Bar -->
     <div class="category-info-bar">
-        <span class="info-item">{{ articles | length }} article{{ 's' if articles | length != 1 else '' }}</span>
-        <span class="info-divider">•</span>
-        <a href="{{ url_for('main.categories') }}" class="info-link">← Back to all categories</a>
+        <span class="info-item">{{ articles.total }} article{{ 's' if articles.total != 1 else '' }}</span>
+        <span class="info-divider">&bull;</span>
+        <a href="{{ url_for('main.categories') }}" class="info-link">&larr; Back to all categories</a>
 
         {% if current_user.is_authenticated %}
-        <span class="info-divider">•</span>
-        <a href="{{ url_for('wiki.create', category=category.slug) }}" class="info-link">+ Create article in this category</a>
+        <span class="info-divider">&bull;</span>
+        <a href="{{ url_for('wiki.create') }}" class="info-link">+ Create article</a>
         {% endif %}
     </div>
 
-    <!-- Subcategories -->
-    {% if category.subcategories %}
-    <section class="subcategories-section">
-        <h2>Subcategories</h2>
-        <div class="subcategories-grid">
-            {% for subcat in category.subcategories %}
-            <a href="{{ url_for('wiki.category', category_slug=subcat.slug) }}" class="subcat-card">
-                <div class="subcat-name">{{ subcat.name | e }}</div>
-                <div class="subcat-count">{{ subcat.article_count }} article{{ 's' if subcat.article_count != 1 else '' }}</div>
-            </a>
-            {% endfor %}
-        </div>
-    </section>
-    {% endif %}
-
-    <!-- Sort Options -->
-    {% if articles %}
-    <div class="sort-options">
-        <form method="get" class="sort-form">
-            <label for="sort" class="sort-label">Sort by:</label>
-            <select name="sort" id="sort" class="sort-select" onchange="this.form.submit()">
-                <option value="recent" {% if request.args.get('sort', 'recent') == 'recent' %}selected{% endif %}>Recently Updated</option>
-                <option value="title" {% if request.args.get('sort', 'title') == 'title' %}selected{% endif %}>Title (A-Z)</option>
-                <option value="popular" {% if request.args.get('sort', 'popular') == 'popular' %}selected{% endif %}>Most Views</option>
-                <option value="oldest" {% if request.args.get('sort', 'oldest') == 'oldest' %}selected{% endif %}>Oldest First</option>
-            </select>
-        </form>
-    </div>
-    {% endif %}
-
     <!-- Articles List -->
-    {% if articles %}
+    {% if articles.items %}
     <section class="articles-section">
         <div class="articles-list">
-            {% for article in articles %}
+            {% for article in articles.items %}
             <article class="article-list-item">
-                {% if article.featured_image %}
-                <div class="article-list-image">
-                    <img src="{{ article.featured_image | e }}" alt="{{ article.title | e }}" loading="lazy">
-                </div>
-                {% endif %}
-
                 <div class="article-list-content">
                     <h3>
                         <a href="{{ url_for('wiki.view', slug=article.slug) }}">{{ article.title | e }}</a>
                     </h3>
 
-                    <p class="article-excerpt">{{ article.excerpt | e }}</p>
+                    <p class="article-excerpt">{{ article.summary | default('', true) | e }}</p>
 
                     <div class="article-list-meta">
                         <span class="meta-author">
                             By <a href="{{ url_for('auth.profile', username=article.author.username) }}">{{ article.author.username | e }}</a>
                         </span>
-                        <span class="meta-divider">•</span>
+                        <span class="meta-divider">&bull;</span>
                         <span class="meta-date" title="{{ article.updated_at.isoformat() }}">
                             {{ article.updated_at.strftime('%b %d, %Y') }}
                         </span>
-                        <span class="meta-divider">•</span>
+                        <span class="meta-divider">&bull;</span>
                         <span class="meta-views">{{ article.view_count | default(0) }} views</span>
                     </div>
 
                     {% if article.tags %}
                     <div class="article-tags">
-                        {% for tag in article.tags[:3] %}
-                        <a href="{{ url_for('wiki.tag', tag=tag.name) }}" class="tag">{{ tag.name | e }}</a>
+                        {% for t in article.tags[:3] %}
+                        <a href="{{ url_for('main.category', name=t.slug) }}" class="tag">{{ t.name | e }}</a>
                         {% endfor %}
                     </div>
                     {% endif %}
@@ -117,18 +81,18 @@
     </section>
 
     <!-- Pagination -->
-    {% if pages > 1 %}
+    {% if articles.pages > 1 %}
     <div class="pagination">
-        {% if current_page > 1 %}
-        <a href="{{ url_for('wiki.category', category_slug=category.slug, page=1) }}" class="pagination-link">« First</a>
-        <a href="{{ url_for('wiki.category', category_slug=category.slug, page=current_page - 1) }}" class="pagination-link">‹ Previous</a>
+        {% if articles.has_prev %}
+        <a href="{{ url_for('main.category', name=tag.slug, page=1) }}" class="pagination-link">&laquo; First</a>
+        <a href="{{ url_for('main.category', name=tag.slug, page=articles.prev_num) }}" class="pagination-link">&lsaquo; Previous</a>
         {% endif %}
 
-        <span class="pagination-info">Page {{ current_page }} of {{ pages }}</span>
+        <span class="pagination-info">Page {{ articles.page }} of {{ articles.pages }}</span>
 
-        {% if current_page < pages %}
-        <a href="{{ url_for('wiki.category', category_slug=category.slug, page=current_page + 1) }}" class="pagination-link">Next ›</a>
-        <a href="{{ url_for('wiki.category', category_slug=category.slug, page=pages) }}" class="pagination-link">Last »</a>
+        {% if articles.has_next %}
+        <a href="{{ url_for('main.category', name=tag.slug, page=articles.next_num) }}" class="pagination-link">Next &rsaquo;</a>
+        <a href="{{ url_for('main.category', name=tag.slug, page=articles.pages) }}" class="pagination-link">Last &raquo;</a>
         {% endif %}
     </div>
     {% endif %}
@@ -136,18 +100,12 @@
     {% else %}
     <!-- Empty State -->
     <div class="empty-state">
-        <div class="empty-state-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-            </svg>
-        </div>
         <h2>No articles yet</h2>
         <p>This category doesn't have any articles yet.</p>
 
         {% if current_user.is_authenticated %}
         <p>
-            <a href="{{ url_for('wiki.create', category=category.slug) }}" class="button button-primary">
+            <a href="{{ url_for('wiki.create') }}" class="button button-primary">
                 Create the first article
             </a>
         </p>

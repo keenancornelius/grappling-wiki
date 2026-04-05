@@ -3,8 +3,9 @@ Main blueprint for wiki routes.
 Handles homepage, search, categories, recent changes, and sitemaps.
 """
 
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, redirect
 from sqlalchemy import desc, or_
+import random
 from app import db
 from app.models import Article, Tag, ArticleRevision, User
 
@@ -14,30 +15,42 @@ main_bp = Blueprint('main', __name__)
 @main_bp.route('/')
 def index():
     """
-    Homepage showing featured articles, recent changes, and random article link.
+    Homepage showing featured articles, recent changes, and stats.
     """
     # Get featured/popular articles (most viewed)
     featured_articles = Article.query.filter_by(
         is_published=True
     ).order_by(desc(Article.view_count)).limit(5).all()
 
-    # Get recent changes
-    recent_revisions = ArticleRevision.query.order_by(
-        desc(ArticleRevision.created_at)
-    ).limit(10).all()
+    # Get recent articles
+    recent_articles = Article.query.filter_by(
+        is_published=True
+    ).order_by(desc(Article.updated_at)).limit(4).all()
 
     # Get total stats
     total_articles = Article.query.filter_by(is_published=True).count()
     total_users = User.query.count()
     total_edits = ArticleRevision.query.count()
 
+    # Get categories (tags with article counts)
+    tags = Tag.query.order_by(Tag.name).all()
+    categories = []
+    for tag in tags:
+        count = tag.articles.filter_by(is_published=True).count()
+        categories.append({
+            'name': tag.name,
+            'slug': tag.slug,
+            'article_count': count
+        })
+
     return render_template(
         'index.html',
         featured_articles=featured_articles,
-        recent_revisions=recent_revisions,
+        recent_articles=recent_articles,
         total_articles=total_articles,
         total_users=total_users,
-        total_edits=total_edits
+        total_edits=total_edits,
+        categories=categories
     )
 
 
@@ -51,7 +64,6 @@ def search():
     page = request.args.get('page', 1, type=int)
     per_page = 20
 
-    results = []
     if query and len(query) >= 2:
         # Search in title, slug, summary, and content
         search_pattern = f'%{query}%'
@@ -93,7 +105,17 @@ def categories():
             'count': count
         })
 
-    return render_template('categories.html', tag_data=tag_data)
+    total_categories = len(tag_data)
+    total_articles = Article.query.filter_by(is_published=True).count()
+    avg_articles = round(total_articles / total_categories) if total_categories > 0 else 0
+
+    return render_template(
+        'categories.html',
+        tag_data=tag_data,
+        total_categories=total_categories,
+        total_articles=total_articles,
+        avg_articles=avg_articles
+    )
 
 
 @main_bp.route('/category/<name>')
@@ -141,9 +163,6 @@ def random_article():
     """
     Redirect to a random published article.
     """
-    from flask import redirect
-    import random
-
     articles = Article.query.filter_by(is_published=True).all()
     if not articles:
         return redirect('/')

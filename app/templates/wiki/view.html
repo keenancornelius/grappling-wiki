@@ -1,22 +1,16 @@
 {% extends "base.html" %}
 
 {% block title %}{{ article.title | e }} - GrapplingWiki{% endblock %}
-{% block meta_description %}{{ article.summary | e }}{% endblock %}
+{% block meta_description %}{{ article.summary | default('', true) | e }}{% endblock %}
 {% block canonical %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.view', slug=article.slug) }}{% endblock %}
 
 {% block og_type %}article{% endblock %}
 {% block og_title %}{{ article.title | e }}{% endblock %}
-{% block og_description %}{{ article.summary | e }}{% endblock %}
+{% block og_description %}{{ article.summary | default('', true) | e }}{% endblock %}
 {% block og_url %}{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.view', slug=article.slug) }}{% endblock %}
-{% if article.featured_image %}
-    {% block og_image %}{{ article.featured_image | e }}{% endblock %}
-{% endif %}
 
 {% block twitter_title %}{{ article.title | e }}{% endblock %}
-{% block twitter_description %}{{ article.summary | e }}{% endblock %}
-{% if article.featured_image %}
-    {% block twitter_image %}{{ article.featured_image | e }}{% endblock %}
-{% endif %}
+{% block twitter_description %}{{ article.summary | default('', true) | e }}{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
@@ -24,10 +18,7 @@
     "@context": "https://schema.org",
     "@type": "Article",
     "headline": "{{ article.title | e }}",
-    "description": "{{ article.summary | e }}",
-    "image": [
-        "{{ article.featured_image | e if article.featured_image else (config.SITE_URL | default('http://localhost:5000', true)) + '/static/img/og-image.png' }}"
-    ],
+    "description": "{{ article.summary | default('', true) | e }}",
     "datePublished": "{{ article.created_at.isoformat() }}",
     "dateModified": "{{ article.updated_at.isoformat() }}",
     "author": {
@@ -51,20 +42,6 @@
 <div class="article-container">
     <!-- Sidebar -->
     <aside class="article-sidebar">
-        <!-- Table of Contents -->
-        {% if article.table_of_contents %}
-        <nav class="toc-container">
-            <h3 class="toc-title">Contents</h3>
-            <ul class="toc-list">
-                {% for item in article.table_of_contents %}
-                <li class="toc-item toc-level-{{ item.level }}">
-                    <a href="#{{ item.id | e }}" class="toc-link">{{ item.title | e }}</a>
-                </li>
-                {% endfor %}
-            </ul>
-        </nav>
-        {% endif %}
-
         <!-- Metadata Box -->
         <div class="metadata-box">
             <div class="metadata-item">
@@ -83,15 +60,15 @@
             </div>
             <div class="metadata-item">
                 <span class="metadata-label">Category</span>
-                <span class="metadata-value">
-                    <a href="{{ url_for('wiki.category', category_slug=article.category.slug) }}">
-                        {{ article.category.name | e }}
-                    </a>
-                </span>
+                <span class="metadata-value">{{ article.category | e }}</span>
             </div>
             <div class="metadata-item">
                 <span class="metadata-label">Views</span>
                 <span class="metadata-value">{{ article.view_count | default(0) }}</span>
+            </div>
+            <div class="metadata-item">
+                <span class="metadata-label">Revisions</span>
+                <span class="metadata-value">{{ revision_count | default(0) }}</span>
             </div>
         </div>
 
@@ -101,7 +78,7 @@
             <h4>Tags</h4>
             <div class="tags-list">
                 {% for tag in article.tags %}
-                <a href="{{ url_for('wiki.tag', tag=tag.name) }}" class="tag">{{ tag.name | e }}</a>
+                <a href="{{ url_for('main.category', name=tag.slug) }}" class="tag">{{ tag.name | e }}</a>
                 {% endfor %}
             </div>
         </div>
@@ -116,9 +93,7 @@
 
             {% if article.category %}
             <div class="article-category-badge">
-                <a href="{{ url_for('wiki.category', category_slug=article.category.slug) }}">
-                    {{ article.category.name | e }}
-                </a>
+                {{ article.category | e }}
             </div>
             {% endif %}
 
@@ -129,51 +104,31 @@
 
         <!-- Article Body -->
         <div class="article-body">
-            {{ article.content | safe }}
+            {{ html_content | safe }}
         </div>
 
         <!-- Article Footer -->
         <footer class="article-footer">
             <div class="article-actions">
                 <a href="{{ url_for('wiki.edit', slug=article.slug) }}" class="article-action-link edit">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                    </svg>
                     <span>Edit</span>
                 </a>
 
                 <a href="{{ url_for('wiki.history', slug=article.slug) }}" class="article-action-link">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <span>History</span>
+                    <span>History ({{ revision_count | default(0) }})</span>
                 </a>
 
                 <a href="{{ url_for('wiki.talk', slug=article.slug) }}" class="article-action-link">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
                     <span>Discussion</span>
                 </a>
-
-                <button class="article-action-link print-button" onclick="window.print()" aria-label="Print article">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                        <rect x="6" y="14" width="12" height="8"></rect>
-                    </svg>
-                    <span>Print</span>
-                </button>
             </div>
 
             <div class="article-last-edit">
                 <p>
-                    Last edited by <a href="{{ url_for('auth.profile', username=article.last_editor.username) }}">
-                        {{ article.last_editor.username | e }}
+                    Created by <a href="{{ url_for('auth.profile', username=article.author.username) }}">
+                        {{ article.author.username | e }}
                     </a>
-                    on {{ article.updated_at.strftime('%B %d, %Y at %H:%M') }}
+                    &bull; Last updated {{ article.updated_at.strftime('%B %d, %Y at %H:%M') }}
                 </p>
             </div>
         </footer>

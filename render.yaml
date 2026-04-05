@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT
+    startCommand: python scripts/auto_seed.py && gunicorn run:app --bind 0.0.0.0:$PORT
     envVars:
       - key: FLASK_CONFIG
         value: production

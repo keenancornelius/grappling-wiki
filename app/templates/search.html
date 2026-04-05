@@ -27,7 +27,7 @@
     </div>
 
     <!-- Search Form -->
-    <form action="{{ url_for('wiki.search') }}" method="get" class="search-form-large">
+    <form action="{{ url_for('main.search') }}" method="get" class="search-form-large">
         <div class="search-input-wrapper">
             <input
                 type="search"
@@ -137,7 +137,7 @@
                     <li>Checking your spelling</li>
                     <li>Using different keywords</li>
                     <li>Using more general terms</li>
-                    <li>Browsing <a href="{{ url_for('wiki.categories') }}">categories</a></li>
+                    <li>Browsing <a href="{{ url_for('main.categories') }}">categories</a></li>
                 </ul>
             </div>
 
@@ -170,7 +170,7 @@
                     {% endfor %}
                 {% endif %}
             </div>
-            <a href="{{ url_for('wiki.categories') }}" class="button button-secondary button-sm">View All Categories</a>
+            <a href="{{ url_for('main.categories') }}" class="button button-secondary button-sm">View All Categories</a>
         </div>
     </div>
     {% endif %}

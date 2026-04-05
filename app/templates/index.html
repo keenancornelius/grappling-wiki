@@ -12,7 +12,7 @@
             <p class="hero-subtitle">The Free Encyclopedia of Jiu-Jitsu & Grappling</p>
 
             <!-- Hero Search -->
-            <form action="{{ url_for('wiki.search') }}" method="get" class="hero-search-form">
+            <form action="{{ url_for('main.search') }}" method="get" class="hero-search-form">
                 <div class="hero-search-wrapper">
                     <input
                         type="search"
@@ -89,7 +89,7 @@
         <section class="recent-section">
             <div class="section-header">
                 <h2>Recent Articles</h2>
-                <a href="{{ url_for('wiki.recent_changes') }}" class="view-all-link">View All</a>
+                <a href="{{ url_for('main.recent_changes') }}" class="view-all-link">View All</a>
             </div>
             <div class="articles-grid">
                 {% if recent_articles %}
@@ -124,7 +124,7 @@
     <section class="categories-section">
         <div class="section-header">
             <h2>Browse by Category</h2>
-            <a href="{{ url_for('wiki.categories') }}" class="view-all-link">View All Categories</a>
+            <a href="{{ url_for('main.categories') }}" class="view-all-link">View All Categories</a>
         </div>
         <div class="categories-grid">
             {% if categories %}
@@ -150,10 +150,10 @@
             <div class="contribute-buttons">
                 {% if current_user.is_authenticated %}
                     <a href="{{ url_for('wiki.create') }}" class="button button-primary">Create an Article</a>
-                    <a href="{{ url_for('wiki.help') }}" class="button button-secondary">Learn How to Contribute</a>
+                    <a href="#" class="button button-secondary">Learn How to Contribute</a>
                 {% else %}
                     <a href="{{ url_for('auth.register') }}" class="button button-primary">Sign Up to Contribute</a>
-                    <a href="{{ url_for('wiki.help') }}" class="button button-secondary">Learn How to Contribute</a>
+                    <a href="#" class="button button-secondary">Learn How to Contribute</a>
                 {% endif %}
             </div>
         </div>

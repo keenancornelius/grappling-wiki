@@ -19,13 +19,13 @@
                     <a href="{{ url_for('main.index') }}">Return to the homepage</a>
                 </li>
                 <li>
-                    <a href="{{ url_for('wiki.categories') }}">Browse categories</a>
+                    <a href="{{ url_for('main.categories') }}">Browse categories</a>
                 </li>
                 <li>
-                    <a href="{{ url_for('wiki.recent_changes') }}">View recent changes</a>
+                    <a href="{{ url_for('main.recent_changes') }}">View recent changes</a>
                 </li>
                 <li>
-                    <form action="{{ url_for('wiki.search') }}" method="get" style="display: inline;">
+                    <form action="{{ url_for('main.search') }}" method="get" style="display: inline;">
                         <input
                             type="search"
                             name="q"

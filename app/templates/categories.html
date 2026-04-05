@@ -10,7 +10,7 @@
     "@type": "CollectionPage",
     "name": "Categories",
     "description": "Browse all categories on GrapplingWiki",
-    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.categories') }}"
+    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('main.categories') }}"
 }
 </script>
 {% endblock %}

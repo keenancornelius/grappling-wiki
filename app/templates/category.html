@@ -34,7 +34,7 @@
     <div class="category-info-bar">
         <span class="info-item">{{ articles | length }} article{{ 's' if articles | length != 1 else '' }}</span>
         <span class="info-divider">•</span>
-        <a href="{{ url_for('wiki.categories') }}" class="info-link">← Back to all categories</a>
+        <a href="{{ url_for('main.categories') }}" class="info-link">← Back to all categories</a>
 
         {% if current_user.is_authenticated %}
         <span class="info-divider">•</span>

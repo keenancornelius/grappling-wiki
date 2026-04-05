@@ -10,7 +10,7 @@
     "@type": "CollectionPage",
     "name": "Recent Changes",
     "description": "Recent edits and changes on GrapplingWiki",
-    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('wiki.recent_changes') }}"
+    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('main.recent_changes') }}"
 }
 </script>
 {% endblock %}
@@ -184,7 +184,7 @@
         </div>
         <h2>No changes found</h2>
         <p>There are no recent changes matching your filters.</p>
-        <a href="{{ url_for('wiki.recent_changes') }}" class="button button-secondary">Reset filters</a>
+        <a href="{{ url_for('main.recent_changes') }}" class="button button-secondary">Reset filters</a>
     </div>
     {% endif %}
 </div>

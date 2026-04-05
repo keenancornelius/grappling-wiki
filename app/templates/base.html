@@ -77,7 +77,7 @@
 
             <!-- Search Bar -->
             <div class="navbar-search">
-                <form action="{{ url_for('wiki.search') }}" method="get" class="search-form">
+                <form action="{{ url_for('main.search') }}" method="get" class="search-form">
                     <input
                         type="search"
                         name="q"
@@ -98,9 +98,9 @@
             <!-- Navigation Links -->
             <div class="navbar-menu">
                 <a href="{{ url_for('main.index') }}" class="navbar-link">Home</a>
-                <a href="{{ url_for('wiki.categories') }}" class="navbar-link">Categories</a>
-                <a href="{{ url_for('wiki.recent_changes') }}" class="navbar-link">Recent Changes</a>
-                <a href="{{ url_for('wiki.random') }}" class="navbar-link">Random</a>
+                <a href="{{ url_for('main.categories') }}" class="navbar-link">Categories</a>
+                <a href="{{ url_for('main.recent_changes') }}" class="navbar-link">Recent Changes</a>
+                <a href="{{ url_for('main.random_article') }}" class="navbar-link">Random</a>
             </div>
 
             <!-- Auth Links -->
@@ -118,7 +118,7 @@
                             <a href="{{ url_for('auth.profile', username=current_user.username) }}" class="user-menu-item">Profile</a>
                             <a href="{{ url_for('wiki.create') }}" class="user-menu-item">New Article</a>
                             {% if current_user.is_admin %}
-                                <a href="{{ url_for('admin.dashboard') }}" class="user-menu-item">Admin</a>
+                                <a href="#" class="user-menu-item">Admin</a>
                             {% endif %}
                             <hr class="user-menu-divider">
                             <a href="{{ url_for('auth.logout') }}" class="user-menu-item logout">Logout</a>
@@ -190,28 +190,28 @@
                 <h3 class="footer-title">Navigation</h3>
                 <ul class="footer-links">
                     <li><a href="{{ url_for('main.index') }}">Home</a></li>
-                    <li><a href="{{ url_for('wiki.categories') }}">Categories</a></li>
-                    <li><a href="{{ url_for('wiki.recent_changes') }}">Recent Changes</a></li>
-                    <li><a href="{{ url_for('wiki.random') }}">Random Article</a></li>
+                    <li><a href="{{ url_for('main.categories') }}">Categories</a></li>
+                    <li><a href="{{ url_for('main.recent_changes') }}">Recent Changes</a></li>
+                    <li><a href="{{ url_for('main.random_article') }}">Random Article</a></li>
                 </ul>
             </div>
 
             <div class="footer-section">
                 <h3 class="footer-title">Community</h3>
                 <ul class="footer-links">
-                    <li><a href="{{ url_for('wiki.help') }}">Help & Guidelines</a></li>
-                    <li><a href="{{ url_for('wiki.contribute') }}">How to Contribute</a></li>
-                    <li><a href="{{ url_for('main.contact') }}">Contact Us</a></li>
-                    <li><a href="{{ url_for('main.donate') }}">Donate</a></li>
+                    <li><a href="#">Help & Guidelines</a></li>
+                    <li><a href="#">How to Contribute</a></li>
+                    <li><a href="#">Contact Us</a></li>
+                    <li><a href="#">Donate</a></li>
                 </ul>
             </div>
 
             <div class="footer-section">
                 <h3 class="footer-title">Legal</h3>
                 <ul class="footer-links">
-                    <li><a href="{{ url_for('main.privacy') }}">Privacy Policy</a></li>
-                    <li><a href="{{ url_for('main.terms') }}">Terms of Service</a></li>
-                    <li><a href="{{ url_for('main.license') }}">License</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">License</a></li>
                 </ul>
             </div>
         </div>

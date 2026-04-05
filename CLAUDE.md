@@ -2,7 +2,7 @@
 
 ## Mission
 
-Build the definitive free, open-source, community-driven wiki covering **all of jiu-jitsu and grappling** — Brazilian Jiu-Jitsu, submission grappling, judo, wrestling, sambo, catch wrestling, and every related discipline. Modeled on the depth and rigor of Wikipedia but laser-focused on the grappling arts.
+Build the definitive free, open-source, community-driven wiki covering **all of jiu-jitsu and grappling** — Brazilian Jiu-Jitsu, American Jiu-jitsu, submission grappling, judo, wrestling, sambo, catch wrestling, and every related discipline. Modeled on the depth and rigor of Wikipedia but laser-focused on the grappling arts.
 
 ## Project Overview
 

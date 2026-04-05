@@ -398,6 +398,26 @@ def explore():
     return render_template('explore.html', article_data=article_data)
 
 
+@main_bp.route('/graph/editor')
+def graph_editor():
+    """
+    Graph editor — interactive tool for arranging nodes,
+    editing labels, building connections, and saving state.
+    """
+    articles = Article.query.filter_by(is_published=True).all()
+    article_data = []
+    for a in articles:
+        article_data.append({
+            'id': a.id,
+            'title': a.title,
+            'slug': a.slug,
+            'summary': a.summary or '',
+            'category': a.category or '',
+            'tags': [t.name for t in a.tags],
+        })
+    return render_template('graph_editor.html', article_data=article_data)
+
+
 @main_bp.route('/roadmap')
 def roadmap():
     """

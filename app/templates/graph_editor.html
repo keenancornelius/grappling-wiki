@@ -1,0 +1,1022 @@
+{% extends "base.html" %}
+
+{% block title %}Graph Editor — GrapplingWiki{% endblock %}
+{% block meta_description %}Interactive graph builder for the GrapplingWiki knowledge graph.{% endblock %}
+
+{% block content %}
+<div class="editor-page" id="editor-page">
+    <!-- Main canvas -->
+    <div class="editor-canvas-wrap" id="editor-canvas-wrap">
+        <canvas id="editor-canvas"></canvas>
+    </div>
+
+    <!-- Tooltip -->
+    <div class="graph-tooltip" id="editor-tooltip">
+        <div class="graph-tooltip-category"></div>
+        <div class="graph-tooltip-title"></div>
+        <div class="graph-tooltip-summary"></div>
+        <div class="graph-tooltip-hint">Click to select</div>
+    </div>
+
+    <!-- ViewCube -->
+    <canvas id="viewcube-canvas" width="120" height="120"></canvas>
+
+    <!-- Active plane indicator -->
+    <div class="plane-indicator" id="plane-indicator">
+        <span class="plane-label" id="plane-label">Free Rotate</span>
+    </div>
+
+    <!-- Top toolbar -->
+    <div class="editor-toolbar" id="editor-toolbar">
+        <a href="/explore" class="toolbar-back">&larr; Back</a>
+        <span class="toolbar-title">Graph Editor</span>
+        <div class="toolbar-tools">
+            <button class="tool-btn active" data-tool="select" title="Select & Move (V)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+                Select
+            </button>
+            <button class="tool-btn" data-tool="connect" title="Connect Nodes (C)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                Connect
+            </button>
+            <button class="tool-btn" data-tool="add" title="Add Node (A)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Add
+            </button>
+        </div>
+        <div class="toolbar-actions">
+            <button class="action-btn" id="btn-export" title="Export State">Export JSON</button>
+            <button class="action-btn" id="btn-import" title="Import State">Import</button>
+            <button class="action-btn primary" id="btn-save" title="Save to Clipboard">Copy State</button>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="editor-sidebar" id="editor-sidebar">
+        <!-- Node inspector (shows when a node is selected) -->
+        <div class="sidebar-section" id="inspector-section" style="display:none;">
+            <div class="section-header">Node Inspector</div>
+            <div class="inspector-field">
+                <label>Label</label>
+                <input type="text" id="node-label-input" class="editor-input" />
+            </div>
+            <div class="inspector-field">
+                <label>ID</label>
+                <input type="text" id="node-id-display" class="editor-input" readonly />
+            </div>
+            <div class="inspector-field">
+                <label>X</label>
+                <input type="number" id="node-x-input" class="editor-input num" step="10" />
+            </div>
+            <div class="inspector-field">
+                <label>Y</label>
+                <input type="number" id="node-y-input" class="editor-input num" step="10" />
+            </div>
+            <div class="inspector-field">
+                <label>Z</label>
+                <input type="number" id="node-z-input" class="editor-input num" step="5" />
+            </div>
+            <div class="inspector-field">
+                <label>Type</label>
+                <span id="node-type-display" class="field-value"></span>
+            </div>
+            <div class="inspector-field" id="node-fv-field" style="display:none;">
+                <label>Force Vector</label>
+                <select id="node-fv-select" class="editor-input">
+                    <option value="">None</option>
+                    <option value="arterial">Arterial</option>
+                    <option value="extension">Extension</option>
+                    <option value="torsion">Torsion</option>
+                    <option value="compression">Compression</option>
+                </select>
+            </div>
+            <div class="inspector-connections" id="node-connections-list">
+                <label>Connections</label>
+                <div id="connections-chips"></div>
+            </div>
+        </div>
+
+        <!-- Node list -->
+        <div class="sidebar-section">
+            <div class="section-header">Combat Zones <span class="node-count" id="system-count">0</span></div>
+            <div class="node-list" id="system-node-list"></div>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="section-header">Articles <span class="node-count" id="article-count">0</span></div>
+            <input type="text" id="article-search" class="editor-input" placeholder="Search articles..." />
+            <div class="node-list scrollable" id="article-node-list"></div>
+        </div>
+    </div>
+
+    <!-- Hidden file input for import -->
+    <input type="file" id="import-file-input" accept=".json" style="display:none;" />
+</div>
+
+<style>
+/* ── Editor Layout ── */
+.main-content:has(.editor-page) {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+
+.editor-page {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: #050505;
+    overflow: hidden;
+    z-index: 100;
+    display: flex;
+}
+
+.editor-canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+}
+
+#editor-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+}
+
+/* ── Toolbar ── */
+.editor-toolbar {
+    position: fixed;
+    top: 0; left: 280px; right: 0;
+    height: 42px;
+    background: rgba(15, 15, 15, 0.95);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 16px;
+    z-index: 200;
+    backdrop-filter: blur(8px);
+}
+
+.toolbar-back {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.72rem;
+    transition: color 120ms;
+}
+.toolbar-back:hover { color: #4a9eff; }
+
+.toolbar-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #4a9eff;
+    letter-spacing: 0.04em;
+}
+
+.toolbar-tools {
+    display: flex;
+    gap: 2px;
+    margin-left: 16px;
+}
+
+.tool-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #666;
+    padding: 4px 10px;
+    font-size: 0.68rem;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 120ms;
+}
+.tool-btn:hover {
+    color: #aaa;
+    background: rgba(255,255,255,0.04);
+}
+.tool-btn.active {
+    color: #4a9eff;
+    background: rgba(74, 158, 255, 0.08);
+    border-color: rgba(74, 158, 255, 0.2);
+}
+
+.toolbar-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+}
+
+.action-btn {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #888;
+    padding: 4px 12px;
+    font-size: 0.68rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 120ms;
+}
+.action-btn:hover {
+    background: rgba(74, 158, 255, 0.1);
+    border-color: rgba(74, 158, 255, 0.3);
+    color: #fff;
+}
+.action-btn.primary {
+    background: rgba(74, 158, 255, 0.15);
+    border-color: rgba(74, 158, 255, 0.3);
+    color: #4a9eff;
+}
+.action-btn.primary:hover {
+    background: rgba(74, 158, 255, 0.25);
+    color: #fff;
+}
+
+/* ── Sidebar ── */
+.editor-sidebar {
+    width: 280px;
+    height: 100vh;
+    background: rgba(12, 12, 12, 0.97);
+    border-right: 1px solid rgba(255,255,255,0.06);
+    overflow-y: auto;
+    z-index: 200;
+    padding-top: 42px;
+    flex-shrink: 0;
+}
+
+.sidebar-section {
+    padding: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.section-header {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.node-count {
+    font-weight: 400;
+    color: #444;
+}
+
+.editor-input {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #ccc;
+    padding: 5px 8px;
+    font-size: 0.75rem;
+    font-family: inherit;
+    outline: none;
+    box-sizing: border-box;
+    margin-bottom: 6px;
+}
+.editor-input:focus {
+    border-color: rgba(74, 158, 255, 0.4);
+}
+.editor-input.num {
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+}
+
+.inspector-field {
+    margin-bottom: 6px;
+}
+.inspector-field label {
+    display: block;
+    font-size: 0.62rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+}
+.field-value {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.inspector-connections label {
+    display: block;
+    font-size: 0.62rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+}
+
+#connections-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.conn-chip {
+    background: rgba(74, 158, 255, 0.1);
+    border: 1px solid rgba(74, 158, 255, 0.2);
+    color: #4a9eff;
+    padding: 2px 8px;
+    font-size: 0.62rem;
+    cursor: pointer;
+}
+.conn-chip:hover {
+    background: rgba(255, 80, 80, 0.15);
+    border-color: rgba(255, 80, 80, 0.3);
+    color: #ff6666;
+}
+
+.node-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+.node-list.scrollable {
+    max-height: 400px;
+}
+
+.node-list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    font-size: 0.72rem;
+    color: #777;
+    cursor: pointer;
+    transition: all 100ms;
+}
+.node-list-item:hover {
+    background: rgba(255,255,255,0.03);
+    color: #ccc;
+}
+.node-list-item.selected {
+    background: rgba(74, 158, 255, 0.1);
+    color: #4a9eff;
+}
+.node-list-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+/* ── ViewCube ── */
+#viewcube-canvas {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    width: 120px;
+    height: 120px;
+    z-index: 180;
+    cursor: pointer;
+    background: rgba(10, 10, 10, 0.6);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ── Plane indicator ── */
+.plane-indicator {
+    position: fixed;
+    bottom: 144px;
+    right: 16px;
+    z-index: 180;
+    text-align: center;
+    width: 120px;
+}
+.plane-label {
+    font-size: 0.65rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+.plane-label.active {
+    color: #4a9eff;
+}
+
+/* ── Tooltip (same as explore) ── */
+.graph-tooltip {
+    position: fixed;
+    display: none;
+    background: rgba(10, 10, 10, 0.95);
+    border: 1px solid rgba(74, 158, 255, 0.3);
+    padding: 12px 16px;
+    max-width: 280px;
+    pointer-events: none;
+    z-index: 300;
+    backdrop-filter: blur(8px);
+}
+.graph-tooltip-category {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #4a9eff;
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+.graph-tooltip-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+}
+.graph-tooltip-summary {
+    font-size: 0.78rem;
+    color: #999;
+    line-height: 1.45;
+    margin-bottom: 8px;
+}
+.graph-tooltip-hint {
+    font-size: 0.65rem;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Hide nav/footer */
+@media (min-width: 0px) {
+    .navbar, footer { display: none !important; }
+    main { padding: 0 !important; min-height: 0 !important; }
+}
+</style>
+
+<script src="{{ url_for('static', filename='js/graph-engine.js') }}"></script>
+<script>
+(function() {
+    'use strict';
+
+    // ── Article data ──
+    var articles = {{ article_data | tojson }};
+
+    // ── Init graph engine with editor hooks ──
+    var gw = GWGraph.init('editor-canvas', 'editor-tooltip', articles, {
+        mode: 'full',
+        interactive: true,
+        particleCount: 25,
+        onNodeClick: function() {} // override — editor handles clicks
+    });
+    if (!gw) return;
+
+    var graph = gw.graph;
+    var cam = gw.cam;
+
+    // ── State ──
+    var activeTool = 'select';
+    var activePlane = null;  // null = free rotate, 'xy' | 'xz' | 'yz'
+    var selectedNode = null;
+    var connectSource = null;  // for connect tool
+    var draggedNode = null;
+    var isDraggingNode = false;
+    var dragScreenStart = { x: 0, y: 0 };
+
+    // ── Tool buttons ──
+    var toolBtns = document.querySelectorAll('.tool-btn');
+    toolBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            activeTool = btn.dataset.tool;
+            toolBtns.forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            connectSource = null;
+            updateCanvasCursor();
+        });
+    });
+
+    function updateCanvasCursor() {
+        var canvas = gw.canvas;
+        if (activeTool === 'select') canvas.style.cursor = activePlane ? 'crosshair' : 'grab';
+        else if (activeTool === 'connect') canvas.style.cursor = 'pointer';
+        else if (activeTool === 'add') canvas.style.cursor = 'cell';
+    }
+
+    // ── Keyboard shortcuts ──
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === 'v' || e.key === 'V') { document.querySelector('[data-tool="select"]').click(); }
+        if (e.key === 'c' || e.key === 'C') { document.querySelector('[data-tool="connect"]').click(); }
+        if (e.key === 'a' || e.key === 'A') { document.querySelector('[data-tool="add"]').click(); }
+        if (e.key === 'Escape') { selectedNode = null; connectSource = null; updateInspector(); }
+        if (e.key === '1') snapToPlane('xy');
+        if (e.key === '2') snapToPlane('xz');
+        if (e.key === '3') snapToPlane('yz');
+        if (e.key === '0') snapToPlane(null);
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // ── VIEWCUBE ──
+    // ══════════════════════════════════════════════════════════
+    var vcCanvas = document.getElementById('viewcube-canvas');
+    var vcCtx = vcCanvas.getContext('2d');
+    var VCS = 120; // viewcube size
+
+    function drawViewCube() {
+        vcCtx.clearRect(0, 0, VCS, VCS);
+
+        // Unit cube vertices
+        var verts = [
+            [-1,-1,-1], [1,-1,-1], [1,1,-1], [-1,1,-1], // back face
+            [-1,-1, 1], [1,-1, 1], [1,1, 1], [-1,1, 1],  // front face
+        ];
+
+        // Faces: [vertex indices, label, color, plane]
+        var faces = [
+            { idx: [4,5,6,7], label: 'FRONT', plane: 'xy', color: 'rgba(74,158,255,0.25)' },
+            { idx: [0,3,2,1], label: 'BACK',  plane: 'xy', color: 'rgba(74,158,255,0.12)' },
+            { idx: [4,0,3,7], label: 'LEFT',  plane: 'yz', color: 'rgba(120,210,190,0.25)' },
+            { idx: [5,1,2,6], label: 'RIGHT', plane: 'yz', color: 'rgba(120,210,190,0.12)' },
+            { idx: [7,6,2,3], label: 'TOP',   plane: 'xz', color: 'rgba(200,175,100,0.25)' },
+            { idx: [4,5,1,0], label: 'BOTTOM',plane: 'xz', color: 'rgba(200,175,100,0.12)' },
+        ];
+
+        // Project with current camera rotation
+        var size = 32;
+        var cx = VCS / 2, cy = VCS / 2;
+        var cosY = Math.cos(cam.rotY), sinY = Math.sin(cam.rotY);
+        var cosX = Math.cos(cam.rotX), sinX = Math.sin(cam.rotX);
+
+        function proj(v) {
+            var x = v[0] * size, y = v[1] * size, z = v[2] * size;
+            // Rotate Y then X (same as graph engine)
+            var rx = x * cosY + z * sinY;
+            var ry = y;
+            var rz = -x * sinY + z * cosY;
+            var ry2 = ry * cosX - rz * sinX;
+            var rz2 = ry * sinX + rz * cosX;
+            return { x: cx + rx, y: cy + ry2, z: rz2 };
+        }
+
+        // Sort faces by average depth (painter's algorithm)
+        var sortedFaces = faces.map(function(f) {
+            var pts = f.idx.map(function(i) { return proj(verts[i]); });
+            var avgZ = pts.reduce(function(s, p) { return s + p.z; }, 0) / pts.length;
+            return { face: f, pts: pts, avgZ: avgZ };
+        });
+        sortedFaces.sort(function(a, b) { return a.avgZ - b.avgZ; });
+
+        // Draw faces
+        sortedFaces.forEach(function(sf) {
+            var pts = sf.pts;
+            var f = sf.face;
+            var isActive = activePlane === f.plane;
+
+            vcCtx.beginPath();
+            vcCtx.moveTo(pts[0].x, pts[0].y);
+            for (var i = 1; i < pts.length; i++) vcCtx.lineTo(pts[i].x, pts[i].y);
+            vcCtx.closePath();
+
+            vcCtx.fillStyle = isActive ? f.color.replace(/[\d.]+\)$/, '0.5)') : f.color;
+            vcCtx.fill();
+            vcCtx.strokeStyle = isActive ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.12)';
+            vcCtx.lineWidth = isActive ? 1.5 : 0.5;
+            vcCtx.stroke();
+
+            // Label
+            var fcx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
+            var fcy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
+            vcCtx.font = '600 7px Inter, sans-serif';
+            vcCtx.textAlign = 'center';
+            vcCtx.textBaseline = 'middle';
+            vcCtx.fillStyle = isActive ? '#fff' : 'rgba(255,255,255,0.5)';
+            vcCtx.fillText(f.label, fcx, fcy);
+        });
+
+        // Axis indicators
+        var origin = proj([0,0,0]);
+        var axX = proj([1.6,0,0]);
+        var axY = proj([0,1.6,0]);
+        var axZ = proj([0,0,1.6]);
+
+        function drawAxis(to, color, label) {
+            vcCtx.beginPath();
+            vcCtx.moveTo(origin.x, origin.y);
+            vcCtx.lineTo(to.x, to.y);
+            vcCtx.strokeStyle = color;
+            vcCtx.lineWidth = 1.5;
+            vcCtx.stroke();
+            vcCtx.font = '600 8px Inter, sans-serif';
+            vcCtx.fillStyle = color;
+            vcCtx.textAlign = 'center';
+            vcCtx.fillText(label, to.x, to.y - 4);
+        }
+        drawAxis(axX, '#ff6666', 'X');
+        drawAxis(axY, '#66ff66', 'Y');
+        drawAxis(axZ, '#6666ff', 'Z');
+
+        // Store face geometry for click detection
+        vcCanvas._faces = sortedFaces;
+    }
+
+    // ViewCube click → snap to plane
+    vcCanvas.addEventListener('click', function(e) {
+        var rect = vcCanvas.getBoundingClientRect();
+        var mx = e.clientX - rect.left;
+        var my = e.clientY - rect.top;
+
+        // Check faces in reverse (front-most first)
+        var faces = vcCanvas._faces || [];
+        for (var i = faces.length - 1; i >= 0; i--) {
+            var pts = faces[i].pts;
+            if (pointInPolygon(mx, my, pts)) {
+                var plane = faces[i].face.plane;
+                // Toggle: if already on this plane, go to free
+                snapToPlane(activePlane === plane ? null : plane);
+                return;
+            }
+        }
+    });
+
+    function pointInPolygon(x, y, pts) {
+        var inside = false;
+        for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+            var xi = pts[i].x, yi = pts[i].y;
+            var xj = pts[j].x, yj = pts[j].y;
+            var intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+
+    function snapToPlane(plane) {
+        activePlane = plane;
+        var label = document.getElementById('plane-label');
+        cam.autoRotate = false;
+
+        if (plane === 'xy') {
+            gw.setRotation(0, 0);
+            label.textContent = 'XY Plane (Front)';
+            label.className = 'plane-label active';
+        } else if (plane === 'xz') {
+            gw.setRotation(-Math.PI / 2, 0);
+            label.textContent = 'XZ Plane (Top)';
+            label.className = 'plane-label active';
+        } else if (plane === 'yz') {
+            gw.setRotation(0, Math.PI / 2);
+            label.textContent = 'YZ Plane (Side)';
+            label.className = 'plane-label active';
+        } else {
+            label.textContent = 'Free Rotate';
+            label.className = 'plane-label';
+        }
+        updateCanvasCursor();
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ── EDITOR MOUSE HANDLING ──
+    // ══════════════════════════════════════════════════════════
+    gw.setEditorMouseHandler({
+        onMouseDown: function(e, node) {
+            if (activeTool === 'select' && node && activePlane) {
+                // Start dragging node on active plane
+                isDraggingNode = true;
+                draggedNode = node;
+                dragScreenStart.x = e.clientX;
+                dragScreenStart.y = e.clientY;
+                gw.canvas.style.cursor = 'move';
+                e.preventDefault();
+                return;
+            }
+            // If no plane locked or no node, fall through to default rotation
+            if (!activePlane) return; // let default handler run
+            // On a plane but clicked empty space — do nothing special
+        },
+
+        onMouseMove: function(e) {
+            if (isDraggingNode && draggedNode && activePlane) {
+                var dx = e.clientX - dragScreenStart.x;
+                var dy = e.clientY - dragScreenStart.y;
+                dragScreenStart.x = e.clientX;
+                dragScreenStart.y = e.clientY;
+
+                // Convert screen delta to world delta based on active plane
+                var scale = cam.zoom * (cam.perspective / (cam.perspective));
+                var worldDx = dx / scale;
+                var worldDy = dy / scale;
+
+                if (activePlane === 'xy') {
+                    draggedNode.x += worldDx;
+                    draggedNode.y += worldDy;
+                } else if (activePlane === 'xz') {
+                    draggedNode.x += worldDx;
+                    draggedNode.z -= worldDy; // screen Y maps to -Z in top view
+                } else if (activePlane === 'yz') {
+                    draggedNode.z -= worldDx; // screen X maps to -Z in side view
+                    draggedNode.y += worldDy;
+                }
+
+                // Update inspector if this node is selected
+                if (selectedNode === draggedNode) updateInspector();
+            }
+        },
+
+        onMouseUp: function(e) {
+            if (isDraggingNode) {
+                isDraggingNode = false;
+                draggedNode = null;
+                updateCanvasCursor();
+            }
+        },
+
+        onClick: function(e, node) {
+            if (activeTool === 'select') {
+                selectedNode = node; // null if clicked empty space
+                updateInspector();
+                updateNodeLists();
+            } else if (activeTool === 'connect') {
+                if (!node) return;
+                if (!connectSource) {
+                    // First click — set source
+                    connectSource = node;
+                    selectedNode = node;
+                    updateInspector();
+                } else {
+                    // Second click — create edge
+                    if (node !== connectSource) {
+                        // Check if edge already exists
+                        var exists = graph.edges.some(function(ed) {
+                            return (ed.from === connectSource && ed.to === node) ||
+                                   (ed.from === node && ed.to === connectSource);
+                        });
+                        if (!exists) {
+                            graph.edges.push({ from: connectSource, to: node, type: 'system', strength: 1 });
+                        }
+                    }
+                    connectSource = null;
+                    selectedNode = node;
+                    updateInspector();
+                }
+            } else if (activeTool === 'add' && !node && activePlane) {
+                // Add new node at click position — unproject from screen
+                // For now, place at approximate world coords
+                var rect = gw.canvas.getBoundingClientRect();
+                var sx = e.clientX - rect.left - gw.getW() / 2 - cam.panX;
+                var sy = e.clientY - rect.top - gw.getH() / 2 - cam.panY;
+                var wx = sx / cam.zoom;
+                var wy = sy / cam.zoom;
+
+                var newId = 'sys_new_' + Date.now();
+                var newNode = {
+                    id: newId,
+                    label: 'New Node',
+                    x: activePlane === 'yz' ? 0 : wx,
+                    y: activePlane === 'xz' ? 0 : wy,
+                    z: activePlane === 'xy' ? 0 : (activePlane === 'xz' ? -wy : -wx),
+                    radius: 8,
+                    color: GWGraph.COLORS.system,
+                    type: 'system',
+                    tier: 2,
+                    pulse: Math.random() * Math.PI * 2,
+                    dimmed: false,
+                };
+                graph.nodes.push(newNode);
+                graph.nodeMap[newId] = newNode;
+                selectedNode = newNode;
+                updateInspector();
+                updateNodeLists();
+            }
+        }
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // ── EDITOR OVERLAY (drawn every frame) ──
+    // ══════════════════════════════════════════════════════════
+    gw.setEditorOverlay(function(ctx, project, W, H, cam) {
+        // Draw selection ring around selected node
+        if (selectedNode) {
+            var sp = project(selectedNode.x, selectedNode.y, selectedNode.z);
+            var sr = (selectedNode.radius * sp.scale) + 6;
+            ctx.beginPath();
+            ctx.arc(sp.x, sp.y, sr, 0, Math.PI * 2);
+            ctx.strokeStyle = '#4a9eff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Draw connection preview line when in connect mode
+        if (activeTool === 'connect' && connectSource) {
+            var srcP = project(connectSource.x, connectSource.y, connectSource.z);
+            ctx.beginPath();
+            ctx.moveTo(srcP.x, srcP.y);
+            // Draw to cursor position — use last known mouse position
+            if (lastMousePos) {
+                var rect = gw.canvas.getBoundingClientRect();
+                ctx.lineTo(lastMousePos.x - rect.left, lastMousePos.y - rect.top);
+            }
+            ctx.strokeStyle = 'rgba(74, 158, 255, 0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Draw ViewCube (on its own canvas)
+        drawViewCube();
+    });
+
+    var lastMousePos = null;
+    gw.canvas.addEventListener('mousemove', function(e) {
+        lastMousePos = { x: e.clientX, y: e.clientY };
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // ── NODE INSPECTOR ──
+    // ══════════════════════════════════════════════════════════
+    var inspectorSection = document.getElementById('inspector-section');
+    var labelInput = document.getElementById('node-label-input');
+    var idDisplay = document.getElementById('node-id-display');
+    var xInput = document.getElementById('node-x-input');
+    var yInput = document.getElementById('node-y-input');
+    var zInput = document.getElementById('node-z-input');
+    var typeDisplay = document.getElementById('node-type-display');
+    var fvField = document.getElementById('node-fv-field');
+    var fvSelect = document.getElementById('node-fv-select');
+    var connectionsChips = document.getElementById('connections-chips');
+
+    function updateInspector() {
+        if (!selectedNode) {
+            inspectorSection.style.display = 'none';
+            return;
+        }
+        inspectorSection.style.display = '';
+        labelInput.value = selectedNode.label.replace(/\n/g, ' ');
+        idDisplay.value = selectedNode.id;
+        xInput.value = Math.round(selectedNode.x);
+        yInput.value = Math.round(selectedNode.y);
+        zInput.value = Math.round(selectedNode.z);
+        typeDisplay.textContent = selectedNode.type === 'system' ? 'Combat Zone' : (selectedNode.category || 'Article');
+
+        // Force vector (only for submissions)
+        if (selectedNode.forceVector !== undefined && selectedNode.forceVector !== null) {
+            fvField.style.display = '';
+            fvSelect.value = selectedNode.forceVector || '';
+        } else {
+            fvField.style.display = 'none';
+        }
+
+        // Connections
+        connectionsChips.innerHTML = '';
+        graph.edges.forEach(function(ed) {
+            var other = null;
+            if (ed.from === selectedNode) other = ed.to;
+            else if (ed.to === selectedNode) other = ed.from;
+            if (!other) return;
+            var chip = document.createElement('span');
+            chip.className = 'conn-chip';
+            chip.textContent = other.label.replace(/\n/g, ' ');
+            chip.title = 'Click to remove connection';
+            chip.addEventListener('click', function() {
+                // Remove this edge
+                var idx = graph.edges.indexOf(ed);
+                if (idx !== -1) graph.edges.splice(idx, 1);
+                updateInspector();
+            });
+            connectionsChips.appendChild(chip);
+        });
+    }
+
+    // Inspector input handlers
+    labelInput.addEventListener('input', function() {
+        if (selectedNode) selectedNode.label = labelInput.value;
+    });
+    xInput.addEventListener('input', function() {
+        if (selectedNode) selectedNode.x = parseFloat(xInput.value) || 0;
+    });
+    yInput.addEventListener('input', function() {
+        if (selectedNode) selectedNode.y = parseFloat(yInput.value) || 0;
+    });
+    zInput.addEventListener('input', function() {
+        if (selectedNode) selectedNode.z = parseFloat(zInput.value) || 0;
+    });
+    fvSelect.addEventListener('change', function() {
+        if (selectedNode) selectedNode.forceVector = fvSelect.value || null;
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // ── NODE LISTS ──
+    // ══════════════════════════════════════════════════════════
+    var systemListEl = document.getElementById('system-node-list');
+    var articleListEl = document.getElementById('article-node-list');
+    var articleSearchEl = document.getElementById('article-search');
+
+    function rgba(c, a) { return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + a + ')'; }
+
+    function updateNodeLists() {
+        // System nodes
+        systemListEl.innerHTML = '';
+        var sysCt = 0;
+        graph.nodes.forEach(function(n) {
+            if (n.type !== 'system') return;
+            sysCt++;
+            var item = document.createElement('div');
+            item.className = 'node-list-item' + (n === selectedNode ? ' selected' : '');
+            item.innerHTML = '<span class="node-list-dot" style="background:' + rgba(n.color, 1) + '"></span>' +
+                             '<span>' + n.label.replace(/\n/g, ' ') + '</span>';
+            item.addEventListener('click', function() {
+                selectedNode = n;
+                updateInspector();
+                updateNodeLists();
+            });
+            systemListEl.appendChild(item);
+        });
+        document.getElementById('system-count').textContent = sysCt;
+
+        // Article nodes
+        var filter = articleSearchEl.value.toLowerCase();
+        articleListEl.innerHTML = '';
+        var artCt = 0;
+        graph.nodes.forEach(function(n) {
+            if (n.type === 'system') return;
+            if (filter && n.label.toLowerCase().indexOf(filter) === -1) return;
+            artCt++;
+            if (artCt > 100) return; // limit for performance
+            var item = document.createElement('div');
+            item.className = 'node-list-item' + (n === selectedNode ? ' selected' : '');
+            item.innerHTML = '<span class="node-list-dot" style="background:' + rgba(n.color, 1) + '"></span>' +
+                             '<span>' + n.label + '</span>';
+            item.addEventListener('click', function() {
+                selectedNode = n;
+                updateInspector();
+                updateNodeLists();
+            });
+            articleListEl.appendChild(item);
+        });
+        document.getElementById('article-count').textContent = artCt;
+    }
+
+    articleSearchEl.addEventListener('input', updateNodeLists);
+    updateNodeLists();
+
+    // ══════════════════════════════════════════════════════════
+    // ── STATE EXPORT / IMPORT ──
+    // ══════════════════════════════════════════════════════════
+    document.getElementById('btn-export').addEventListener('click', function() {
+        var state = gw.exportState();
+        // Also include current node positions from the live graph
+        state.nodePositions = {};
+        graph.nodes.forEach(function(n) {
+            state.nodePositions[n.id] = { x: Math.round(n.x), y: Math.round(n.y), z: Math.round(n.z) };
+        });
+        var json = JSON.stringify(state, null, 2);
+        var blob = new Blob([json], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'graph-state-' + new Date().toISOString().slice(0, 10) + '.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btn-save').addEventListener('click', function() {
+        var state = gw.exportState();
+        state.nodePositions = {};
+        graph.nodes.forEach(function(n) {
+            state.nodePositions[n.id] = { x: Math.round(n.x), y: Math.round(n.y), z: Math.round(n.z) };
+        });
+        var json = JSON.stringify(state, null, 2);
+        navigator.clipboard.writeText(json).then(function() {
+            var btn = document.getElementById('btn-save');
+            btn.textContent = 'Copied!';
+            setTimeout(function() { btn.textContent = 'Copy State'; }, 1500);
+        });
+    });
+
+    document.getElementById('btn-import').addEventListener('click', function() {
+        document.getElementById('import-file-input').click();
+    });
+
+    document.getElementById('import-file-input').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            try {
+                var state = JSON.parse(ev.target.result);
+                // Apply node positions
+                if (state.nodePositions) {
+                    Object.keys(state.nodePositions).forEach(function(id) {
+                        var pos = state.nodePositions[id];
+                        var node = graph.nodeMap[id];
+                        if (node) {
+                            node.x = pos.x;
+                            node.y = pos.y;
+                            node.z = pos.z;
+                        }
+                    });
+                }
+                updateNodeLists();
+                updateInspector();
+            } catch (err) {
+                console.error('Import error:', err);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // reset
+    });
+
+})();
+</script>
+{% endblock %}

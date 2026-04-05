@@ -3,242 +3,81 @@
 {% block title %}{% if article %}Edit: {{ article.title | e }}{% else %}Create New Article{% endif %} - GrapplingWiki{% endblock %}
 {% block meta_description %}Create or edit an article on GrapplingWiki.{% endblock %}
 
-{% block head_extra %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/markdown-it-highlightjs/dist/markdown-it-highlightjs.min.css">
-{% endblock %}
-
 {% block content %}
 <div class="editor-container">
     <h1 class="page-title">{% if article %}Edit Article{% else %}Create New Article{% endif %}</h1>
 
-    <form method="POST" class="editor-form" novalidate>
-        {{ form.csrf_token }}
+    <form method="POST" class="editor-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-        <!-- Title Section -->
+        {% if not article %}
+        <!-- Title (only for create) -->
         <div class="form-section">
-            <h2 class="form-section-title">Article Title</h2>
             <div class="form-group">
-                {{ form.title(class="form-input form-input-lg", placeholder="Enter article title", required=true) }}
-                {% if form.title.errors %}
-                <div class="form-errors">
-                    {% for error in form.title.errors %}
-                    <div class="error-message">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                <label for="title" class="form-label">Title</label>
+                <input type="text" id="title" name="title" class="form-input"
+                       placeholder="Enter article title"
+                       value="{{ form_data.title if form_data else '' }}" required>
             </div>
-
-            {% if not article %}
-            <div class="form-help">
-                <p>The title will be converted to a URL slug automatically (e.g., "Double Leg Takedown" becomes "double-leg-takedown")</p>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Category & Tags Section -->
-        <div class="form-section form-row">
-            <div class="form-column">
-                <h3 class="form-label">Category</h3>
-                <div class="form-group">
-                    {{ form.category(class="form-select", required=true) }}
-                    {% if form.category.errors %}
-                    <div class="form-errors">
-                        {% for error in form.category.errors %}
-                        <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <div class="form-column">
-                <h3 class="form-label">Tags</h3>
-                <div class="form-group">
-                    {{ form.tags(class="form-input", placeholder="Enter tags separated by commas") }}
-                    {% if form.tags.errors %}
-                    <div class="form-errors">
-                        {% for error in form.tags.errors %}
-                        <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-                <p class="form-help">Example: guard, passing, defense, intermediate</p>
-            </div>
-        </div>
-
-        <!-- Article Summary -->
-        <div class="form-section">
-            <h2 class="form-section-title">Summary</h2>
             <div class="form-group">
-                {{ form.summary(class="form-textarea", placeholder="Brief summary of the article (shown in search results)", rows=3) }}
-                {% if form.summary.errors %}
-                <div class="form-errors">
-                    {% for error in form.summary.errors %}
-                    <div class="error-message">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-            <p class="form-help">This is displayed in search results and article previews.</p>
-        </div>
-
-        <!-- Content Editor Section -->
-        <div class="form-section">
-            <div class="editor-header">
-                <h2 class="form-section-title">Content</h2>
-                <div class="editor-tabs">
-                    <button type="button" class="editor-tab active" data-tab="edit">Edit</button>
-                    <button type="button" class="editor-tab" data-tab="preview">Preview</button>
-                    <button type="button" class="editor-help-toggle" title="Show markdown help">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <path d="M12 16v-4M12 8h.01"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-            <div class="editor-wrapper">
-                <!-- Markdown Editor -->
-                <div class="editor-editor" data-tab="edit">
-                    <div class="editor-toolbar">
-                        <button type="button" class="editor-toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
-                            <strong>B</strong>
-                        </button>
-                        <button type="button" class="editor-toolbar-btn" data-action="italic" title="Italic (Ctrl+I)">
-                            <em>I</em>
-                        </button>
-                        <div class="editor-toolbar-divider"></div>
-                        <button type="button" class="editor-toolbar-btn" data-action="heading" title="Heading">
-                            H
-                        </button>
-                        <button type="button" class="editor-toolbar-btn" data-action="unordered-list" title="Unordered List">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="8" y1="6" x2="21" y2="6"></line>
-                                <line x1="8" y1="12" x2="21" y2="12"></line>
-                                <line x1="8" y1="18" x2="21" y2="18"></line>
-                                <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                                <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                                <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                            </svg>
-                        </button>
-                        <button type="button" class="editor-toolbar-btn" data-action="ordered-list" title="Ordered List">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <line x1="8" y1="6" x2="21" y2="6"></line>
-                                <line x1="8" y1="12" x2="21" y2="12"></line>
-                                <line x1="8" y1="18" x2="21" y2="18"></line>
-                                <path d="M3 6h1v4"></path>
-                                <path d="M3 12h2"></path>
-                                <path d="M3 18h1v2"></path>
-                            </svg>
-                        </button>
-                        <div class="editor-toolbar-divider"></div>
-                        <button type="button" class="editor-toolbar-btn" data-action="link" title="Link">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                            </svg>
-                        </button>
-                        <button type="button" class="editor-toolbar-btn" data-action="code" title="Code">
-                            <code>&lt;&gt;</code>
-                        </button>
-                    </div>
-
-                    {{ form.content(class="form-textarea editor-textarea", placeholder="Write your article in Markdown...", rows=20, required=true) }}
-                    {% if form.content.errors %}
-                    <div class="form-errors">
-                        {% for error in form.content.errors %}
-                        <div class="error-message">{{ error }}</div>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-                </div>
-
-                <!-- Preview -->
-                <div class="editor-preview markdown-body" data-tab="preview" style="display: none;">
-                    <div class="preview-loading">Loading preview...</div>
-                </div>
-
-                <!-- Markdown Help -->
-                <aside class="editor-help" style="display: none;">
-                    <h3>Markdown Guide</h3>
-
-                    <div class="help-group">
-                        <h4>Text Formatting</h4>
-                        <ul class="help-list">
-                            <li><code>**bold**</code> → <strong>bold</strong></li>
-                            <li><code>*italic*</code> → <em>italic</em></li>
-                            <li><code>`code`</code> → inline code</li>
-                            <li><code>~~strikethrough~~</code></li>
-                        </ul>
-                    </div>
-
-                    <div class="help-group">
-                        <h4>Headings</h4>
-                        <ul class="help-list">
-                            <li><code># Heading 1</code></li>
-                            <li><code>## Heading 2</code></li>
-                            <li><code>### Heading 3</code></li>
-                        </ul>
-                    </div>
-
-                    <div class="help-group">
-                        <h4>Lists</h4>
-                        <ul class="help-list">
-                            <li><code>- Item</code> for bullet points</li>
-                            <li><code>1. Item</code> for numbered lists</li>
-                        </ul>
-                    </div>
-
-                    <div class="help-group">
-                        <h4>Links & Images</h4>
-                        <ul class="help-list">
-                            <li><code>[text](url)</code> → link</li>
-                            <li><code>![alt](image-url)</code> → image</li>
-                        </ul>
-                    </div>
-
-                    <div class="help-group">
-                        <h4>Other</h4>
-                        <ul class="help-list">
-                            <li><code>&gt; Quote</code> → blockquote</li>
-                            <li><code>```python\ncode\n```</code> → code block</li>
-                        </ul>
-                    </div>
-
-                    <p class="help-note">
-                        <a href="https://commonmark.org/help/" target="_blank">Full Markdown Reference</a>
-                    </p>
-                </aside>
+                <label for="slug" class="form-label">Slug (URL)</label>
+                <input type="text" id="slug" name="slug" class="form-input"
+                       placeholder="e.g. double-leg-takedown"
+                       value="{{ form_data.slug if form_data else '' }}" required>
+                <p class="form-help">URL-friendly version of the title (lowercase, hyphens instead of spaces)</p>
             </div>
         </div>
 
-        <!-- Edit Summary Section -->
+        <!-- Category -->
         <div class="form-section">
-            <h2 class="form-section-title">Edit Summary</h2>
             <div class="form-group">
-                {{ form.edit_summary(class="form-textarea", placeholder="Describe what you changed (e.g., 'Fixed typos', 'Added new section')", rows=3) }}
-                {% if form.edit_summary.errors %}
-                <div class="form-errors">
-                    {% for error in form.edit_summary.errors %}
-                    <div class="error-message">{{ error }}</div>
+                <label for="category" class="form-label">Category</label>
+                <select id="category" name="category" class="form-input">
+                    {% for cat in categories | default(['technique', 'position', 'concept', 'person', 'competition', 'glossary', 'style']) %}
+                    <option value="{{ cat }}" {% if form_data and form_data.category == cat %}selected{% endif %}>{{ cat | capitalize }}</option>
                     {% endfor %}
-                </div>
-                {% endif %}
+                </select>
             </div>
-            <p class="form-help">Helpful for other editors to understand the changes.</p>
         </div>
 
-        <!-- Form Actions -->
+        <!-- Summary -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="summary" class="form-label">Summary</label>
+                <textarea id="summary" name="summary" class="form-input" rows="3"
+                          placeholder="Brief summary shown in search results">{{ form_data.summary if form_data else '' }}</textarea>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Content -->
+        <div class="form-section">
+            <div class="form-group">
+                <label for="content" class="form-label">Content (Markdown)</label>
+                <textarea id="content" name="content" class="form-input" rows="20"
+                          placeholder="Write your article in Markdown..." required>{% if article %}{{ article.content }}{% elif form_data %}{{ form_data.content }}{% endif %}</textarea>
+            </div>
+        </div>
+
+        <!-- Edit Summary (for edits only) -->
+        {% if article %}
+        <div class="form-section">
+            <div class="form-group">
+                <label for="summary" class="form-label">Edit Summary</label>
+                <textarea id="summary" name="summary" class="form-input" rows="2"
+                          placeholder="Describe what you changed"></textarea>
+            </div>
+            <div class="form-group form-checkbox">
+                <input type="checkbox" id="is_minor" name="is_minor">
+                <label for="is_minor" class="checkbox-label">This is a minor edit</label>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
         <div class="form-actions">
-            <button type="submit" name="action" value="save" class="button button-primary button-lg">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                    <polyline points="7 3 7 8 15 8"></polyline>
-                </svg>
-                <span>{% if article %}Save Changes{% else %}Create Article{% endif %}</span>
+            <button type="submit" class="button button-primary button-lg">
+                {% if article %}Save Changes{% else %}Create Article{% endif %}
             </button>
             <a href="{% if article %}{{ url_for('wiki.view', slug=article.slug) }}{% else %}{{ url_for('main.index') }}{% endif %}" class="button button-secondary button-lg">
                 Cancel
@@ -246,93 +85,4 @@
         </div>
     </form>
 </div>
-
-{% block scripts_extra %}
-<script>
-// Editor functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const textarea = document.querySelector('.editor-textarea');
-    const toolbar = document.querySelector('.editor-toolbar');
-    const tabs = document.querySelectorAll('.editor-tab');
-    const preview = document.querySelector('.editor-preview');
-    const helpToggle = document.querySelector('.editor-help-toggle');
-    const help = document.querySelector('.editor-help');
-
-    // Tab switching
-    tabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            e.preventDefault();
-            const tabName = tab.dataset.tab;
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-
-            if (tabName === 'preview') {
-                document.querySelector('.editor-editor').style.display = 'none';
-                preview.style.display = 'block';
-                // Update preview with markdown
-                if (window.markdownit) {
-                    const md = window.markdownit();
-                    preview.innerHTML = md.render(textarea.value);
-                }
-            } else {
-                document.querySelector('.editor-editor').style.display = 'block';
-                preview.style.display = 'none';
-            }
-        });
-    });
-
-    // Help toggle
-    if (helpToggle) {
-        helpToggle.addEventListener('click', () => {
-            help.style.display = help.style.display === 'none' ? 'block' : 'none';
-        });
-    }
-
-    // Toolbar buttons
-    toolbar.querySelectorAll('.editor-toolbar-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const action = btn.dataset.action;
-            applyMarkdown(textarea, action);
-        });
-    });
-
-    function applyMarkdown(textarea, action) {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
-        const selected = text.substring(start, end) || 'text';
-        let newText = '';
-
-        switch (action) {
-            case 'bold':
-                newText = `**${selected}**`;
-                break;
-            case 'italic':
-                newText = `*${selected}*`;
-                break;
-            case 'heading':
-                newText = `## ${selected}`;
-                break;
-            case 'unordered-list':
-                newText = `\n- ${selected}`;
-                break;
-            case 'ordered-list':
-                newText = `\n1. ${selected}`;
-                break;
-            case 'link':
-                newText = `[${selected}](url)`;
-                break;
-            case 'code':
-                newText = `\`${selected}\``;
-                break;
-        }
-
-        textarea.value = text.substring(0, start) + newText + text.substring(end);
-        textarea.selectionStart = start + newText.length;
-        textarea.focus();
-    }
-});
-</script>
-{% endblock %}
 {% endblock %}

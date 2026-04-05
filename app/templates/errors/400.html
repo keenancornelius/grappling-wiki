@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Bad Request - GrapplingWiki{% endblock %}
+{% block meta_description %}The request could not be processed.{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <div class="error-content">
+        <div class="error-code">400</div>
+        <h1 class="error-title">Bad Request</h1>
+        <p class="error-description">
+            Something went wrong with your request. This can happen if a form expired or was submitted incorrectly.
+        </p>
+
+        <div class="error-suggestions">
+            <h2>What you can do:</h2>
+            <ul>
+                <li>Go back and try again — refreshing the page before submitting</li>
+                <li>
+                    <a href="{{ url_for('main.index') }}">Return to the homepage</a>
+                </li>
+                <li>
+                    <a href="{{ url_for('main.categories') }}">Browse categories</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="error-illustration">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="80" stroke="currentColor" stroke-width="2" fill="none" opacity="0.3"/>
+            <text x="100" y="120" text-anchor="middle" font-size="60" font-weight="bold" fill="currentColor" opacity="0.2">400</text>
+        </svg>
+    </div>
+</div>
+{% endblock %}

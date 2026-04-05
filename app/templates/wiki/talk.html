@@ -8,159 +8,102 @@
     <div class="page-header">
         <h1>Discussion</h1>
         <p class="page-subtitle">{{ article.title | e }}</p>
-        <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="back-link">← Back to article</a>
-    </div>
-
-    <!-- Notice -->
-    <div class="talk-notice">
-        <p>This is the discussion page for <strong>{{ article.title | e }}</strong>. Use this space to discuss improvements to the article, ask questions, or report issues.</p>
+        <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="back-link">&larr; Back to article</a>
     </div>
 
     <!-- New Discussion Form -->
     {% if current_user.is_authenticated %}
     <section class="new-discussion-section">
         <h2>Start a New Discussion</h2>
-        <form method="POST" action="{{ url_for('wiki.create_discussion', slug=article.slug) }}" class="new-discussion-form" novalidate>
-            {{ form.csrf_token }}
+        <form method="POST" class="new-discussion-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="new_discussion">
 
             <div class="form-group">
                 <label for="title" class="form-label">Topic Title</label>
-                {{ form.title(id="title", class="form-input", placeholder="Brief title for your discussion topic", required=true) }}
-                {% if form.title.errors %}
-                <div class="form-errors">
-                    {% for error in form.title.errors %}
-                    <div class="error-message">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                <input type="text" id="title" name="title" class="form-input"
+                       placeholder="Brief title for your discussion topic" required>
             </div>
 
             <div class="form-group">
-                <label for="content" class="form-label">Message</label>
-                {{ form.content(id="content", class="form-textarea", placeholder="Write your message here...", rows=6, required=true) }}
-                {% if form.content.errors %}
-                <div class="form-errors">
-                    {% for error in form.content.errors %}
-                    <div class="error-message">{{ error }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
+                <label for="content" class="form-label">Your Message</label>
+                <textarea id="content" name="content" class="form-input" rows="5"
+                          placeholder="Write your message..." required></textarea>
             </div>
 
-            <div class="form-actions">
-                <button type="submit" class="button button-primary">Post Discussion</button>
-            </div>
+            <button type="submit" class="button button-primary">Post Discussion</button>
         </form>
     </section>
     {% else %}
-    <div class="auth-prompt">
-        <p><a href="{{ url_for('auth.login') }}">Log in</a> or <a href="{{ url_for('auth.register') }}">register</a> to participate in discussions.</p>
+    <div class="empty-state">
+        <p><a href="{{ url_for('auth.login') }}">Log in</a> to participate in discussions.</p>
     </div>
     {% endif %}
 
-    <!-- Discussions -->
+    <!-- Discussions List -->
+    {% if discussions.items %}
     <section class="discussions-section">
-        {% if discussions %}
-            {% for discussion in discussions %}
-            <article class="discussion-thread">
-                <header class="discussion-header">
-                    <h3 class="discussion-title">{{ discussion.title | e }}</h3>
-                    <div class="discussion-meta">
-                        <span class="author">
-                            <a href="{{ url_for('auth.profile', username=discussion.author.username) }}">
-                                {{ discussion.author.username | e }}
-                            </a>
-                        </span>
-                        <span class="divider">•</span>
-                        <time datetime="{{ discussion.created_at.isoformat() }}" class="date" title="{{ discussion.created_at.strftime('%B %d, %Y %H:%M:%S') }}">
-                            {{ discussion.created_at.strftime('%b %d, %Y %H:%M') }}
-                        </time>
-                        <span class="divider">•</span>
-                        <span class="reply-count">{{ discussion.replies | length }} replies</span>
+        <h2>Discussions</h2>
+        {% for discussion in discussions.items %}
+        <div class="discussion-item">
+            <div class="discussion-header">
+                <h3>{{ discussion.title | e }}</h3>
+                <div class="discussion-meta">
+                    <a href="{{ url_for('auth.profile', username=discussion.author.username) }}">{{ discussion.author.username | e }}</a>
+                    &bull; {{ discussion.created_at.strftime('%b %d, %Y') }}
+                </div>
+            </div>
+            <div class="discussion-content">
+                <p>{{ discussion.content | e }}</p>
+            </div>
+
+            <!-- Replies -->
+            {% if discussion.replies %}
+            <div class="replies-list">
+                {% for reply in discussion.replies %}
+                <div class="reply-item">
+                    <div class="reply-meta">
+                        <a href="{{ url_for('auth.profile', username=reply.author.username) }}">{{ reply.author.username | e }}</a>
+                        &bull; {{ reply.created_at.strftime('%b %d, %Y') }}
                     </div>
-                </header>
-
-                <div class="discussion-content">
-                    {{ discussion.content | safe }}
+                    <p>{{ reply.content | e }}</p>
                 </div>
+                {% endfor %}
+            </div>
+            {% endif %}
 
-                <!-- Replies -->
-                {% if discussion.replies %}
-                <div class="discussion-replies">
-                    {% for reply in discussion.replies %}
-                    <div class="discussion-reply">
-                        <div class="reply-header">
-                            <span class="author">
-                                <a href="{{ url_for('auth.profile', username=reply.author.username) }}">
-                                    {{ reply.author.username | e }}
-                                </a>
-                            </span>
-                            <time datetime="{{ reply.created_at.isoformat() }}" class="date" title="{{ reply.created_at.strftime('%B %d, %Y %H:%M:%S') }}">
-                                {{ reply.created_at.strftime('%b %d, %Y %H:%M') }}
-                            </time>
-                        </div>
-                        <div class="reply-content">
-                            {{ reply.content | safe }}
-                        </div>
-                        {% if current_user.is_authenticated %}
-                        <div class="reply-actions">
-                            <button class="reply-action-link reply-btn" data-discussion-id="{{ discussion.id }}">
-                                Reply
-                            </button>
-                        </div>
-                        {% endif %}
-                    </div>
-                    {% endfor %}
+            <!-- Reply Form -->
+            {% if current_user.is_authenticated %}
+            <form method="POST" class="reply-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="reply">
+                <input type="hidden" name="discussion_id" value="{{ discussion.id }}">
+                <div class="form-group">
+                    <textarea name="content" class="form-input" rows="3" placeholder="Write a reply..." required></textarea>
                 </div>
-                {% endif %}
-
-                <!-- Reply Form -->
-                {% if current_user.is_authenticated %}
-                <div class="discussion-reply-form" id="reply-form-{{ discussion.id }}" style="display: none;">
-                    <form method="POST" action="{{ url_for('wiki.add_reply', slug=article.slug, discussion_id=discussion.id) }}" novalidate>
-                        <div class="form-group">
-                            <textarea name="content" class="form-textarea" placeholder="Write your reply..." rows="4" required></textarea>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="button button-primary button-sm">Post Reply</button>
-                            <button type="button" class="button button-secondary button-sm" onclick="document.getElementById('reply-form-{{ discussion.id }}').style.display = 'none'">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="discussion-footer">
-                    <button class="discussion-reply-btn" data-discussion-id="{{ discussion.id }}">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        </svg>
-                        <span>Reply</span>
-                    </button>
-                </div>
-                {% endif %}
-            </article>
-            {% endfor %}
-        {% else %}
-        <div class="empty-state">
-            <p>No discussions yet. {% if current_user.is_authenticated %}Be the first to start one!{% else %}<a href="{{ url_for('auth.login') }}">Log in</a> to start a discussion.{% endif %}</p>
+                <button type="submit" class="button button-secondary">Reply</button>
+            </form>
+            {% endif %}
         </div>
-        {% endif %}
+        {% endfor %}
     </section>
-</div>
 
-{% block scripts_extra %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Reply button functionality
-    document.querySelectorAll('.discussion-reply-btn, .reply-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const discussionId = this.dataset.discussionId;
-            const replyForm = document.getElementById('reply-form-' + discussionId);
-            if (replyForm) {
-                replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
-            }
-        });
-    });
-});
-</script>
-{% endblock %}
+    {% if discussions.pages > 1 %}
+    <div class="pagination">
+        {% if discussions.has_prev %}
+        <a href="{{ url_for('wiki.talk', slug=article.slug, page=discussions.prev_num) }}" class="pagination-link">&lsaquo; Previous</a>
+        {% endif %}
+        <span class="pagination-info">Page {{ discussions.page }} of {{ discussions.pages }}</span>
+        {% if discussions.has_next %}
+        <a href="{{ url_for('wiki.talk', slug=article.slug, page=discussions.next_num) }}" class="pagination-link">Next &rsaquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <p>No discussions yet. Be the first to start one!</p>
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

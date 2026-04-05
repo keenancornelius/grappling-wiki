@@ -1,6 +1,7 @@
 """
 GrapplingWiki - The Free Encyclopedia of Jiu-Jitsu & Grappling
 """
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -22,6 +23,14 @@ def create_app(config_name='default'):
     """Application factory."""
     app = Flask(__name__)
     app.config.from_object(config[config_name])
+
+    # Ensure the database directory exists
+    db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+    if db_uri.startswith('sqlite:///'):
+        db_path = db_uri.replace('sqlite:///', '')
+        db_dir = os.path.dirname(db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
 
     # Initialize extensions
     db.init_app(app)

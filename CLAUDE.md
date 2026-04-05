@@ -382,6 +382,28 @@ Open a [GitHub Issue](https://github.com/keenancornelius/grappling-wiki/issues) 
 
 ---
 
+### Stream H — Hosting, Integration & Persistent Infrastructure
+**Status:** 🚨 BLOCKER — nothing persists until this is done
+**Owner:** Unassigned
+**Priority:** #1 — all other streams depend on this
+
+GrapplingWiki is a sister brand to [Legion AJJ](https://legionajj.com) and [Legion San Diego](https://legionsandiego.com). The wiki drives organic search traffic → online instructional sales + gym membership leads. Current Render free tier uses ephemeral SQLite in `/tmp` — every deploy wipes all user-created content. This stream fixes that.
+
+- [ ] Determine WordPress hosting type — is legionajj.com on shared hosting (Bluehost, SiteGround, etc.) or a VPS (DigitalOcean, Linode, etc.)? This determines whether Flask can run alongside WordPress or needs its own host.
+- [ ] Set up persistent PostgreSQL database — provision a Postgres instance (Render managed DB, Neon, Supabase, or on the VPS). Get the `DATABASE_URL` connection string.
+- [ ] Configure production to use Postgres — set `DATABASE_URL` env var on the hosting platform. The app already reads it in `config.py` — zero code changes needed, just the env var.
+- [ ] Set up subdomain `wiki.legionajj.com` — add DNS CNAME/A record pointing to the wiki's host so the wiki shares Legion's domain authority for SEO.
+- [ ] SSL certificate for subdomain — ensure HTTPS works on wiki.legionajj.com (Let's Encrypt or hosting provider's SSL).
+- [ ] Verify persistence — create a test article, redeploy, confirm the article survives. This is the acceptance test for the entire stream.
+- [ ] Cross-link Legion ↔ Wiki — add navigation links between legionajj.com and the wiki so users and search crawlers flow between them. "Powered by Legion AJJ" footer on wiki, "GrapplingWiki" link on Legion site.
+- [ ] Shared branding pass — align wiki header/footer with Legion brand (logo, colors, CTAs for instructionals and gym sign-ups) so the sites feel like one ecosystem.
+- [ ] Lead capture integration — add CTA modules on high-traffic wiki articles linking to Legion instructionals and gym trial sign-ups. These are the revenue conversion points.
+- [ ] Analytics — set up privacy-friendly analytics (Plausible or Umami) on the wiki subdomain to track which articles drive traffic and which CTAs convert.
+
+**Files:** `config.py`, `render.yaml`, DNS settings (external), hosting provider dashboard
+
+---
+
 ### Stream A — Foundation & Infrastructure
 **Status:** ✅ Scaffolded | 🔧 Needs hardening
 **Owner:** Unassigned

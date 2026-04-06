@@ -21,23 +21,45 @@ var GWGraph = (function() {
   var activeInstances = {};
 
   // ── Palette: complementary cool tones anchored to white/blue/silver ──
+  // MECHANISM-DRIVEN: every node is colored by its mechanism field.
+  // Category colors are fallbacks for articles without taxonomy data.
   var C = {
     // Core
     system:      { r: 74,  g: 158, b: 255 },   // steel blue — system/structural nodes
     silver:      { r: 192, g: 192, b: 192 },   // silver — labels, dimmed elements
     grid:        { r: 74,  g: 158, b: 255 },   // blue grid lines
-    // Category accents — desaturated, cool-shifted to complement the core palette
-    technique:   { r: 120, g: 210, b: 190 },   // seafoam — techniques (submissions, sweeps, etc.)
-    position:    { r: 160, g: 140, b: 220 },   // muted lavender — positions
-    concept:     { r: 200, g: 195, b: 150 },   // warm silver — concepts
-    style:       { r: 130, g: 195, b: 210 },   // ice blue — styles/disciplines
-    glossary:    { r: 170, g: 170, b: 180 },   // cool gray — glossary/uncategorized
-    // Force vector colors — submission finish mechanics
-    // Each submission type gets a distinct visual encoding
-    fv_arterial:     { r: 190, g: 100, b: 100 },   // desaturated crimson — chokes (blood restriction)
-    fv_extension:    { r: 210, g: 140, b: 110 },   // warm coral — armbars, kneebars (hyperextension)
-    fv_torsion:      { r: 200, g: 175, b: 100 },   // amber — kimura, heel hook (rotation)
-    fv_compression:  { r: 100, g: 180, b: 175 },   // cool teal — slicers, can opener (crush)
+
+    // ── Mechanism colors — PRIMARY coloring for all nodes ──
+    // Submissions (force vector types)
+    mech_choke:        { r: 190, g: 100, b: 100 },   // desaturated crimson — blood/air restriction
+    mech_lock:         { r: 210, g: 140, b: 110 },   // warm coral — hyperextension (armbar, kneebar)
+    mech_entanglement: { r: 200, g: 175, b: 100 },   // amber — joint rotation (kimura, heel hook)
+    mech_compression:  { r: 100, g: 180, b: 175 },   // cool teal — crushing tissue (calf slicer)
+    // Positional control
+    mech_pin:          { r: 160, g: 140, b: 220 },   // muted lavender — holding positions (mount, side control)
+    mech_hook:         { r: 110, g: 190, b: 180 },   // warm teal — hooking control (DLR, arm drag)
+    // Transitions
+    mech_throw:        { r: 100, g: 150, b: 220 },   // steel blue — throwing (seoi nage, uchi mata)
+    mech_reap:         { r: 140, g: 130, b: 210 },   // blue-violet — reaping (osoto gari)
+    mech_sweep:        { r: 120, g: 210, b: 190 },   // seafoam — polarity flips (scissor sweep)
+    mech_pass:         { r: 100, g: 195, b: 140 },   // cool green — distance compressions (toreando)
+    mech_drop:         { r: 130, g: 155, b: 195 },   // slate blue — snap downs, level drops
+    mech_wheel:        { r: 150, g: 170, b: 200 },   // dusty blue — wheel/rotational throws
+    // Concepts
+    mech_concept:      { r: 200, g: 195, b: 150 },   // warm silver — principles and strategies
+
+    // ── Category fallbacks — used when mechanism is not set ──
+    technique:   { r: 120, g: 210, b: 190 },   // seafoam
+    position:    { r: 160, g: 140, b: 220 },   // muted lavender
+    concept:     { r: 200, g: 195, b: 150 },   // warm silver
+    style:       { r: 130, g: 195, b: 210 },   // ice blue
+    glossary:    { r: 170, g: 170, b: 180 },   // cool gray
+
+    // ── Force vector colors — kept for FORCE_VECTORS lookup compatibility ──
+    fv_arterial:     { r: 190, g: 100, b: 100 },
+    fv_extension:    { r: 210, g: 140, b: 110 },
+    fv_torsion:      { r: 200, g: 175, b: 100 },
+    fv_compression:  { r: 100, g: 180, b: 175 },
   };
 
   // ── Excluded categories (not mapped in the graph) ──
@@ -451,27 +473,77 @@ var GWGraph = (function() {
         var outerR = 500 * scale;
         cx = Math.cos(ang) * outerR; cy = elev * outerR * 0.5; cz = Math.sin(ang) * outerR;
       }
-      // Jitter in 3D
-      var jitter = (50 + Math.random() * 70) * scale;
-      var ja = Math.random() * Math.PI * 2;
-      var je = (Math.random() - 0.5) * Math.PI * 0.5;
-      cx += Math.cos(ja) * Math.cos(je) * jitter;
-      cy += Math.sin(je) * jitter * 0.6;
-      cz += Math.sin(ja) * Math.cos(je) * jitter;
+      // ── Spatial + Target driven node arrangement ──
+      // Instead of random jitter, use taxonomy fields to deterministically
+      // position nodes within their tier cluster.
+      //
+      //   spatial_qualifier → X/Z offset (inner=left, outer=right, cross=spread,
+      //                       forward=front Z, rear=back Z, side=side X, etc.)
+      //   target → angular sub-clustering (arm/leg/neck/body get distinct angles)
+      //
+      var spatial = (a.spatial || '').toLowerCase();
+      var target  = (a.target  || '').toLowerCase();
 
+      // Spatial qualifier → X and Z offsets
+      var SPATIAL_OFFSETS = {
+        'inner':   { dx: -45, dz:   0 },
+        'outer':   { dx:  45, dz:   0 },
+        'cross':   { dx:  30, dz:  25 },
+        'major':   { dx: -35, dz: -15 },
+        'minor':   { dx:  35, dz:  15 },
+        'forward': { dx:   0, dz: -40 },
+        'rear':    { dx:   0, dz:  40 },
+        'side':    { dx:  40, dz:  10 },
+        'triangle':{ dx: -20, dz: -30 },
+      };
+      var spatOff = SPATIAL_OFFSETS[spatial] || { dx: 0, dz: 0 };
+
+      // Target body part → angular offset for sub-clustering
+      var TARGET_ANGLES = {
+        'neck':     0,
+        'shoulder': 0.5,
+        'arm':      1.0,
+        'wrist':    1.3,
+        'body':     2.0,
+        'hip':      2.8,
+        'leg':      3.5,
+        'knee':     4.0,
+        'ankle':    4.5,
+      };
+      // Use target angle as base, add slug hash for spread within cluster
+      var slugHash = 0;
+      for (var si = 0; si < a.slug.length; si++) slugHash += a.slug.charCodeAt(si);
+      var baseAngle = TARGET_ANGLES[target] !== undefined ? TARGET_ANGLES[target] : (slugHash % 628) / 100;
+      var spreadAngle = baseAngle + ((slugHash % 37) / 37) * 0.8 - 0.4;  // ±0.4 rad spread within target group
+
+      var jitterDist = (45 + (slugHash % 50)) * scale;
+      var jitterElev = ((slugHash % 31) / 31 - 0.5) * 0.5;
+
+      cx += Math.cos(spreadAngle) * jitterDist + spatOff.dx * scale;
+      cy += Math.sin(jitterElev) * jitterDist * 0.5;
+      cz += Math.sin(spreadAngle) * jitterDist + spatOff.dz * scale;
+
+      // ── Mechanism-driven color ──
+      // Priority: 1. FORCE_VECTORS (hardcoded submission classification)
+      //           2. Mechanism taxonomy field → mech_* color
+      //           3. Category fallback
       var cat = (a.category || 'glossary').toLowerCase();
       var nodeColor = C[cat] || C.glossary;
-
-      // Override color for submissions: use force vector type
-      // Priority: hardcoded FORCE_VECTORS → taxonomy mechanism → category color
+      var mech = (a.mechanism || '').toLowerCase();
       var fv = FORCE_VECTORS[a.slug];
-      if (!fv && a.mechanism) {
-        // Map taxonomy mechanism to force vector key
+
+      // First: try mechanism-based color (covers ALL node types)
+      if (mech && C['mech_' + mech]) {
+        nodeColor = C['mech_' + mech];
+      }
+
+      // Second: force vector override for submissions (more specific)
+      if (!fv && mech) {
         var mechToFv = {
           'choke': 'arterial', 'lock': 'extension',
           'entanglement': 'torsion', 'compression': 'compression'
         };
-        fv = mechToFv[a.mechanism] || null;
+        fv = mechToFv[mech] || null;
       }
       if (fv) {
         nodeColor = C['fv_' + fv] || nodeColor;
@@ -483,6 +555,7 @@ var GWGraph = (function() {
         radius: 3.5 * scale,
         color: nodeColor, type: 'article',
         slug: a.slug, summary: a.summary, category: a.category,
+        mechanism: mech || null, target: target || null, spatial: spatial || null,
         forceVector: fv || null,
         tags: a.tags, pulse: Math.random() * Math.PI * 2,
         dimmed: false,
@@ -692,7 +765,19 @@ var GWGraph = (function() {
         canvas.style.cursor = node.slug ? 'pointer' : 'default';
         ttTitle.textContent = node.label.replace(/\n/g, ' ');
         var catLabel = node.category || (node.type === 'system' ? 'Combat Zone' : '');
-        if (node.forceVector) {
+        // Build mechanism-driven label: "Spatial Target Mechanism" (e.g., "Cross Arm Lock")
+        if (node.mechanism) {
+          var mechLabels = {
+            choke: 'Choke', lock: 'Lock', entanglement: 'Entanglement', compression: 'Compression',
+            throw: 'Throw', reap: 'Reap', sweep: 'Sweep', pass: 'Pass', hook: 'Hook',
+            drop: 'Drop', wheel: 'Wheel', pin: 'Pin', concept: 'Concept'
+          };
+          var parts = [];
+          if (node.spatial) parts.push(node.spatial.charAt(0).toUpperCase() + node.spatial.slice(1));
+          if (node.target) parts.push(node.target.charAt(0).toUpperCase() + node.target.slice(1));
+          parts.push(mechLabels[node.mechanism] || node.mechanism.charAt(0).toUpperCase() + node.mechanism.slice(1));
+          catLabel = parts.join(' ');
+        } else if (node.forceVector) {
           var fvLabels = { arterial: 'Arterial', extension: 'Extension', torsion: 'Torsion', compression: 'Compression' };
           catLabel = (fvLabels[node.forceVector] || node.forceVector) + ' Submission';
         }

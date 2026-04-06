@@ -207,6 +207,7 @@
 <script>
 (function() {
     var articles = {{ graph_articles | tojson }};
+    window._gwArticles = articles;  // debug: expose for console inspection
     GWGraph.init('home-graph-canvas', 'home-graph-tooltip', articles, {
         mode: 'home',
         height: 600,

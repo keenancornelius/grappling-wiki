@@ -71,6 +71,24 @@ with app.app_context():
         db.session.rollback()
         print(f"[auto_seed] Category migration note: {e}")
 
+    # ── Always run individual article seeds (they skip if already present) ──
+    always_run = ['seed_miha.py']
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    for seed_file in always_run:
+        seed_path = os.path.join(scripts_dir, seed_file)
+        if os.path.exists(seed_path):
+            print(f"[auto_seed] Running {seed_file}...")
+            result = subprocess.run(
+                [sys.executable, seed_path],
+                cwd=os.path.dirname(scripts_dir),
+                capture_output=True, text=True
+            )
+            if result.returncode != 0:
+                print(f"[auto_seed] {seed_file} failed:")
+                print(result.stderr)
+            else:
+                print(f"[auto_seed] {seed_file} OK")
+
     count = Article.query.count()
     print(f"[auto_seed] Current article count: {count}")
 

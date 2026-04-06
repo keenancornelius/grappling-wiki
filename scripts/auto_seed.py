@@ -10,12 +10,27 @@ import subprocess
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app, db
-from app.models import Article, Category
+from app.models import Article, Category, User
 
 app = create_app(os.environ.get('FLASK_CONFIG', 'default'))
 
 with app.app_context():
     db.create_all()
+
+    # ── Ensure admin user exists (survives ephemeral DB wipes) ──
+    admin = User.query.filter_by(username='keenan').first()
+    if not admin:
+        admin = User(
+            username='keenan',
+            email='keenan@legionajj.com',
+            is_admin=True,
+        )
+        admin.set_password(os.environ.get('ADMIN_PASSWORD', 'LegionAJJ2024!'))
+        db.session.add(admin)
+        db.session.commit()
+        print("[auto_seed] Created admin user: keenan")
+    else:
+        print("[auto_seed] Admin user 'keenan' already exists.")
 
     # ── Ensure category_id column exists on articles (safe on fresh + existing DBs) ──
     try:

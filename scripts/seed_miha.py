@@ -115,8 +115,12 @@ Perhavec currently lives and trains in San Diego, California, where he serves as
 def seed():
     app = create_app(os.environ.get('FLASK_CONFIG', 'default'))
     with app.app_context():
-        # Get or create admin user
-        admin = User.query.filter_by(username='admin').first()
+        # Get admin user (try 'keenan' first, then 'admin', then any user)
+        admin = User.query.filter_by(username='keenan').first()
+        if not admin:
+            admin = User.query.filter_by(username='admin').first()
+        if not admin:
+            admin = User.query.filter_by(username='GrapplingWiki').first()
         if not admin:
             admin = User.query.first()
         if not admin:

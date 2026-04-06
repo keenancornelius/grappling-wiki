@@ -63,7 +63,7 @@ var GWGraph = (function() {
   };
 
   // ── Excluded categories (not mapped in the graph) ──
-  var EXCLUDED_CATEGORIES = ['person', 'competition', 'style'];
+  var EXCLUDED_CATEGORIES = ['person', 'competition', 'style', 'concept'];
 
   // ══════════════════════════════════════════════════════════
   // ── CONCENTRIC SPHERE MODEL (Inside-Out Option Expansion) ──
@@ -568,30 +568,27 @@ var GWGraph = (function() {
       nodes.push(node); nodeMap['art_' + a.slug] = node;
     });
 
-    // System edges
-    SYSTEM_EDGES.forEach(function(e) {
-      if (nodeMap[e[0]] && nodeMap[e[1]])
-        edges.push({ from: nodeMap[e[0]], to: nodeMap[e[1]], type: 'system', strength: 1 });
-    });
+    // ── Edges: article-to-article only ──
+    // System nodes are invisible anchors — no edges drawn to/from them.
+    // Only peer edges between articles that share a combat zone are drawn.
+    // This keeps the concentric sphere structure clean.
 
-    // Article-to-system edges
+    // Build connection lookup (hardcoded + taxonomy fallback)
+    var artConnsLookup = {};
     filtered.forEach(function(a) {
       var conns = ARTICLE_CONNECTIONS[a.slug];
-      if (!conns) return;
-      var artNode = nodeMap['art_' + a.slug];
-      if (!artNode) return;
-      conns.forEach(function(sid) {
-        var sn = nodeMap[sid];
-        if (sn) edges.push({ from: artNode, to: sn, type: 'article', strength: 0.5 });
-      });
+      if (!conns && a.graphTier) {
+        conns = a.graphTier.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+      }
+      if (conns) artConnsLookup[a.slug] = conns;
     });
 
-    // Peer edges (shared system connections)
+    // Peer edges: articles sharing at least one combat zone
     var slugs = filtered.map(function(a) { return a.slug; });
     for (var i = 0; i < slugs.length; i++) {
       for (var j = i + 1; j < slugs.length; j++) {
-        var cA = ARTICLE_CONNECTIONS[slugs[i]];
-        var cB = ARTICLE_CONNECTIONS[slugs[j]];
+        var cA = artConnsLookup[slugs[i]];
+        var cB = artConnsLookup[slugs[j]];
         if (!cA || !cB) continue;
         var shared = cA.filter(function(c) { return cB.indexOf(c) !== -1; });
         if (shared.length > 0) {

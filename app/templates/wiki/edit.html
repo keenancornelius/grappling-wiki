@@ -36,7 +36,7 @@
                     <option value="">— Select a category —</option>
                     {% for cat in categories | default([]) %}
                     <option value="{{ cat.id }}" {% if form_data and form_data.category_id == cat.id|string %}selected{% endif %}>
-                        {{ '— ' * cat.depth }}{{ cat.name }}
+                        {{ '— ' * cat.display_depth }}{{ cat.name }}
                     </option>
                     {% endfor %}
                 </select>

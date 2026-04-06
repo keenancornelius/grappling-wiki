@@ -32,22 +32,20 @@ ALLOWED_ATTRIBUTES = {
 def _get_all_categories_flat():
     """
     Return all categories as a flat list, ordered for a nested dropdown.
-    Each item has a .depth attribute for indentation.
+    Each item has a .display_depth attribute for indentation.
+    Uses display_depth instead of depth to avoid conflicting with
+    the Category.depth @property.
     """
-    def _walk(parent_id, depth):
+    def _walk(parent_id, current_depth):
         cats = Category.query.filter_by(parent_id=parent_id).order_by(Category.name).all()
         result = []
         for cat in cats:
-            cat._display_depth = depth
+            cat.display_depth = current_depth
             result.append(cat)
-            result.extend(_walk(cat.id, depth + 1))
+            result.extend(_walk(cat.id, current_depth + 1))
         return result
 
-    all_cats = _walk(None, 0)
-    # Add depth as a regular attribute for template access
-    for cat in all_cats:
-        cat.depth = getattr(cat, '_display_depth', 0)
-    return all_cats
+    return _walk(None, 0)
 
 
 def _get_or_create_category(category_id, new_category_name):

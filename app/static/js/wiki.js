@@ -371,18 +371,17 @@ document.addEventListener('gw:pageload', initCollapsibleModules);
 // Mobile Hamburger Menu
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
-  const hamburger = document.querySelector('.hamburger');
-  const navMenu = document.querySelector('nav ul');
+  var hamburger = document.querySelector('.navbar-toggle');
+  var navMenu = document.querySelector('.navbar-menu');
 
-  if (hamburger) {
+  if (hamburger && navMenu) {
     hamburger.addEventListener('click', function() {
       hamburger.classList.toggle('active');
       navMenu.classList.toggle('active');
     });
 
     // Close menu when a link is clicked
-    const navLinks = navMenu.querySelectorAll('a');
-    navLinks.forEach(link => {
+    navMenu.querySelectorAll('a').forEach(function(link) {
       link.addEventListener('click', function() {
         hamburger.classList.remove('active');
         navMenu.classList.remove('active');
@@ -391,9 +390,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Close menu when clicking outside
     document.addEventListener('click', function(event) {
-      if (!event.target.closest('nav')) {
+      if (!event.target.closest('.navbar-toggle') && !event.target.closest('.navbar-menu')) {
         hamburger.classList.remove('active');
         navMenu.classList.remove('active');
+      }
+    });
+  }
+
+  // ── User Menu Dropdown ──
+  var userTrigger = document.querySelector('.user-menu-trigger');
+  var userDropdown = document.querySelector('.user-menu-dropdown');
+
+  if (userTrigger && userDropdown) {
+    userTrigger.addEventListener('click', function(e) {
+      e.stopPropagation();
+      userDropdown.classList.toggle('active');
+      userTrigger.setAttribute('aria-expanded', userDropdown.classList.contains('active'));
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.user-menu')) {
+        userDropdown.classList.remove('active');
+        userTrigger.setAttribute('aria-expanded', 'false');
       }
     });
   }

@@ -261,7 +261,7 @@
     }
     // Re-init TOC if present
     var tocContainer = document.querySelector('.toc ul');
-    var articleContent = document.querySelector('.article-content');
+    var articleContent = document.querySelector('.article-body');
     if (tocContainer && articleContent) {
       generateTOC(tocContainer, articleContent);
     }
@@ -618,7 +618,7 @@ function generateTOC(tocContainer, articleContent) {
 
 document.addEventListener('DOMContentLoaded', function() {
   var tocContainer = document.querySelector('.toc ul');
-  var articleContent = document.querySelector('.article-content');
+  var articleContent = document.querySelector('.article-body');
   if (tocContainer && articleContent) generateTOC(tocContainer, articleContent);
 });
 

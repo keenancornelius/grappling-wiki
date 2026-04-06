@@ -204,7 +204,10 @@ def index():
     graph_articles = [
         {'id': a.id, 'title': a.title, 'slug': a.slug,
          'summary': a.summary or '', 'category': a.category or '',
-         'tags': [t.name for t in a.tags]}
+         'tags': [t.name for t in a.tags],
+         'mechanism': a.mechanism or '', 'target': a.target or '',
+         'spatial': a.spatial_qualifier or '',
+         'graphTier': a.graph_tier or ''}
         for a in all_articles
     ]
 
@@ -259,29 +262,250 @@ def search():
 @main_bp.route('/categories')
 def categories():
     """
-    List all categories/tags.
+    Hierarchical categories page.
+    Organises articles by their graph_tier into the positional tree:
+    Standing → Takedowns → Guards → Dominant Positions → Submissions.
+    Uses the English-from-Japanese taxonomy convention for display.
     """
-    tags = Tag.query.order_by(Tag.name).all()
+    # ── Tier definitions: ordered top-down matching the inverse tree ──
+    # Each tier has a display label, the sys_ node IDs it maps to,
+    # a colour from the design system, and a description.
+    TIER_TREE = [
+        {
+            'id': 'standing',
+            'label': 'Standing Neutral',
+            'japanese': 'Tachi-waza',
+            'description': 'Both players on feet — maximum optionality, the root of all grappling.',
+            'color': 'var(--accent)',
+            'sys_nodes': ['sys_standing'],
+            'subcategories': None,
+        },
+        {
+            'id': 'takedowns',
+            'label': 'Takedowns',
+            'japanese': 'Nage-waza / Shoot',
+            'description': 'Actions that bring the fight to the ground.',
+            'color': 'var(--accent)',
+            'sys_nodes': ['sys_upper_td', 'sys_lower_td'],
+            'subcategories': [
+                {
+                    'id': 'upper_td',
+                    'label': 'Upper Body',
+                    'japanese': 'Nage-waza',
+                    'description': 'Throws, trips, and clinch-initiated takedowns attacking above the waist.',
+                    'sys_nodes': ['sys_upper_td'],
+                },
+                {
+                    'id': 'lower_td',
+                    'label': 'Lower Body',
+                    'japanese': 'Shots',
+                    'description': 'Double leg, single leg, ankle picks — attacking below the waist.',
+                    'sys_nodes': ['sys_lower_td'],
+                },
+            ],
+        },
+        {
+            'id': 'guards',
+            'label': 'Guards',
+            'japanese': 'Ne-waza (Shita)',
+            'description': 'Bottom positions — sorted close to far (leg reconnection spectrum).',
+            'color': 'rgb(160, 140, 220)',
+            'sys_nodes': ['sys_close_guard', 'sys_mid_guard', 'sys_leg_entangle', 'sys_far_guard', 'sys_front_headlock'],
+            'subcategories': [
+                {
+                    'id': 'close_guard',
+                    'label': 'Close Guard',
+                    'japanese': 'Kumi-kata (closed)',
+                    'description': 'Closed guard, rubber guard — legs locked around opponent.',
+                    'sys_nodes': ['sys_close_guard'],
+                },
+                {
+                    'id': 'mid_guard',
+                    'label': 'Mid Distance Guard',
+                    'japanese': 'Hantai-ashi',
+                    'description': 'Half guard, butterfly, Z-guard, knee shield — one leg controlling.',
+                    'sys_nodes': ['sys_mid_guard'],
+                },
+                {
+                    'id': 'leg_entangle',
+                    'label': 'Leg Entanglements',
+                    'japanese': 'Ashi-garami',
+                    'description': 'Ashi garami, 50/50, saddle — symmetrical leg control, gateway to leg locks.',
+                    'sys_nodes': ['sys_leg_entangle'],
+                },
+                {
+                    'id': 'far_guard',
+                    'label': 'Far Distance Guard',
+                    'japanese': 'Hikikomigaeshi',
+                    'description': 'De La Riva, spider, lasso, X-guard — feet framing on opponent.',
+                    'sys_nodes': ['sys_far_guard'],
+                },
+                {
+                    'id': 'front_headlock',
+                    'label': 'Front Headlock',
+                    'japanese': 'Mae-hadaka-jime kumi-kata',
+                    'description': 'Face-to-back control — guilotines, darces, anacondas, neckties.',
+                    'sys_nodes': ['sys_front_headlock'],
+                },
+            ],
+        },
+        {
+            'id': 'dominant',
+            'label': 'Dominant Positions',
+            'japanese': 'Osae-komi-waza',
+            'description': 'Top positions — guard has been passed, top player controls.',
+            'color': 'rgb(120, 210, 190)',
+            'sys_nodes': ['sys_side_control', 'sys_mount', 'sys_kob', 'sys_back_control'],
+            'subcategories': [
+                {
+                    'id': 'side_control',
+                    'label': 'Side Control',
+                    'japanese': 'Yoko-shiho-gatame',
+                    'description': 'Side control, north-south, 100 kilos.',
+                    'sys_nodes': ['sys_side_control'],
+                },
+                {
+                    'id': 'knee_on_belly',
+                    'label': 'Knee on Belly',
+                    'japanese': 'Tate-shiho (transitional)',
+                    'description': 'Knee on belly, knee on chest.',
+                    'sys_nodes': ['sys_kob'],
+                },
+                {
+                    'id': 'mount',
+                    'label': 'Mount',
+                    'japanese': 'Tate-shiho-gatame',
+                    'description': 'Mount, S-mount, mounted crucifix.',
+                    'sys_nodes': ['sys_mount'],
+                },
+                {
+                    'id': 'back_control',
+                    'label': 'Back Control',
+                    'japanese': 'Ushiro-kesa-gatame',
+                    'description': 'Back mount, rear body triangle, turtle.',
+                    'sys_nodes': ['sys_back_control'],
+                },
+            ],
+        },
+    ]
 
-    # Get article counts per tag
-    tag_data = []
-    for tag in tags:
-        count = tag.articles.filter_by(is_published=True).count()
-        tag_data.append({
-            'tag': tag,
-            'count': count
-        })
+    # Submission mechanism groupings (force vector types)
+    SUBMISSION_GROUPS = [
+        {
+            'id': 'chokes',
+            'label': 'Chokes',
+            'japanese': 'Jime-waza',
+            'description': 'Blood/air restriction — arterial compression.',
+            'color': 'rgb(190, 100, 100)',
+            'mechanism': 'choke',
+        },
+        {
+            'id': 'locks',
+            'label': 'Joint Locks',
+            'japanese': 'Kansetsu-waza (Gatame)',
+            'description': 'Hyperextension — armbar, kneebar, straight ankle lock.',
+            'color': 'rgb(210, 140, 110)',
+            'mechanism': 'lock',
+        },
+        {
+            'id': 'entanglements',
+            'label': 'Entanglements',
+            'japanese': 'Kansetsu-waza (Garami)',
+            'description': 'Rotational joint attack — kimura, heel hook, toe hold.',
+            'color': 'rgb(200, 175, 100)',
+            'mechanism': 'entanglement',
+        },
+        {
+            'id': 'compressions',
+            'label': 'Compressions',
+            'japanese': 'Kansetsu-waza (Oshi)',
+            'description': 'Crushing tissue against bone — calf slicer, bicep slicer.',
+            'color': 'rgb(100, 180, 175)',
+            'mechanism': 'compression',
+        },
+    ]
 
-    total_categories = len(tag_data)
+    all_articles = Article.query.filter_by(is_published=True).all()
+
+    def articles_for_tiers(sys_node_list, category_filter=None):
+        """Return articles that have at least one of the given sys_ nodes in their graph_tier."""
+        result = []
+        for a in all_articles:
+            if category_filter and a.category != category_filter:
+                continue
+            tiers = a.get_graph_tiers()
+            if any(t in sys_node_list for t in tiers):
+                result.append(a)
+        return sorted(result, key=lambda a: a.title)
+
+    def articles_by_mechanism(mechanism_val, only_submissions=True):
+        """Return technique articles matching a mechanism value."""
+        result = []
+        for a in all_articles:
+            if a.category != 'technique':
+                continue
+            if a.mechanism == mechanism_val:
+                result.append(a)
+        return sorted(result, key=lambda a: a.title)
+
+    # Build tier data with live article lists
+    for tier in TIER_TREE:
+        if tier.get('subcategories'):
+            for sub in tier['subcategories']:
+                sub['articles'] = articles_for_tiers(sub['sys_nodes'])
+                sub['count'] = len(sub['articles'])
+            tier['articles'] = []
+            tier['count'] = sum(s['count'] for s in tier['subcategories'])
+        else:
+            tier['articles'] = articles_for_tiers(tier['sys_nodes'])
+            tier['count'] = len(tier['articles'])
+
+    # Build submission groups
+    for group in SUBMISSION_GROUPS:
+        group['articles'] = articles_by_mechanism(group['mechanism'])
+        group['count'] = len(group['articles'])
+    submission_total = sum(g['count'] for g in SUBMISSION_GROUPS)
+
+    # Concept articles (appear contextually across tiers, also listed separately)
+    concept_articles = sorted(
+        [a for a in all_articles if a.category == 'concept'],
+        key=lambda a: a.title
+    )
+
+    # Reference library (non-graph categories)
+    reference_groups = {
+        'person': {'label': 'People', 'japanese': 'Jinbutsu', 'articles': []},
+        'competition': {'label': 'Competitions', 'japanese': 'Taikai', 'articles': []},
+        'style': {'label': 'Styles', 'japanese': 'Ryū-ha', 'articles': []},
+        'glossary': {'label': 'Glossary', 'japanese': 'Yōgo', 'articles': []},
+    }
+    for a in all_articles:
+        if a.category in reference_groups:
+            reference_groups[a.category]['articles'].append(a)
+    for g in reference_groups.values():
+        g['articles'].sort(key=lambda a: a.title)
+        g['count'] = len(g['articles'])
+
+    # Unclassified articles — graph categories without taxonomy
+    unclassified = [
+        a for a in all_articles
+        if a.category in ('technique', 'position', 'concept')
+        and not a.taxonomy_complete
+    ]
+
     total_articles = Article.query.filter_by(is_published=True).count()
-    avg_articles = round(total_articles / total_categories) if total_categories > 0 else 0
+    taxonomy_gap = len(unclassified)
 
     return render_template(
         'categories.html',
-        tag_data=tag_data,
-        total_categories=total_categories,
+        tier_tree=TIER_TREE,
+        submission_groups=SUBMISSION_GROUPS,
+        submission_total=submission_total,
+        concept_articles=concept_articles,
+        reference_groups=reference_groups,
+        unclassified=unclassified,
         total_articles=total_articles,
-        avg_articles=avg_articles
+        taxonomy_gap=taxonomy_gap,
     )
 
 
@@ -394,6 +618,10 @@ def explore():
             'summary': a.summary or '',
             'category': a.category or '',
             'tags': [t.name for t in a.tags],
+            'mechanism': a.mechanism or '',
+            'target': a.target or '',
+            'spatial': a.spatial_qualifier or '',
+            'graphTier': a.graph_tier or '',
         })
     return render_template('explore.html', article_data=article_data)
 
@@ -414,6 +642,10 @@ def graph_editor():
             'summary': a.summary or '',
             'category': a.category or '',
             'tags': [t.name for t in a.tags],
+            'mechanism': a.mechanism or '',
+            'target': a.target or '',
+            'spatial': a.spatial_qualifier or '',
+            'graphTier': a.graph_tier or '',
         })
     return render_template('graph_editor.html', article_data=article_data)
 

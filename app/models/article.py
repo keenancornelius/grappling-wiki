@@ -54,12 +54,89 @@ class Article(db.Model):
         is_protected: Whether article requires elevated privileges to edit
         view_count: Number of times article has been viewed
         category: Article category (technique, position, concept, person, competition, glossary, style)
+
+    Taxonomy fields (English-from-Japanese naming convention):
+        mechanism:         What kind of action — lock, choke, entanglement, throw, reap, sweep, pass, etc.
+                           Maps to Japanese suffixes: Gatame→lock, Jime→choke, Garami→entanglement,
+                           Nage→throw, Gari→reap, Harai→sweep, Gake→hook, Otoshi→drop, Guruma→wheel.
+        target:            Body part involved — arm, leg, neck, hip, shoulder, knee, ankle, wrist, body.
+                           Maps to Japanese prefixes: Ude→arm, Ashi→leg, Koshi→hip, Kata→shoulder.
+        spatial_qualifier: Directional modifier — inner, outer, major, minor, forward, rear, cross,
+                           triangle, naked, side. Maps to: Uchi→inner, Soto→outer, O→major, Ko→minor,
+                           Mae→forward, Ushiro→rear, Juji→cross, Sankaku→triangle, Hadaka→naked.
+        graph_tier:        Comma-separated sys_ node IDs from graph-engine.js indicating where this
+                           article lives in the inverse tree (e.g. 'sys_close_guard,sys_mount').
+                           Drives the categories page hierarchy and graph node placement.
+        taxonomy_complete: True when graph_tier + mechanism are both set for Technique/Position/Concept
+                           articles. False flags the article as needing taxonomy metadata.
+                           Person, Competition, Style, Glossary articles default to True.
     """
 
     __tablename__ = 'articles'
 
     # Valid article categories
     VALID_CATEGORIES = ['technique', 'position', 'concept', 'person', 'competition', 'glossary', 'style']
+
+    # Categories excluded from the knowledge graph (no taxonomy required)
+    NON_GRAPH_CATEGORIES = ['person', 'competition', 'style', 'glossary']
+
+    # Controlled vocabulary for taxonomy fields
+    VALID_MECHANISMS = [
+        'lock',          # Joint hyperextension (Gatame)
+        'choke',         # Blood/air restriction (Jime/Shime)
+        'entanglement',  # Rotational joint attack (Garami)
+        'compression',   # Crushing (slicers)
+        'throw',         # Projection (Nage)
+        'reap',          # Leg reap takedown (Gari)
+        'sweep',         # Positional reversal (Harai)
+        'pass',          # Guard passing
+        'hook',          # Hooking technique (Gake)
+        'drop',          # Drop technique (Otoshi)
+        'wheel',         # Rotation-based throw (Guruma)
+        'pin',           # Holding position (Osae)
+        'concept',       # Strategic/positional concept
+    ]
+
+    VALID_TARGETS = [
+        'arm',       # Ude
+        'leg',       # Ashi
+        'neck',      # throat/neck chokes
+        'hip',       # Koshi
+        'shoulder',  # Kata
+        'knee',
+        'ankle',
+        'wrist',
+        'body',      # whole-body / positional
+    ]
+
+    VALID_SPATIAL = [
+        'inner',     # Uchi
+        'outer',     # Soto
+        'major',     # O (large)
+        'minor',     # Ko (small)
+        'forward',   # Mae
+        'rear',      # Ushiro
+        'side',      # Yoko
+        'cross',     # Juji
+        'triangle',  # Sankaku
+        'naked',     # Hadaka (exposed/bare)
+    ]
+
+    # Valid graph tier node IDs (from graph-engine.js SYSTEM_NODES)
+    VALID_GRAPH_TIERS = [
+        'sys_standing',
+        'sys_upper_td',
+        'sys_lower_td',
+        'sys_far_guard',
+        'sys_mid_guard',
+        'sys_close_guard',
+        'sys_leg_entangle',
+        'sys_front_headlock',
+        'sys_side_control',
+        'sys_mount',
+        'sys_kob',
+        'sys_back_control',
+    ]
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -78,6 +155,15 @@ class Article(db.Model):
         default='technique',
         index=True
     )
+
+    # ── Taxonomy: English-from-Japanese naming convention ──
+    mechanism = db.Column(db.String(50), nullable=True, index=True)
+    target = db.Column(db.String(50), nullable=True, index=True)
+    spatial_qualifier = db.Column(db.String(50), nullable=True)
+    # Comma-separated sys_ tier IDs, e.g. 'sys_close_guard,sys_mount'
+    graph_tier = db.Column(db.String(200), nullable=True, index=True)
+    # False = article needs taxonomy metadata; flagged in UI
+    taxonomy_complete = db.Column(db.Boolean, nullable=False, default=False, index=True)
 
     # Relationships
     tags = db.relationship(
@@ -108,6 +194,47 @@ class Article(db.Model):
         super().__init__(*args, **kwargs)
         if self.category and self.category not in self.VALID_CATEGORIES:
             raise ValueError(f'Invalid category. Must be one of: {", ".join(self.VALID_CATEGORIES)}')
+        # Non-graph categories are always taxonomy_complete
+        if self.category in self.NON_GRAPH_CATEGORIES:
+            self.taxonomy_complete = True
+
+    def compute_taxonomy_complete(self):
+        """
+        Recompute and set taxonomy_complete based on current fields.
+        Call this after setting mechanism/graph_tier on Technique, Position, Concept articles.
+        Non-graph categories (Person, Competition, Style, Glossary) are always complete.
+        """
+        if self.category in self.NON_GRAPH_CATEGORIES:
+            self.taxonomy_complete = True
+        else:
+            # Require at minimum: graph_tier and mechanism
+            self.taxonomy_complete = bool(self.graph_tier and self.mechanism)
+        return self.taxonomy_complete
+
+    def get_graph_tiers(self):
+        """
+        Return graph_tier as a list of sys_ node IDs.
+        e.g. 'sys_close_guard,sys_mount' → ['sys_close_guard', 'sys_mount']
+        """
+        if not self.graph_tier:
+            return []
+        return [t.strip() for t in self.graph_tier.split(',') if t.strip()]
+
+    def taxonomy_display_name(self):
+        """
+        Build the English-from-Japanese display name from taxonomy components.
+        Format: '{Spatial} {Target} {Mechanism}' — omits None components.
+        e.g. spatial=cross, target=arm, mechanism=lock → 'Cross Arm Lock'
+        Falls back to article title if components are unset.
+        """
+        parts = []
+        if self.spatial_qualifier:
+            parts.append(self.spatial_qualifier.title())
+        if self.target:
+            parts.append(self.target.title())
+        if self.mechanism:
+            parts.append(self.mechanism.title())
+        return ' '.join(parts) if parts else self.title
 
     def get_latest_revision(self):
         """

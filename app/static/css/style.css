@@ -1279,85 +1279,374 @@ a.article-card,
 }
 
 /* ============================================================
-   Categories Page
+   Categories Page — Positional Tree (Taxonomy System)
    ============================================================ */
-.categories-container {
-  max-width: 1200px;
+.tax-page {
+  max-width: 960px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 2rem 1.5rem;
 }
 
-.page-header {
-  margin-bottom: 1rem;
+/* ── Header ── */
+.tax-header {
+  margin-bottom: 3rem;
 }
-
-.page-header h1 {
+.tax-header h1 {
   margin-top: 0;
+  font-size: 2.25rem;
+  letter-spacing: -0.03em;
+}
+.tax-subtitle {
+  color: #a0a0a0;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 640px;
+}
+.tax-flag-banner {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(200, 175, 100, 0.08);
+  border: 1px solid rgba(200, 175, 100, 0.2);
+  color: rgb(200, 175, 100);
+  font-size: 0.875rem;
+}
+.tax-flag-banner a {
+  color: rgb(200, 175, 100);
+  text-decoration: underline;
+  margin-left: 0.5rem;
+}
+.tax-flag-icon {
+  margin-right: 0.35rem;
 }
 
-.page-subtitle {
-  color: #a0a0a0;
-  font-size: 1.1rem;
+/* ── Tier Section ── */
+.tax-tier {
+  margin-bottom: 2.5rem;
+  position: relative;
+}
+.tax-tier-header {
+  margin-bottom: 1.25rem;
+  position: relative;
+  padding-left: 1.5rem;
+}
+.tax-tier-flow-line {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, #4a9eff 0%, rgba(74, 158, 255, 0.15) 100%);
+}
+.tax-tier-label {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.tax-tier-label h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+}
+.tax-jp {
+  color: #666;
+  font-size: 0.8rem;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+.tax-tier-count,
+.tax-subtier-count {
+  color: #555;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.tax-tier-count-warn {
+  color: rgb(200, 175, 100);
+}
+.tax-tier-desc {
+  color: #888;
+  font-size: 0.9rem;
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+  max-width: 600px;
+}
+
+/* ── Sub-tier Band ── */
+.tax-subtier-band {
+  display: grid;
+  gap: 1px;
+  background: #1a1a1a;
+  border: 1px solid #1a1a1a;
+}
+/* Guard band: horizontal scroll on small screens */
+.tax-guard-band {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+@media (max-width: 768px) {
+  .tax-guard-band {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Sub-tier (collapsible details) ── */
+.tax-subtier {
+  background: #0e0e0e;
+  padding: 1rem 1.25rem;
+}
+.tax-subtier-header {
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  list-style: none;
+  user-select: none;
+}
+.tax-subtier-header::-webkit-details-marker {
+  display: none;
+}
+.tax-subtier-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #ddd;
+  transition: color 120ms ease-out;
+}
+.tax-subtier[open] .tax-subtier-header h3 {
+  color: #fff;
+}
+.tax-subtier-header::before {
+  content: "\25B8";
+  color: #555;
+  font-size: 0.7rem;
+  transition: transform 200ms ease-out;
+}
+.tax-subtier[open] > .tax-subtier-header::before {
+  transform: rotate(90deg);
+}
+.tax-subtier-desc {
+  color: #666;
+  font-size: 0.825rem;
+  margin: 0.5rem 0 0.75rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid #222;
+}
+
+/* ── Article List ── */
+.tax-article-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+.tax-article-item {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+.tax-article-item:last-child {
+  border-bottom: none;
+}
+.tax-article-item > a {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  color: #c0c0c0;
+  transition: color 120ms ease-out;
+}
+.tax-article-item > a:hover {
+  color: #fff;
+}
+.tax-article-title {
+  font-weight: 500;
+}
+.tax-article-summary {
+  display: block;
+  color: #555;
+  font-size: 0.8rem;
+  padding-left: 0.5rem;
+  margin-top: 0.15rem;
+}
+.tax-article-cat {
+  font-size: 0.7rem;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Mechanism badge ── */
+.tax-article-mech {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #888;
+}
+.tax-mech-choke       { color: rgb(190, 100, 100); border-color: rgba(190, 100, 100, 0.25); }
+.tax-mech-lock        { color: rgb(210, 140, 110); border-color: rgba(210, 140, 110, 0.25); }
+.tax-mech-entanglement { color: rgb(200, 175, 100); border-color: rgba(200, 175, 100, 0.25); }
+.tax-mech-compression { color: rgb(100, 180, 175); border-color: rgba(100, 180, 175, 0.25); }
+.tax-mech-throw       { color: #4a9eff; border-color: rgba(74, 158, 255, 0.25); }
+.tax-mech-reap        { color: #4a9eff; border-color: rgba(74, 158, 255, 0.25); }
+.tax-mech-sweep       { color: rgb(120, 210, 190); border-color: rgba(120, 210, 190, 0.25); }
+.tax-mech-pass        { color: rgb(120, 210, 190); border-color: rgba(120, 210, 190, 0.25); }
+.tax-mech-pin         { color: rgb(160, 140, 220); border-color: rgba(160, 140, 220, 0.25); }
+.tax-mech-concept     { color: rgb(200, 195, 150); border-color: rgba(200, 195, 150, 0.25); }
+.tax-mech-hook        { color: #4a9eff; border-color: rgba(74, 158, 255, 0.25); }
+.tax-mech-drop        { color: #4a9eff; border-color: rgba(74, 158, 255, 0.25); }
+.tax-mech-wheel       { color: #4a9eff; border-color: rgba(74, 158, 255, 0.25); }
+
+/* ── Target badge ── */
+.tax-article-target {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #666;
+}
+
+/* ── Incomplete dot ── */
+.tax-incomplete {
+  color: rgb(200, 175, 100);
+  font-size: 0.55rem;
+  vertical-align: super;
+}
+
+/* ── Force-vector dot (submissions) ── */
+.tax-fv-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+/* ── Empty state ── */
+.tax-empty {
+  color: #444;
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+.tax-empty a {
+  color: #4a9eff;
+}
+
+/* ── Submission grid ── */
+.tax-submission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1px;
+  background: #1a1a1a;
+  border: 1px solid #1a1a1a;
+}
+.tax-submission-grid .tax-subtier {
+  background: #0e0e0e;
+}
+
+/* ── Reference Library grid ── */
+.tax-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1px;
+  background: #1a1a1a;
+  border: 1px solid #1a1a1a;
+}
+.tax-ref-card {
+  background: #0e0e0e;
+  padding: 1rem 1.25rem;
+}
+.tax-ref-header {
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  list-style: none;
+}
+.tax-ref-header::-webkit-details-marker { display: none; }
+.tax-ref-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #ccc;
+}
+.tax-ref-header::before {
+  content: "\25B8";
+  color: #555;
+  font-size: 0.7rem;
+  transition: transform 200ms ease-out;
+}
+.tax-ref-card[open] > .tax-ref-header::before {
+  transform: rotate(90deg);
+}
+
+/* ── Unclassified ── */
+.tax-unclassified {
+  border: 1px solid rgba(200, 175, 100, 0.15);
+  padding: 1.25rem;
+  background: rgba(200, 175, 100, 0.03);
+}
+.tax-article-unclassified > a {
+  color: #999;
+}
+
+/* ── Stats Footer ── */
+.tax-stats {
+  display: flex;
+  gap: 2.5rem;
+  margin: 3rem 0 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #1a1a1a;
+}
+.tax-stat-num {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  display: block;
+}
+.tax-stat-label {
+  color: #666;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ── CTA ── */
+.tax-cta {
+  margin-top: 1.5rem;
   margin-bottom: 2rem;
 }
 
-.category-card {
-  background-color: #111111;
-  border: 1px solid #1a1a1a;
-  border-radius: 0;
-  transition: border-color 120ms ease-out, box-shadow 120ms ease-out, transform 120ms ease-out;
+/* ── Scroll-triggered reveals (respects prefers-reduced-motion) ── */
+@media (prefers-reduced-motion: no-preference) {
+  .tax-tier {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 400ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .tax-tier.tax-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.category-card:hover {
-  border-color: #c0c0c0;
-  box-shadow: 0 4px 12px rgba(192, 192, 192, 0.06);
-  transform: translateY(-3px);
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .tax-page { padding: 1rem; }
+  .tax-header h1 { font-size: 1.75rem; }
+  .tax-tier-label h2 { font-size: 1.25rem; }
+  .tax-submission-grid,
+  .tax-ref-grid { grid-template-columns: 1fr; }
+  .tax-stats { flex-direction: column; gap: 1rem; }
 }
 
-.category-card:active {
-  transform: translateY(0) scale(0.985);
-  transition-duration: 60ms;
-}
-
-.category-card-header {
-  padding: 1.5rem;
-  border-bottom: 1px solid #1a1a1a;
-}
-
-.category-card-title {
-  margin: 0;
-  font-size: 1.25rem;
-  color: #ffffff;
-}
-
-.category-card-count {
-  color: #a0a0a0;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-}
-
-.category-card-description {
-  color: #a0a0a0;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #1a1a1a;
-}
-
-.category-card-footer {
-  padding: 1rem 1.5rem;
-  background-color: transparent;
-}
-
-.category-card-link {
-  color: #c0c0c0;
-  text-decoration: none;
-  font-size: 0.9rem;
-  transition: color 0.2s ease;
-}
-
-.category-card-link:hover {
-  color: #ffffff;
-}
-
+/* ── Keep old class names around so single-category page doesn't break ── */
+.categories-container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+.page-header { margin-bottom: 1rem; }
+.page-header h1 { margin-top: 0; }
+.page-subtitle { color: #a0a0a0; font-size: 1.1rem; margin-bottom: 2rem; }
 .categories-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));

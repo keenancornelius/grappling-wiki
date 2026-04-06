@@ -64,7 +64,10 @@ def view(slug):
     graph_articles = [
         {'id': a.id, 'title': a.title, 'slug': a.slug,
          'summary': a.summary or '', 'category': a.category or '',
-         'tags': [t.name for t in a.tags]}
+         'tags': [t.name for t in a.tags],
+         'mechanism': a.mechanism or '', 'target': a.target or '',
+         'spatial': a.spatial_qualifier or '',
+         'graphTier': a.graph_tier or ''}
         for a in all_articles
     ]
 
@@ -369,6 +372,13 @@ def create():
         # Sanitize slug
         slug = secure_filename(slug).lower().replace('_', '-')
 
+        # Read taxonomy fields (optional — flagged if missing on graph categories)
+        mechanism = request.form.get('mechanism', '').strip() or None
+        target = request.form.get('target', '').strip() or None
+        spatial_qualifier = request.form.get('spatial_qualifier', '').strip() or None
+        graph_tier_list = request.form.getlist('graph_tier')
+        graph_tier = ','.join(t.strip() for t in graph_tier_list if t.strip()) or None
+
         # Create article
         new_article = Article(
             title=title,
@@ -377,8 +387,13 @@ def create():
             summary=summary,
             author_id=current_user.id,
             category=category,
-            is_published=True
+            is_published=True,
+            mechanism=mechanism,
+            target=target,
+            spatial_qualifier=spatial_qualifier,
+            graph_tier=graph_tier,
         )
+        new_article.compute_taxonomy_complete()
         db.session.add(new_article)
 
         try:

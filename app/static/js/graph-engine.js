@@ -427,7 +427,17 @@ var GWGraph = (function() {
 
     // Article nodes
     filtered.forEach(function(a) {
+      // Connection sources, in priority order:
+      //   1. Hardcoded ARTICLE_CONNECTIONS (hand-tuned placements)
+      //   2. DB taxonomy: article.graphTier (set when article is created)
+      //   3. Fallback: random outer orbit
       var connections = ARTICLE_CONNECTIONS[a.slug];
+
+      // If no hardcoded connection, derive from taxonomy graphTier field
+      if (!connections && a.graphTier) {
+        connections = a.graphTier.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+      }
+
       var cx = 0, cy = 0, cz = 0, count = 0;
       if (connections && connections.length > 0) {
         connections.forEach(function(sid) {
@@ -453,7 +463,16 @@ var GWGraph = (function() {
       var nodeColor = C[cat] || C.glossary;
 
       // Override color for submissions: use force vector type
+      // Priority: hardcoded FORCE_VECTORS → taxonomy mechanism → category color
       var fv = FORCE_VECTORS[a.slug];
+      if (!fv && a.mechanism) {
+        // Map taxonomy mechanism to force vector key
+        var mechToFv = {
+          'choke': 'arterial', 'lock': 'extension',
+          'entanglement': 'torsion', 'compression': 'compression'
+        };
+        fv = mechToFv[a.mechanism] || null;
+      }
       if (fv) {
         nodeColor = C['fv_' + fv] || nodeColor;
       }

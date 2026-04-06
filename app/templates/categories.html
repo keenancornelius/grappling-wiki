@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Categories - GrapplingWiki{% endblock %}
-{% block meta_description %}Browse all categories on GrapplingWiki and explore articles by topic.{% endblock %}
+{% block title %}Categories — GrapplingWiki{% endblock %}
+{% block meta_description %}Browse grappling techniques, positions, and concepts organized by the positional hierarchy — from standing to submissions.{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
@@ -9,80 +9,282 @@
     "@context": "https://schema.org",
     "@type": "CollectionPage",
     "name": "Categories",
-    "description": "Browse all categories on GrapplingWiki",
-    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('main.categories') }}"
+    "description": "Browse grappling techniques and positions organized by positional hierarchy",
+    "url": "{{ config.SITE_URL | default('http://localhost:5000', true) }}{{ url_for('main.categories') }}",
+    "breadcrumb": {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Home", "item": "{{ config.SITE_URL | default('http://localhost:5000', true) }}/" },
+            { "@type": "ListItem", "position": 2, "name": "Categories" }
+        ]
+    }
 }
 </script>
 {% endblock %}
 
 {% block content %}
-<div class="categories-container">
-    <!-- Page Header -->
-    <div class="page-header">
-        <h1>Categories</h1>
-        <p class="page-subtitle">Browse all topics and categories</p>
-    </div>
+<div class="tax-page">
 
-    <!-- Categories Grid -->
-    <div class="categories-grid">
-        {% if tag_data %}
-            {% for item in tag_data %}
-            <article class="category-card">
-                <header class="category-card-header">
-                    <h2 class="category-card-title">
-                        <a href="{{ url_for('main.category', name=item.tag.slug) }}">
-                            {{ item.tag.name | e }}
-                        </a>
-                    </h2>
-                    <div class="category-card-count">
-                        <span class="count">{{ item.count }}</span>
-                        <span class="label">article{{ 's' if item.count != 1 else '' }}</span>
-                    </div>
-                </header>
-
-                {% if item.tag.description %}
-                <p class="category-card-description">{{ item.tag.description | e }}</p>
-                {% endif %}
-
-                <div class="category-card-footer">
-                    <a href="{{ url_for('main.category', name=item.tag.slug) }}" class="category-card-link">
-                        View all articles &rarr;
-                    </a>
-                </div>
-            </article>
-            {% endfor %}
-        {% else %}
-        <div class="empty-state" style="grid-column: 1 / -1;">
-            <p>No categories available yet.</p>
+    {# ── Page Header ── #}
+    <header class="tax-header">
+        <h1>The Positional Tree</h1>
+        <p class="tax-subtitle">
+            Every grappling position and technique, organized by how the art actually flows —
+            from standing to submission. English names derived from the Japanese naming tradition.
+        </p>
+        {% if taxonomy_gap > 0 %}
+        <div class="tax-flag-banner">
+            <span class="tax-flag-icon">&#9888;</span>
+            {{ taxonomy_gap }} article{{ 's' if taxonomy_gap != 1 else '' }} still need{{ '' if taxonomy_gap != 1 else 's' }} taxonomy classification.
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('main.search') }}?q=">Help classify them &rarr;</a>
+            {% endif %}
         </div>
         {% endif %}
-    </div>
+    </header>
 
-    <!-- Statistics -->
-    <section class="categories-stats">
-        <div class="stat">
-            <div class="stat-number">{{ total_categories | default(0) }}</div>
-            <div class="stat-label">Total Categories</div>
+    {# ── Positional Hierarchy ── #}
+    {% for tier in tier_tree %}
+    <section class="tax-tier" id="tier-{{ tier.id }}">
+
+        {# Tier Header #}
+        <div class="tax-tier-header">
+            <div class="tax-tier-flow-line"></div>
+            <div class="tax-tier-label">
+                <h2>{{ tier.label }}</h2>
+                <span class="tax-jp">{{ tier.japanese }}</span>
+                <span class="tax-tier-count">{{ tier.count }} article{{ 's' if tier.count != 1 else '' }}</span>
+            </div>
+            <p class="tax-tier-desc">{{ tier.description }}</p>
         </div>
-        <div class="stat">
-            <div class="stat-number">{{ total_articles | default(0) }}</div>
-            <div class="stat-label">Articles Across All Categories</div>
+
+        {% if tier.subcategories %}
+        {# ── Sub-tiers (e.g. Guards: close → mid → far) ── #}
+        <div class="tax-subtier-band{% if tier.id == 'guards' %} tax-guard-band{% endif %}">
+            {% for sub in tier.subcategories %}
+            <details class="tax-subtier" {% if sub.count > 0 %}open{% endif %}>
+                <summary class="tax-subtier-header">
+                    <h3>{{ sub.label }}</h3>
+                    <span class="tax-jp">{{ sub.japanese }}</span>
+                    <span class="tax-subtier-count">{{ sub.count }}</span>
+                </summary>
+                {% if sub.description %}
+                <p class="tax-subtier-desc">{{ sub.description }}</p>
+                {% endif %}
+                {% if sub.articles %}
+                <ul class="tax-article-list">
+                    {% for a in sub.articles %}
+                    <li class="tax-article-item">
+                        <a href="{{ url_for('wiki.view', slug=a.slug) }}">
+                            <span class="tax-article-title">{{ a.title }}</span>
+                            {% if a.mechanism %}
+                            <span class="tax-article-mech tax-mech-{{ a.mechanism }}">{{ a.mechanism }}</span>
+                            {% endif %}
+                            {% if not a.taxonomy_complete %}
+                            <span class="tax-incomplete" title="Needs taxonomy">&#9679;</span>
+                            {% endif %}
+                        </a>
+                        {% if a.summary %}
+                        <span class="tax-article-summary">{{ a.summary[:80] }}{% if a.summary|length > 80 %}&hellip;{% endif %}</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="tax-empty">No articles yet.
+                    {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('wiki.create') }}">Write one &rarr;</a>
+                    {% endif %}
+                </p>
+                {% endif %}
+            </details>
+            {% endfor %}
         </div>
-        <div class="stat">
-            <div class="stat-number">{{ avg_articles | default(0) }}</div>
-            <div class="stat-label">Average Articles per Category</div>
+
+        {% else %}
+        {# ── Single tier (Standing) ── #}
+        {% if tier.articles %}
+        <ul class="tax-article-list">
+            {% for a in tier.articles %}
+            <li class="tax-article-item">
+                <a href="{{ url_for('wiki.view', slug=a.slug) }}">
+                    <span class="tax-article-title">{{ a.title }}</span>
+                    {% if a.mechanism %}
+                    <span class="tax-article-mech tax-mech-{{ a.mechanism }}">{{ a.mechanism }}</span>
+                    {% endif %}
+                    {% if not a.taxonomy_complete %}
+                    <span class="tax-incomplete" title="Needs taxonomy">&#9679;</span>
+                    {% endif %}
+                </a>
+                {% if a.summary %}
+                <span class="tax-article-summary">{{ a.summary[:80] }}{% if a.summary|length > 80 %}&hellip;{% endif %}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="tax-empty">No articles yet.
+            {% if current_user.is_authenticated %}
+            <a href="{{ url_for('wiki.create') }}">Write one &rarr;</a>
+            {% endif %}
+        </p>
+        {% endif %}
+        {% endif %}
+
+    </section>
+    {% endfor %}
+
+    {# ── Submissions: grouped by force vector ── #}
+    <section class="tax-tier tax-tier-submissions" id="tier-submissions">
+        <div class="tax-tier-header">
+            <div class="tax-tier-flow-line"></div>
+            <div class="tax-tier-label">
+                <h2>Submissions</h2>
+                <span class="tax-jp">Kimari-waza</span>
+                <span class="tax-tier-count">{{ submission_total }} article{{ 's' if submission_total != 1 else '' }}</span>
+            </div>
+            <p class="tax-tier-desc">Terminal endpoints — how fights end. Grouped by how they finish.</p>
+        </div>
+
+        <div class="tax-submission-grid">
+            {% for group in submission_groups %}
+            <details class="tax-subtier tax-sub-{{ group.id }}" {% if group.count > 0 %}open{% endif %}>
+                <summary class="tax-subtier-header">
+                    <span class="tax-fv-dot" style="background:{{ group.color }}"></span>
+                    <h3>{{ group.label }}</h3>
+                    <span class="tax-jp">{{ group.japanese }}</span>
+                    <span class="tax-subtier-count">{{ group.count }}</span>
+                </summary>
+                <p class="tax-subtier-desc">{{ group.description }}</p>
+                {% if group.articles %}
+                <ul class="tax-article-list">
+                    {% for a in group.articles %}
+                    <li class="tax-article-item">
+                        <a href="{{ url_for('wiki.view', slug=a.slug) }}">
+                            <span class="tax-article-title">{{ a.title }}</span>
+                            {% if a.target %}
+                            <span class="tax-article-target">{{ a.target }}</span>
+                            {% endif %}
+                        </a>
+                        {% if a.summary %}
+                        <span class="tax-article-summary">{{ a.summary[:80] }}{% if a.summary|length > 80 %}&hellip;{% endif %}</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="tax-empty">No articles yet.</p>
+                {% endif %}
+            </details>
+            {% endfor %}
         </div>
     </section>
 
-    <!-- How to Contribute -->
-    <section class="contribute-section">
-        <h2>Missing a Category?</h2>
-        <p>If you think a category is missing, you can suggest one or create articles that define new categories.</p>
+    {# ── Concepts ── #}
+    {% if concept_articles %}
+    <section class="tax-tier" id="tier-concepts">
+        <div class="tax-tier-header">
+            <div class="tax-tier-label">
+                <h2>Concepts</h2>
+                <span class="tax-jp">Rinen</span>
+                <span class="tax-tier-count">{{ concept_articles|length }}</span>
+            </div>
+            <p class="tax-tier-desc">Principles, strategies, and mental models that cut across positions.</p>
+        </div>
+        <ul class="tax-article-list tax-concept-list">
+            {% for a in concept_articles %}
+            <li class="tax-article-item">
+                <a href="{{ url_for('wiki.view', slug=a.slug) }}">
+                    <span class="tax-article-title">{{ a.title }}</span>
+                </a>
+                {% if a.summary %}
+                <span class="tax-article-summary">{{ a.summary[:100] }}{% if a.summary|length > 100 %}&hellip;{% endif %}</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    {# ── Reference Library (non-graph: People, Competitions, Styles, Glossary) ── #}
+    <section class="tax-tier tax-reference" id="tier-reference">
+        <div class="tax-tier-header">
+            <div class="tax-tier-label">
+                <h2>Reference Library</h2>
+                <span class="tax-jp">Shiryō</span>
+            </div>
+            <p class="tax-tier-desc">People, competitions, styles, and terminology.</p>
+        </div>
+        <div class="tax-ref-grid">
+            {% for key, group in reference_groups.items() %}
+            <details class="tax-ref-card" {% if group.count > 0 %}open{% endif %}>
+                <summary class="tax-ref-header">
+                    <h3>{{ group.label }}</h3>
+                    <span class="tax-jp">{{ group.japanese }}</span>
+                    <span class="tax-subtier-count">{{ group.count }}</span>
+                </summary>
+                {% if group.articles %}
+                <ul class="tax-article-list">
+                    {% for a in group.articles %}
+                    <li class="tax-article-item">
+                        <a href="{{ url_for('wiki.view', slug=a.slug) }}">{{ a.title }}</a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="tax-empty">No articles yet.</p>
+                {% endif %}
+            </details>
+            {% endfor %}
+        </div>
+    </section>
+
+    {# ── Unclassified: articles needing taxonomy ── #}
+    {% if unclassified %}
+    <section class="tax-tier tax-unclassified" id="tier-unclassified">
+        <div class="tax-tier-header">
+            <div class="tax-tier-label">
+                <h2>Needs Classification</h2>
+                <span class="tax-tier-count tax-tier-count-warn">{{ unclassified|length }}</span>
+            </div>
+            <p class="tax-tier-desc">
+                These technique/position/concept articles are missing taxonomy metadata and don't appear
+                in the tree above. Add a mechanism and graph tier to place them.
+            </p>
+        </div>
+        <ul class="tax-article-list">
+            {% for a in unclassified %}
+            <li class="tax-article-item tax-article-unclassified">
+                <a href="{{ url_for('wiki.view', slug=a.slug) }}">
+                    <span class="tax-article-title">{{ a.title }}</span>
+                    <span class="tax-article-cat">{{ a.category }}</span>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    {# ── Stats Footer ── #}
+    <footer class="tax-stats">
+        <div class="tax-stat">
+            <span class="tax-stat-num">{{ total_articles }}</span>
+            <span class="tax-stat-label">Total Articles</span>
+        </div>
+        <div class="tax-stat">
+            <span class="tax-stat-num">{{ taxonomy_gap }}</span>
+            <span class="tax-stat-label">Need Classification</span>
+        </div>
+    </footer>
+
+    {# ── CTA ── #}
+    <section class="tax-cta">
         {% if current_user.is_authenticated %}
         <a href="{{ url_for('wiki.create') }}" class="button button-primary">Create an Article</a>
         {% else %}
         <a href="{{ url_for('auth.register') }}" class="button button-primary">Sign Up to Contribute</a>
         {% endif %}
     </section>
+
 </div>
 {% endblock %}

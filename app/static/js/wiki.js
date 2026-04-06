@@ -834,6 +834,13 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
+// Init taxonomy scroll reveals on categories page
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof GWWiki !== 'undefined' && GWWiki.initTaxonomyReveals) {
+    GWWiki.initTaxonomyReveals();
+  }
+});
+
 // ============================================================
 // Form Validation Helpers
 // ============================================================
@@ -921,5 +928,37 @@ const WikiUtils = {
       month: 'long',
       day: 'numeric'
     });
+  },
+
+  /**
+   * Taxonomy page: staggered scroll-reveal for tier sections.
+   * Only activates when .tax-page is present and user allows motion.
+   */
+  initTaxonomyReveals: function() {
+    if (!document.querySelector('.tax-page')) return;
+    var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var tiers = document.querySelectorAll('.tax-tier');
+    if (prefersReduced) {
+      tiers.forEach(function(t) { t.classList.add('tax-visible'); });
+      return;
+    }
+    if (!('IntersectionObserver' in window)) {
+      tiers.forEach(function(t) { t.classList.add('tax-visible'); });
+      return;
+    }
+    var stagger = 0;
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          var delay = stagger * 60;
+          stagger++;
+          setTimeout(function() {
+            entry.target.classList.add('tax-visible');
+          }, delay);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    tiers.forEach(function(t) { observer.observe(t); });
   }
 };

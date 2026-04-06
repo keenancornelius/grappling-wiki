@@ -66,78 +66,66 @@ var GWGraph = (function() {
   var EXCLUDED_CATEGORIES = ['person', 'competition', 'style'];
 
   // ══════════════════════════════════════════════════════════
-  // ── INVERSE TREE: OPTION COMPRESSION MODEL ──
+  // ── CONCENTRIC SPHERE MODEL (Inside-Out Option Expansion) ──
   // ══════════════════════════════════════════════════════════
   //
-  // THREE SEMANTIC AXES:
+  // The graph is organized as concentric spheres radiating outward:
   //
-  //   X axis = Guard leg reconnection spectrum
-  //            LEFT  = most closed (legs locked around opponent)
-  //            RIGHT = most open (feet on opponent, connected only by grips)
-  //            → wraps back to standing at far right
-  //            Spectrum: Closed Guard → Half → Deep Half → Knee Shield →
-  //            SLX/Ashi (leg locks) → Lasso → DLR → Spider → Sit-up → Standing
+  //   INNERMOST  = Standing (core — maximum optionality, everything starts here)
+  //   SHELL 1    = Takedowns (first actions from standing)
+  //   SHELL 2    = Guards + Front Headlock (where the fight goes to ground)
+  //   SHELL 3    = Dominant Positions (passed guard / control achieved)
+  //   OUTERMOST  = Submissions (terminal endpoints — the fight ends here)
   //
-  //   Y axis = Optionality / causal chain progression
-  //            TOP    = max options (standing)
-  //            BOTTOM = end states (submissions / tap)
-  //            Guards sit ABOVE dominant positions (you must pass guard
-  //            to reach side control/mount — passing is a step DOWN the chain)
+  // Angular position on each sphere encodes:
+  //   theta (horizontal) = guard distance spectrum (close→far) / logical grouping
+  //   phi (vertical)     = spread within tier
   //
-  //   Z axis = Offense / defense spectrum
-  //            POSITIVE Z = offensive perspective (attacks, passes, submissions)
-  //            NEGATIVE Z = defensive perspective (frames, retention, escapes)
-  //            ZERO       = neutral / symmetrical (standing, 50/50)
+  // System nodes are INVISIBLE structural anchors — they define where
+  // article nodes cluster on each sphere but are not drawn.
   //
-  // Sweeps = polarity flips (edges between guard and dominant position).
-  // Passes = distance compressions (edges from guard → past guard).
+  // Sweeps = polarity flips (edges between guard shell and dominant shell).
+  // Passes = distance compressions (edges from guard shell → dominant shell).
   // ──────────────────────────────────────────────────────────
 
+  // Tier → sphere radius. Inside-out: standing smallest, submissions largest.
+  var TIER_RADII = { 0: 60, 1: 140, 2: 230, 3: 310, sub: 400 };
+
+  // Convert spherical coordinates to Cartesian
+  // theta = horizontal angle (longitude), phi = polar angle from top (0=north pole)
+  function spherePos(R, theta, phi) {
+    return {
+      x: R * Math.sin(phi) * Math.cos(theta),
+      y: -R * Math.cos(phi),
+      z: R * Math.sin(phi) * Math.sin(theta)
+    };
+  }
+
   var SYSTEM_NODES = [
-    // ── Tier 0: Standing — max optionality, top of tree ──
-    // X far right: standing is the "most open" state (no guard at all)
-    // Z=0: neutral
-    { id: 'sys_standing', label: 'Standing\nNeutral', tier: 0, x: 200, y: -340, z: 0 },
+    // ── Tier 0: Standing — innermost core ──
+    // Small sphere, near north pole so it sits visually at center-top
+    { id: 'sys_standing', label: 'Standing\nNeutral', tier: 0, theta: 0, phi: 1.2 },
 
-    // ── Tier 1: Takedown types ──
-    // Z positive: takedowns are offensive actions
-    { id: 'sys_upper_td', label: 'Upper Body\nTakedowns', tier: 1, x: 100,  y: -200, z: 50 },
-    { id: 'sys_lower_td', label: 'Lower Body\nTakedowns', tier: 1, x: 300,  y: -200, z: 50 },
+    // ── Tier 1: Takedowns — second shell ──
+    { id: 'sys_upper_td', label: 'Upper Body\nTakedowns', tier: 1, theta: -0.9, phi: 1.0 },
+    { id: 'sys_lower_td', label: 'Lower Body\nTakedowns', tier: 1, theta:  0.9, phi: 1.0 },
 
-    // ── Tier 2: Guards — ordered by leg reconnection on X axis ──
-    // LEFT = most closed (legs fully locked) → RIGHT = most open
-    // Z negative: guards are defensive (bottom player maintaining space)
+    // ── Tier 2: Guards + Front Headlock — third shell ──
+    // Theta spread encodes guard distance: close (left) → far (right)
+    { id: 'sys_close_guard',    label: 'Close Distance\nGuards', tier: 2, theta: -2.2, phi: 1.57 },
+    { id: 'sys_mid_guard',      label: 'Mid Distance\nGuards',   tier: 2, theta: -1.1, phi: 1.57 },
+    { id: 'sys_leg_entangle',   label: 'Leg\nEntanglements',     tier: 2, theta: -0.1, phi: 1.4 },
+    { id: 'sys_far_guard',      label: 'Far Distance\nGuards',   tier: 2, theta:  0.9, phi: 1.57 },
+    { id: 'sys_front_headlock', label: 'Front\nHeadlock',        tier: 2, theta:  2.0, phi: 1.57 },
 
-    // Closed guards: legs fully reconnect around the opponent
-    { id: 'sys_close_guard', label: 'Close Distance\nGuards', tier: 2, x: -420, y: -40, z: -20 },
+    // ── Tier 3: Dominant Positions — fourth shell ──
+    { id: 'sys_side_control', label: 'Side\nControl',  tier: 3, theta: -1.5, phi: 1.8 },
+    { id: 'sys_mount',        label: 'Mount',          tier: 3, theta: -0.4, phi: 1.8 },
+    { id: 'sys_kob',          label: 'Knee on\nBelly', tier: 3, theta:  0.6, phi: 1.8 },
+    { id: 'sys_back_control', label: 'Back\nControl',  tier: 3, theta:  1.5, phi: 1.8 },
 
-    // Mid guards: partial leg entanglement (half guard, deep half, knee shield)
-    { id: 'sys_mid_guard',   label: 'Mid Distance\nGuards',   tier: 2, x: -260, y: -10, z: -30 },
-
-    // Leg entanglements: legs control opponent's leg (the leg lock game)
-    // Z near zero: symmetrical — both players can attack (esp. 50/50)
-    { id: 'sys_leg_entangle', label: 'Leg\nEntanglements', tier: 2, x: -100, y: 10, z: 5 },
-
-    // Far/open guards: feet on opponent, connected by grips (DLR, spider, lasso)
-    // Closest to standing on the X spectrum
-    { id: 'sys_far_guard',   label: 'Far Distance\nGuards',   tier: 2, x: 60,  y: -30, z: -40 },
-
-    // Front headlock: face-to-back control from sprawls/snap-downs.
-    // OPPOSITE of close guard on X axis (mirrored), offensive Z.
-    // Gateway to guillotines, darces, anacondas.
-    { id: 'sys_front_headlock', label: 'Front\nHeadlock', tier: 2, x: 420, y: -40, z: 30 },
-
-    // ── Tier 3: Passed / dominant positions — BELOW guards on Y ──
-    // Passing guard is a step down the causal chain (fewer options for bottom)
-    // Z positive: dominant positions are offensive (top player controls)
-    { id: 'sys_side_control', label: 'Side\nControl',  tier: 3, x: -300, y: 140, z: 40 },
-    { id: 'sys_mount',        label: 'Mount',          tier: 3, x: -120, y: 170, z: 55 },
-    { id: 'sys_kob',          label: 'Knee on\nBelly', tier: 3, x: 60,   y: 130, z: 45 },
-    { id: 'sys_back_control', label: 'Back\nControl',  tier: 3, x: 240,  y: 160, z: 65 },
-
-    // Submissions are NOT system nodes — they are green article nodes
-    // that connect to the positions they're available from. Lightning
-    // travels to individual submission articles as endpoints.
+    // Submissions orbit on the outermost shell (TIER_RADII.sub).
+    // They are article nodes, not system nodes.
   ];
 
   var SYSTEM_EDGES = [
@@ -425,18 +413,20 @@ var GWGraph = (function() {
     var nodes = [], edges = [], nodeMap = {};
     var scale = opts.mode === 'article' ? 0.6 : 1;
 
-    // System nodes — explicit tree coordinates scaled by mode
+    // System nodes — INVISIBLE structural anchors on concentric spheres.
+    // Positions computed from spherical coordinates (tier → radius, theta/phi → angle).
+    // These are not drawn but serve as gravity centers for article node placement.
     SYSTEM_NODES.forEach(function(sn) {
+      var R = (TIER_RADII[sn.tier] || 200) * scale;
+      var pos = spherePos(R, sn.theta, sn.phi);
       var node = {
         id: sn.id, label: sn.label,
-        x: sn.x * scale,
-        y: sn.y * scale,
-        z: sn.z * scale,
-        radius: sn.tier === 0 ? 9 * scale : 6 * scale,
+        x: pos.x, y: pos.y, z: pos.z,
+        radius: 0,       // invisible — no drawn dot
         color: C.system, type: 'system',
         slug: null, summary: null, category: null,
         tier: sn.tier, pulse: Math.random() * Math.PI * 2,
-        dimmed: false,
+        dimmed: false, hidden: true,  // flag: skip during rendering
       };
       nodes.push(node); nodeMap[sn.id] = node;
     });
@@ -447,97 +437,112 @@ var GWGraph = (function() {
       return EXCLUDED_CATEGORIES.indexOf(cat) === -1;
     });
 
-    // Article nodes
-    filtered.forEach(function(a) {
-      // Connection sources, in priority order:
-      //   1. Hardcoded ARTICLE_CONNECTIONS (hand-tuned placements)
-      //   2. DB taxonomy: article.graphTier (set when article is created)
-      //   3. Fallback: random outer orbit
-      var connections = ARTICLE_CONNECTIONS[a.slug];
+    // ── Article nodes on concentric spheres ──
+    // Each article is placed on the sphere corresponding to its tier.
+    // Submissions always go to the outermost sphere (TIER_RADII.sub).
+    // Angular position is driven by:
+    //   1. Parent system node(s) — gives a base direction on the sphere
+    //   2. spatial_qualifier — shifts theta (inner→left, outer→right, etc.)
+    //   3. target body part — shifts phi for sub-clustering within a region
 
-      // If no hardcoded connection, derive from taxonomy graphTier field
+    // Spatial qualifier → angular offsets on the sphere
+    var SPATIAL_THETA = {
+      'inner': -0.3, 'outer': 0.3, 'cross': 0.15, 'major': -0.2,
+      'minor': 0.2, 'forward': 0, 'rear': 0, 'side': 0.25, 'triangle': -0.15,
+    };
+    var SPATIAL_PHI = {
+      'forward': -0.2, 'rear': 0.2, 'cross': 0.1, 'triangle': -0.1,
+    };
+
+    // Target body part → phi offset for sub-clustering
+    var TARGET_PHI = {
+      'neck': -0.25, 'shoulder': -0.15, 'arm': -0.05,
+      'wrist': 0.05, 'body': 0.12, 'hip': 0.18,
+      'leg': 0.25, 'knee': 0.3, 'ankle': 0.35,
+    };
+
+    filtered.forEach(function(a) {
+      var connections = ARTICLE_CONNECTIONS[a.slug];
       if (!connections && a.graphTier) {
         connections = a.graphTier.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
       }
 
-      var cx = 0, cy = 0, cz = 0, count = 0;
-      if (connections && connections.length > 0) {
-        connections.forEach(function(sid) {
-          var sn = nodeMap[sid];
-          if (sn) { cx += sn.x; cy += sn.y; cz += sn.z; count++; }
-        });
-        if (count > 0) { cx /= count; cy /= count; cz /= count; }
-      } else {
-        var ang = Math.random() * Math.PI * 2;
-        var elev = (Math.random() - 0.5) * 0.8;
-        var outerR = 500 * scale;
-        cx = Math.cos(ang) * outerR; cy = elev * outerR * 0.5; cz = Math.sin(ang) * outerR;
-      }
-      // ── Spatial + Target driven node arrangement ──
-      // Instead of random jitter, use taxonomy fields to deterministically
-      // position nodes within their tier cluster.
-      //
-      //   spatial_qualifier → X/Z offset (inner=left, outer=right, cross=spread,
-      //                       forward=front Z, rear=back Z, side=side X, etc.)
-      //   target → angular sub-clustering (arm/leg/neck/body get distinct angles)
-      //
       var spatial = (a.spatial || '').toLowerCase();
       var target  = (a.target  || '').toLowerCase();
+      var mech    = (a.mechanism || '').toLowerCase();
 
-      // Spatial qualifier → X and Z offsets
-      var SPATIAL_OFFSETS = {
-        'inner':   { dx: -45, dz:   0 },
-        'outer':   { dx:  45, dz:   0 },
-        'cross':   { dx:  30, dz:  25 },
-        'major':   { dx: -35, dz: -15 },
-        'minor':   { dx:  35, dz:  15 },
-        'forward': { dx:   0, dz: -40 },
-        'rear':    { dx:   0, dz:  40 },
-        'side':    { dx:  40, dz:  10 },
-        'triangle':{ dx: -20, dz: -30 },
-      };
-      var spatOff = SPATIAL_OFFSETS[spatial] || { dx: 0, dz: 0 };
+      // Determine if this is a submission (outermost shell)
+      var isSub = SUBMISSION_SLUGS.indexOf(a.slug) !== -1;
 
-      // Target body part → angular offset for sub-clustering
-      var TARGET_ANGLES = {
-        'neck':     0,
-        'shoulder': 0.5,
-        'arm':      1.0,
-        'wrist':    1.3,
-        'body':     2.0,
-        'hip':      2.8,
-        'leg':      3.5,
-        'knee':     4.0,
-        'ankle':    4.5,
-      };
-      // Use target angle as base, add slug hash for spread within cluster
+      // Slug hash for deterministic spread
       var slugHash = 0;
       for (var si = 0; si < a.slug.length; si++) slugHash += a.slug.charCodeAt(si);
-      var baseAngle = TARGET_ANGLES[target] !== undefined ? TARGET_ANGLES[target] : (slugHash % 628) / 100;
-      var spreadAngle = baseAngle + ((slugHash % 37) / 37) * 0.8 - 0.4;  // ±0.4 rad spread within target group
 
-      var jitterDist = (45 + (slugHash % 50)) * scale;
-      var jitterElev = ((slugHash % 31) / 31 - 0.5) * 0.5;
+      var cx, cy, cz;
 
-      cx += Math.cos(spreadAngle) * jitterDist + spatOff.dx * scale;
-      cy += Math.sin(jitterElev) * jitterDist * 0.5;
-      cz += Math.sin(spreadAngle) * jitterDist + spatOff.dz * scale;
+      if (connections && connections.length > 0) {
+        // Find the average direction of connected system nodes
+        var avgTheta = 0, avgPhi = 0, maxTier = 0, cnt = 0;
+        connections.forEach(function(sid) {
+          var sn = nodeMap[sid];
+          if (!sn) return;
+          // Recover the system node's theta/phi from SYSTEM_NODES
+          for (var si2 = 0; si2 < SYSTEM_NODES.length; si2++) {
+            if (SYSTEM_NODES[si2].id === sid) {
+              avgTheta += SYSTEM_NODES[si2].theta;
+              avgPhi += SYSTEM_NODES[si2].phi;
+              if (SYSTEM_NODES[si2].tier > maxTier) maxTier = SYSTEM_NODES[si2].tier;
+              cnt++;
+              break;
+            }
+          }
+        });
+        if (cnt > 0) { avgTheta /= cnt; avgPhi /= cnt; }
+
+        // Sphere radius: submissions go to outermost, others go to their tier's shell
+        var R;
+        if (isSub) {
+          R = TIER_RADII.sub * scale;
+        } else {
+          R = (TIER_RADII[maxTier] || 230) * scale;
+        }
+
+        // Apply spatial qualifier offsets
+        var thetaOff = SPATIAL_THETA[spatial] || 0;
+        var phiOff = SPATIAL_PHI[spatial] || 0;
+
+        // Apply target body part clustering
+        phiOff += TARGET_PHI[target] || 0;
+
+        // Per-node spread so nodes don't overlap
+        var spread = ((slugHash % 53) / 53 - 0.5) * 0.5;  // ±0.25 rad
+        var spreadPhi = ((slugHash % 37) / 37 - 0.5) * 0.3;
+
+        var finalTheta = avgTheta + thetaOff + spread;
+        var finalPhi = avgPhi + phiOff + spreadPhi;
+
+        // Clamp phi to avoid poles (0.2 to 2.9)
+        finalPhi = Math.max(0.2, Math.min(2.9, finalPhi));
+
+        var pos = spherePos(R, finalTheta, finalPhi);
+        cx = pos.x; cy = pos.y; cz = pos.z;
+      } else {
+        // No connections — scatter on outermost shell
+        var fallbackTheta = (slugHash % 628) / 100;
+        var fallbackPhi = 0.5 + ((slugHash % 200) / 200) * 2.0;
+        var fallbackR = TIER_RADII.sub * scale;
+        var pos2 = spherePos(fallbackR, fallbackTheta, fallbackPhi);
+        cx = pos2.x; cy = pos2.y; cz = pos2.z;
+      }
 
       // ── Mechanism-driven color ──
-      // Priority: 1. FORCE_VECTORS (hardcoded submission classification)
-      //           2. Mechanism taxonomy field → mech_* color
-      //           3. Category fallback
       var cat = (a.category || 'glossary').toLowerCase();
       var nodeColor = C[cat] || C.glossary;
-      var mech = (a.mechanism || '').toLowerCase();
       var fv = FORCE_VECTORS[a.slug];
 
-      // First: try mechanism-based color (covers ALL node types)
       if (mech && C['mech_' + mech]) {
         nodeColor = C['mech_' + mech];
       }
-
-      // Second: force vector override for submissions (more specific)
       if (!fv && mech) {
         var mechToFv = {
           'choke': 'arterial', 'lock': 'extension',
@@ -552,7 +557,7 @@ var GWGraph = (function() {
       var node = {
         id: 'art_' + a.slug, label: a.title,
         x: cx, y: cy, z: cz,
-        radius: 3.5 * scale,
+        radius: (isSub ? 4.5 : 3.5) * scale,
         color: nodeColor, type: 'article',
         slug: a.slug, summary: a.summary, category: a.category,
         mechanism: mech || null, target: target || null, spatial: spatial || null,
@@ -629,9 +634,8 @@ var GWGraph = (function() {
 
     focusNode.radius = 12;
     graph.nodes.forEach(function(n) {
-      if (!n.dimmed && n !== focusNode) {
-        if (n.type === 'system') n.radius = Math.max(n.radius, 7);
-        else n.radius = Math.max(n.radius, 5);
+      if (!n.dimmed && n !== focusNode && n.type !== 'system') {
+        n.radius = Math.max(n.radius, 5);
       }
     });
 
@@ -975,23 +979,35 @@ var GWGraph = (function() {
 
       ctx.clearRect(0, 0, W, H);
 
-      // ── 3D Grid (XZ plane) ──
-      var gridSize = 80, gridExtent = 600;
-      for (var gx = -gridExtent; gx <= gridExtent; gx += gridSize) {
-        var p1 = project(gx, 0, -gridExtent);
-        var p2 = project(gx, 0, gridExtent);
-        var a = (gx === 0) ? 0.1 : 0.04;
-        ctx.strokeStyle = rgba(C.grid, a);
-        ctx.lineWidth = (gx === 0) ? 1 : 0.5;
-        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
-      }
-      for (var gz = -gridExtent; gz <= gridExtent; gz += gridSize) {
-        var q1 = project(-gridExtent, 0, gz);
-        var q2 = project(gridExtent, 0, gz);
-        var ag = (gz === 0) ? 0.1 : 0.04;
-        ctx.strokeStyle = rgba(C.grid, ag);
-        ctx.lineWidth = (gz === 0) ? 1 : 0.5;
-        ctx.beginPath(); ctx.moveTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y); ctx.stroke();
+      // ── Concentric sphere wireframes ──
+      // Draw faint circle outlines for each tier's sphere to show the shell structure.
+      // We draw equatorial rings (XZ plane) and a meridian ring (XY plane) for each tier.
+      var tierKeys = [0, 1, 2, 3, 'sub'];
+      var tierAlphas = { 0: 0.08, 1: 0.06, 2: 0.06, 3: 0.06, sub: 0.04 };
+      var ringSegments = 64;
+      for (var ti = 0; ti < tierKeys.length; ti++) {
+        var tR = TIER_RADII[tierKeys[ti]] * scale;
+        var tAlpha = tierAlphas[tierKeys[ti]];
+        ctx.strokeStyle = rgba(C.grid, tAlpha);
+        ctx.lineWidth = 0.6;
+
+        // Equatorial ring (XZ plane, y=0)
+        ctx.beginPath();
+        for (var ri = 0; ri <= ringSegments; ri++) {
+          var rAngle = (ri / ringSegments) * Math.PI * 2;
+          var rp = project(Math.cos(rAngle) * tR, 0, Math.sin(rAngle) * tR);
+          if (ri === 0) ctx.moveTo(rp.x, rp.y); else ctx.lineTo(rp.x, rp.y);
+        }
+        ctx.stroke();
+
+        // Meridian ring (XY plane, z=0)
+        ctx.beginPath();
+        for (var ri2 = 0; ri2 <= ringSegments; ri2++) {
+          var rAngle2 = (ri2 / ringSegments) * Math.PI * 2;
+          var rp2 = project(Math.cos(rAngle2) * tR, Math.sin(rAngle2) * tR, 0);
+          if (ri2 === 0) ctx.moveTo(rp2.x, rp2.y); else ctx.lineTo(rp2.x, rp2.y);
+        }
+        ctx.stroke();
       }
 
       // ── Edges ──
@@ -1222,14 +1238,14 @@ var GWGraph = (function() {
 
         // Depth-based alpha
         var depthAlpha = Math.max(0.3, Math.min(1, 1 - ns.depth / 1400));
-        var nodeAlpha = node.dimmed ? 0.12 : (node.type === 'system' ? 1 : 0.9);
+        var nodeAlpha = node.dimmed ? 0.12 : 0.9;
         if (isHovered || isFocused) nodeAlpha = 1;
         nodeAlpha *= depthAlpha;
 
         var col = node.color;
 
         // Glow
-        if (!node.dimmed && (node.type === 'system' || isHovered || isFocused || opts.focusSlug)) {
+        if (!node.dimmed && (isHovered || isFocused || opts.focusSlug)) {
           var glowR = r * (isFocused ? 5 : isHovered ? 4 : 2.5) * pulseScale;
           var glow = ctx.createRadialGradient(ns.x, ns.y, r * 0.3, ns.x, ns.y, glowR);
           var glowA = isFocused ? 0.35 : (isHovered ? 0.25 : 0.1);
@@ -1248,23 +1264,22 @@ var GWGraph = (function() {
         ctx.fill(); ctx.shadowBlur = 0;
 
         // Bright core
-        if (!node.dimmed && (node.type === 'system' || isHovered || isFocused)) {
+        if (!node.dimmed && (isHovered || isFocused)) {
           var coreA = isFocused ? 0.9 : (isHovered ? 0.8 : 0.5);
           ctx.beginPath(); ctx.arc(ns.x, ns.y, drawR * 0.35, 0, Math.PI * 2);
           ctx.fillStyle = 'rgba(255,255,255,' + (coreA * depthAlpha) + ')'; ctx.fill();
         }
 
-        // Labels
-        var showLabel = !node.dimmed && (
-          node.type === 'system' || isFocused || isHovered ||
+        // Labels (system nodes are hidden — only article nodes get labels)
+        var showLabel = !node.dimmed && node.type !== 'system' && (
+          isFocused || isHovered ||
           (opts.focusSlug && !node.dimmed) ||
           (r > 3)
         );
         if (showLabel && depthAlpha > 0.35) {
-          var fs = node.type === 'system' ? Math.max(8, 10 * ns.scale) :
-                   isFocused ? Math.max(9, 11 * ns.scale) :
+          var fs = isFocused ? Math.max(9, 11 * ns.scale) :
                    Math.max(7, 8.5 * ns.scale);
-          var weight = (node.type === 'system' || isFocused) ? '600 ' : '400 ';
+          var weight = isFocused ? '600 ' : '400 ';
           ctx.font = weight + fs + 'px Inter,sans-serif';
           ctx.textAlign = 'center';
           var lines = node.label.split('\n');

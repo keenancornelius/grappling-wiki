@@ -6,7 +6,7 @@
 {% block content %}
 <div class="home-page">
 
-    <!-- ── Module: Hero ── -->
+    <!-- ── Hero ── -->
     <section class="gw-module home-hero">
         <div class="home-hero-inner">
             <span class="home-hero-badge">Open Source &middot; Community Driven</span>
@@ -14,15 +14,30 @@
             <p class="home-hero-subtitle">The definitive encyclopedia of jiu-jitsu, wrestling, judo, sambo, and every grappling art on earth.</p>
 
             <form action="{{ url_for('main.search') }}" method="get" class="home-hero-search">
-                <input type="search" name="q" class="home-hero-search-input" placeholder="Search techniques, positions, terminology..." value="{{ request.args.get('q', '') | e }}" aria-label="Search articles">
+                <input type="search" name="q" class="home-hero-search-input" placeholder="Search techniques, positions, concepts..." value="{{ request.args.get('q', '') | e }}" aria-label="Search articles">
                 <button type="submit" class="home-hero-search-btn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 </button>
             </form>
+
+            <div class="home-hero-links">
+                <a href="{{ url_for('main.random_article') }}" class="home-hero-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                    Random Article
+                </a>
+                <a href="{{ url_for('main.categories') }}" class="home-hero-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    Browse All
+                </a>
+                <a href="{{ url_for('main.recent_changes') }}" class="home-hero-pill">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Recent Changes
+                </a>
+            </div>
         </div>
     </section>
 
-    <!-- ── Module: Stats Dashboard ── -->
+    <!-- ── Stats Bar ── -->
     <section class="gw-module home-stats">
         <div class="home-stats-grid">
             <div class="stat-card">
@@ -30,24 +45,27 @@
                 <div class="stat-label">Articles</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ total_users | default(0) }}</div>
-                <div class="stat-label">Editors</div>
+                <div class="stat-number">{{ total_relationships | default(0) }}</div>
+                <div class="stat-label">Connections</div>
             </div>
             <div class="stat-card">
                 <div class="stat-number">{{ total_edits | default(0) }}</div>
                 <div class="stat-label">Revisions</div>
             </div>
             <div class="stat-card">
-                <div class="stat-number">{{ total_categories | default(0) }}</div>
-                <div class="stat-label">Categories</div>
+                <div class="stat-number">{{ total_users | default(0) }}</div>
+                <div class="stat-label">Editors</div>
             </div>
         </div>
     </section>
 
-    <!-- ── Module: Trending Edits Ticker ── -->
+    <!-- ── Activity Ticker ── -->
     {% if recent_edits %}
     <section class="gw-module home-ticker">
-        <div class="home-ticker-label">Recent Activity</div>
+        <div class="home-ticker-label">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Live
+        </div>
         <div class="home-ticker-track">
             <div class="home-ticker-scroll">
                 {% for revision, article in recent_edits %}
@@ -62,33 +80,132 @@
     </section>
     {% endif %}
 
-    <!-- ── Module: Featured Spotlight ── -->
-    <section class="gw-module home-featured">
-        <h2 class="gw-module-heading">Featured Articles</h2>
-        {% if featured_articles %}
-        <div class="home-featured-grid">
-            {% for article in featured_articles[:5] %}
-            <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="article-card {{ 'featured-primary' if loop.first else '' }}">
-                <div class="article-card-content">
-                    <div class="article-card-category">{{ article.category_name | e }}</div>
-                    <h3>{{ article.title | e }}</h3>
-                    <p class="article-card-excerpt">{{ article.summary | default('', true) | e }}</p>
-                    <div class="article-card-meta">
-                        <span class="author">By {{ article.author.username | e }}</span>
-                        <span class="date" title="{{ article.updated_at.isoformat() }}">{{ article.updated_at.strftime('%b %d, %Y') }}</span>
+    <!-- ── Two-Column: Featured + Sidebar ── -->
+    <div class="home-two-col">
+
+        <!-- Left: Featured Articles -->
+        <section class="gw-module home-featured">
+            <h2 class="gw-module-heading">Most Viewed</h2>
+            {% if featured_articles %}
+            <div class="home-featured-grid">
+                {% for article in featured_articles %}
+                <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="article-card {{ 'featured-primary' if loop.first else '' }}">
+                    <div class="article-card-content">
+                        <div class="article-card-category">{{ article.category_name | e }}</div>
+                        <h3>{{ article.title | e }}</h3>
+                        <p class="article-card-excerpt">{{ article.summary | default('', true) | truncate(140) | e }}</p>
+                        <div class="article-card-meta">
+                            <span class="views">{{ article.view_count | default(0) }} views</span>
+                            <span class="date">{{ article.updated_at.strftime('%b %d') }}</span>
+                        </div>
                     </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <p>No articles yet. <a href="{{ url_for('wiki.create') }}">Create one.</a></p>
+            </div>
+            {% endif %}
+        </section>
+
+        <!-- Right Sidebar -->
+        <aside class="home-sidebar">
+
+            <!-- Random Discovery -->
+            {% if random_articles %}
+            <div class="gw-module home-discover">
+                <div class="gw-module-header-row">
+                    <h2 class="gw-module-heading">Discover</h2>
+                    <a href="{{ url_for('main.random_article') }}" class="gw-module-link" title="Another random article">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+                    </a>
                 </div>
+                <div class="home-discover-list">
+                    {% for article in random_articles %}
+                    <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="home-discover-card">
+                        <span class="home-discover-title">{{ article.title | e }}</span>
+                        <span class="home-discover-cat">{{ article.category_name | e }}</span>
+                        {% if article.summary %}
+                        <span class="home-discover-excerpt">{{ article.summary | truncate(80) | e }}</span>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Recently Added -->
+            <div class="gw-module home-recent-sidebar">
+                <div class="gw-module-header-row">
+                    <h2 class="gw-module-heading">Recently Added</h2>
+                    <a href="{{ url_for('main.recent_changes') }}" class="gw-module-link">All</a>
+                </div>
+                {% if recent_articles %}
+                <div class="home-recent-list">
+                    {% for article in recent_articles %}
+                    <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="home-recent-item">
+                        <span class="home-recent-title">{{ article.title | e }}</span>
+                        <span class="home-recent-meta">{{ article.category_name | e }} &middot; {{ article.created_at.strftime('%b %d') }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="empty-state-small">No articles yet.</p>
+                {% endif %}
+            </div>
+
+        </aside>
+    </div>
+
+    <!-- ── How Things Connect ── -->
+    {% if relationship_highlights %}
+    <section class="gw-module home-connections">
+        <div class="gw-module-header-row">
+            <h2 class="gw-module-heading">How Things Connect</h2>
+            <a href="{{ url_for('main.explore') }}" class="gw-module-link">Explore</a>
+        </div>
+        <p class="home-connections-intro">Grappling is a web of techniques, positions, and transitions. Every article is linked to related concepts.</p>
+        <div class="home-connections-grid">
+            {% for rel in relationship_highlights %}
+            <div class="connection-card">
+                <a href="{{ url_for('wiki.view', slug=rel.source.slug) }}" class="connection-node connection-source">{{ rel.source.title | e }}</a>
+                <span class="connection-edge">
+                    <span class="connection-line"></span>
+                    <span class="connection-label">{{ rel.label | e }}</span>
+                    <span class="connection-line"></span>
+                </span>
+                <a href="{{ url_for('wiki.view', slug=rel.target.slug) }}" class="connection-node connection-target">{{ rel.target.title | e }}</a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- ── Most Connected Articles ── -->
+    {% if connected_articles %}
+    <section class="gw-module home-connected">
+        <h2 class="gw-module-heading">Knowledge Hubs</h2>
+        <p class="home-connected-intro">Articles with the most connections to other techniques, positions, and concepts.</p>
+        <div class="home-connected-grid">
+            {% for article, count in connected_articles %}
+            <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="connected-card">
+                <div class="connected-card-top">
+                    <span class="connected-card-count">{{ count }}</span>
+                    <span class="connected-card-count-label">connections</span>
+                </div>
+                <h3 class="connected-card-title">{{ article.title | e }}</h3>
+                <span class="connected-card-cat">{{ article.category_name | e }}</span>
+                {% if article.summary %}
+                <p class="connected-card-excerpt">{{ article.summary | truncate(100) | e }}</p>
+                {% endif %}
             </a>
             {% endfor %}
         </div>
-        {% else %}
-        <div class="empty-state">
-            <p>No articles yet. <a href="{{ url_for('wiki.create') }}">Create one.</a></p>
-        </div>
-        {% endif %}
     </section>
+    {% endif %}
 
-    <!-- ── Module: Browse by Category ── -->
+    <!-- ── Browse by Category ── -->
     <section class="gw-module home-categories">
         <div class="gw-module-header-row">
             <h2 class="gw-module-heading">Browse by Category</h2>
@@ -96,10 +213,13 @@
         </div>
         {% if categories %}
         <div class="home-categories-grid">
-            {% for cat in categories[:12] %}
-            <a href="{{ url_for('main.categories') }}#{{ cat.slug }}" class="home-category-chip">
+            {% for cat in categories %}
+            <a href="{{ url_for('main.categories') }}#cat-{{ cat.slug }}" class="home-category-card">
+                <span class="home-category-count-big">{{ cat.article_count }}</span>
                 <span class="home-category-name">{{ cat.name | e }}</span>
-                <span class="home-category-count">{{ cat.article_count }}</span>
+                {% if cat.description %}
+                <span class="home-category-desc">{{ cat.description | truncate(60) | e }}</span>
+                {% endif %}
             </a>
             {% endfor %}
         </div>
@@ -110,29 +230,7 @@
         {% endif %}
     </section>
 
-    <!-- ── Module: Recent Articles ── -->
-    <section class="gw-module home-recent">
-        <div class="gw-module-header-row">
-            <h2 class="gw-module-heading">Recent Changes</h2>
-            <a href="{{ url_for('main.recent_changes') }}" class="gw-module-link">View All</a>
-        </div>
-        {% if recent_articles %}
-        <div class="home-recent-list">
-            {% for article in recent_articles[:6] %}
-            <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="home-recent-item">
-                <span class="home-recent-title">{{ article.title | e }}</span>
-                <span class="home-recent-meta">{{ article.category_name | e }} &middot; {{ article.updated_at.strftime('%b %d') }}</span>
-            </a>
-            {% endfor %}
-        </div>
-        {% else %}
-        <div class="empty-state">
-            <p>No articles yet.</p>
-        </div>
-        {% endif %}
-    </section>
-
-    <!-- ── Module: Contribute CTA ── -->
+    <!-- ── Contribute CTA ── -->
     <section class="gw-module home-cta">
         <div class="home-cta-inner">
             <h2>Help Build GrapplingWiki</h2>

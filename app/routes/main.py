@@ -4,12 +4,12 @@ Handles homepage, search, categories, recent changes, sitemaps, and roadmap.
 """
 
 from flask import Blueprint, render_template, request, jsonify, redirect
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, func
 import random
 import re
 import os
 from app import db
-from app.models import Article, Category, ArticleRevision, User
+from app.models import Article, Category, ArticleRelationship, ArticleRevision, User
 
 main_bp = Blueprint('main', __name__)
 
@@ -145,59 +145,119 @@ def _parse_kanban_from_claude_md():
     return column_list, stats
 
 
-def _get_categories_for_homepage():
-    """
-    Build category list with article counts for the homepage.
-    Uses the Category model; includes both top-level and nested categories.
-    """
-    cats = Category.query.order_by(Category.name).all()
-    result = []
-    for cat in cats:
-        count = cat.articles.filter_by(is_published=True).count()
-        result.append({
-            'name': cat.name,
-            'slug': cat.slug,
-            'article_count': count,
-        })
-    return result
-
-
 @main_bp.route('/')
 def index():
     """
-    Homepage showing featured articles, recent changes, and stats.
+    Homepage — a discovery engine for grappling knowledge.
+    Surfaces articles, relationships, categories, and recent activity
+    in an information-rich layout designed for exploration.
     """
-    featured_articles = Article.query.filter_by(
-        is_published=True
-    ).order_by(desc(Article.view_count)).limit(5).all()
-
-    recent_articles = Article.query.filter_by(
-        is_published=True
-    ).order_by(desc(Article.updated_at)).limit(4).all()
-
+    # ── Core stats ──
     total_articles = Article.query.filter_by(is_published=True).count()
     total_users = User.query.count()
     total_edits = ArticleRevision.query.count()
-    total_categories = Category.query.count()
+    total_relationships = ArticleRelationship.query.count()
 
-    categories = _get_categories_for_homepage()
+    # ── Categories with article counts ──
+    categories = []
+    for cat in Category.query.order_by(Category.name).all():
+        count = cat.articles.filter_by(is_published=True).count()
+        if count > 0:
+            categories.append({
+                'name': cat.name,
+                'slug': cat.slug,
+                'description': cat.description or '',
+                'article_count': count,
+            })
+    # Sort by count descending so the biggest categories are first
+    categories.sort(key=lambda c: c['article_count'], reverse=True)
 
+    # ── Featured: most-viewed articles ──
+    featured_articles = Article.query.filter_by(
+        is_published=True
+    ).order_by(desc(Article.view_count)).limit(6).all()
+
+    # ── Most connected articles (by total relationship count) ──
+    # Subquery: count outgoing + incoming relationships per article
+    outgoing_count = db.session.query(
+        ArticleRelationship.source_article_id.label('article_id'),
+        func.count().label('cnt')
+    ).group_by(ArticleRelationship.source_article_id).subquery()
+
+    incoming_count = db.session.query(
+        ArticleRelationship.target_article_id.label('article_id'),
+        func.count().label('cnt')
+    ).group_by(ArticleRelationship.target_article_id).subquery()
+
+    # Get articles with most connections (outgoing only for simplicity, then combine)
+    connected_articles = []
+    if total_relationships > 0:
+        # Simple approach: get all published articles and count their relationships in Python
+        all_published = Article.query.filter_by(is_published=True).all()
+        article_connections = []
+        for a in all_published:
+            out_count = a.outgoing_relationships.count()
+            in_count = a.incoming_relationships.count()
+            total = out_count + in_count
+            if total > 0:
+                article_connections.append((a, total))
+        article_connections.sort(key=lambda x: x[1], reverse=True)
+        connected_articles = article_connections[:8]
+
+    # ── Interesting relationship pairs (for "How things connect" section) ──
+    relationship_highlights = []
+    if total_relationships > 0:
+        rels = ArticleRelationship.query.limit(12).all()
+        for rel in rels:
+            if rel.source_article and rel.target_article:
+                if rel.source_article.is_published and rel.target_article.is_published:
+                    relationship_highlights.append({
+                        'source': rel.source_article,
+                        'target': rel.target_article,
+                        'type': rel.relationship_type,
+                        'label': rel.type_label,
+                    })
+            if len(relationship_highlights) >= 8:
+                break
+
+    # ── Recent edits (for activity ticker) ──
     recent_edits = db.session.query(ArticleRevision, Article).join(
         Article, ArticleRevision.article_id == Article.id
     ).filter(
         Article.is_published == True
     ).order_by(desc(ArticleRevision.created_at)).limit(10).all()
 
+    # ── Recently added articles ──
+    recent_articles = Article.query.filter_by(
+        is_published=True
+    ).order_by(desc(Article.created_at)).limit(8).all()
+
+    # ── Random discovery: 3 random articles ──
+    random_articles = Article.query.filter_by(is_published=True).all()
+    if len(random_articles) > 3:
+        random_articles = random.sample(random_articles, 3)
+    else:
+        random_articles = random_articles[:3]
+
+    # ── Articles per category (for the visual breakdown) ──
+    category_breakdown = []
+    for cat in categories:
+        if cat['article_count'] > 0:
+            category_breakdown.append(cat)
+
     return render_template(
         'index.html',
-        featured_articles=featured_articles,
-        recent_articles=recent_articles,
         total_articles=total_articles,
         total_users=total_users,
         total_edits=total_edits,
-        total_categories=total_categories,
+        total_relationships=total_relationships,
         categories=categories,
+        featured_articles=featured_articles,
+        connected_articles=connected_articles,
+        relationship_highlights=relationship_highlights,
         recent_edits=recent_edits,
+        recent_articles=recent_articles,
+        random_articles=random_articles,
     )
 
 
@@ -241,10 +301,8 @@ def categories():
     """
     all_articles = Article.query.filter_by(is_published=True).order_by(Article.title).all()
 
-    # Build category tree from Category model
     all_cats = Category.query.order_by(Category.name).all()
 
-    # Index categories by id
     cat_map = {cat.id: {
         'model': cat,
         'label': cat.name,
@@ -256,14 +314,12 @@ def categories():
         'articles': [],
     } for cat in all_cats}
 
-    # Legacy fallback: group articles with no category_id by their string category
     legacy_groups = {}
 
     for a in all_articles:
         if a.category_id and a.category_id in cat_map:
             cat_map[a.category_id]['articles'].append(a)
         elif a.category:
-            # Legacy string category
             key = a.category
             if key not in legacy_groups:
                 legacy_groups[key] = {
@@ -276,20 +332,16 @@ def categories():
                 }
             legacy_groups[key]['articles'].append(a)
 
-    # Combine: top-level categories first, then legacy groups
     category_list = []
-    # Top-level categories (no parent)
     for cat in all_cats:
         if cat.parent_id is None:
             entry = cat_map[cat.id]
             entry['children'] = []
-            # Add children
             for child in cat.children.order_by(Category.name).all():
                 child_entry = cat_map[child.id]
                 entry['children'].append(child_entry)
             category_list.append(entry)
 
-    # Add legacy groups that don't overlap with Category model
     existing_slugs = {c['slug'] for c in category_list}
     for key, group in sorted(legacy_groups.items()):
         if key not in existing_slugs:

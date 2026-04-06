@@ -8,7 +8,7 @@ import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app, db
-from app.models import User, Article, ArticleRevision, Tag
+from app.models import User, Article, ArticleRevision, Category
 
 ARTICLES = [
     # ── TECHNIQUES ──────────────────────────────────────────────────
@@ -830,10 +830,10 @@ def seed():
             db.session.flush()
             print("Created admin user: GrapplingWiki")
 
-        # Get existing tags
-        tag_map = {}
-        for tag in Tag.query.all():
-            tag_map[tag.name] = tag
+        # Get existing categories
+        cat_map = {}
+        for cat in Category.query.all():
+            cat_map[cat.slug] = cat
 
         created = 0
         for data in ARTICLES:
@@ -842,6 +842,9 @@ def seed():
                 print(f"  Skipping (exists): {data['title']}")
                 continue
 
+            cat_slug = data["category"]
+            cat = cat_map.get(cat_slug)
+
             article = Article(
                 title=data["title"],
                 slug=data["slug"],
@@ -849,13 +852,10 @@ def seed():
                 summary=data["summary"],
                 author_id=admin.id,
                 category=data["category"],
+                category_id=cat.id if cat else None,
                 is_published=True,
                 view_count=0
             )
-
-            for tag_name in data.get("tags", []):
-                if tag_name in tag_map:
-                    article.tags.append(tag_map[tag_name])
 
             db.session.add(article)
             db.session.flush()

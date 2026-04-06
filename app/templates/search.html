@@ -68,11 +68,9 @@
                     <span class="meta-views">{{ result.view_count | default(0) }} views</span>
                 </div>
 
-                {% if result.tags %}
+                {% if result.category_name %}
                 <div class="result-tags">
-                    {% for tag in result.tags[:3] %}
-                    <a href="{{ url_for('main.category', name=tag.slug) }}" class="tag-link">{{ tag.name | e }}</a>
-                    {% endfor %}
+                    <span class="article-hero-badge">{{ result.category_name | e }}</span>
                 </div>
                 {% endif %}
             </article>

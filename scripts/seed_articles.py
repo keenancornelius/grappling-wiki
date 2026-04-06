@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app, db
-from app.models import User, Article, ArticleRevision, Tag
+from app.models import User, Article, ArticleRevision, Category
 
 TAGS = [
     ("Technique", "technique", "Submissions, sweeps, passes, escapes, takedowns, and other individual moves."),
@@ -414,16 +414,16 @@ def seed():
             db.session.flush()
             print(f"Created admin user: GrapplingWiki")
 
-        # Create tags
-        tag_map = {}
+        # Create categories
+        cat_map = {}
         for name, slug, desc in TAGS:
-            tag = Tag.query.filter_by(slug=slug).first()
-            if not tag:
-                tag = Tag(name=name, slug=slug, description=desc)
-                db.session.add(tag)
+            cat = Category.query.filter_by(slug=slug).first()
+            if not cat:
+                cat = Category(name=name, slug=slug, description=desc)
+                db.session.add(cat)
                 db.session.flush()
-                print(f"Created tag: {name}")
-            tag_map[name] = tag
+                print(f"Created category: {name}")
+            cat_map[slug] = cat
 
         # Create articles
         created = 0
@@ -433,6 +433,10 @@ def seed():
                 print(f"  Skipping (exists): {data['title']}")
                 continue
 
+            # Resolve category FK
+            cat_slug = data["category"]
+            cat = cat_map.get(cat_slug) or Category.query.filter_by(slug=cat_slug).first()
+
             article = Article(
                 title=data["title"],
                 slug=data["slug"],
@@ -440,14 +444,10 @@ def seed():
                 summary=data["summary"],
                 author_id=admin.id,
                 category=data["category"],
+                category_id=cat.id if cat else None,
                 is_published=True,
                 view_count=0
             )
-
-            # Add tags
-            for tag_name in data.get("tags", []):
-                if tag_name in tag_map:
-                    article.tags.append(tag_map[tag_name])
 
             db.session.add(article)
             db.session.flush()

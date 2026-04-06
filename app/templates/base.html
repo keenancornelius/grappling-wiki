@@ -102,12 +102,10 @@
 
             <!-- Navigation Links -->
             <div class="navbar-menu">
-                <a href="{{ url_for('main.index') }}" class="navbar-link">Home</a>
-                <a href="{{ url_for('main.categories') }}" class="navbar-link">Categories</a>
-                <a href="{{ url_for('main.recent_changes') }}" class="navbar-link">Recent Changes</a>
+                <a href="{{ url_for('main.categories') }}" class="navbar-link">Browse</a>
                 <a href="{{ url_for('main.explore') }}" class="navbar-link">Explore</a>
+                <a href="{{ url_for('main.recent_changes') }}" class="navbar-link">Recent</a>
                 <a href="{{ url_for('main.random_article') }}" class="navbar-link">Random</a>
-                <a href="{{ url_for('main.roadmap') }}" class="navbar-link navbar-link-wip">Work in Progress</a>
             </div>
 
             <!-- Auth Links -->
@@ -124,9 +122,6 @@
                         <div class="user-menu-dropdown">
                             <a href="{{ url_for('auth.profile', username=current_user.username) }}" class="user-menu-item">Profile</a>
                             <a href="{{ url_for('wiki.create') }}" class="user-menu-item">New Article</a>
-                            {% if current_user.is_admin %}
-                                <a href="#" class="user-menu-item">Admin</a>
-                            {% endif %}
                             <hr class="user-menu-divider">
                             <a href="{{ url_for('auth.logout') }}" class="user-menu-item logout">Logout</a>
                         </div>
@@ -189,43 +184,19 @@
     <footer class="footer">
         <div class="footer-container">
             <div class="footer-section">
-                <h3 class="footer-title">About GrapplingWiki</h3>
-                <p>A free, community-driven wiki dedicated to jiu-jitsu, grappling, and martial arts knowledge.</p>
+                <p class="footer-about">GrapplingWiki is a free, open-source encyclopedia of jiu-jitsu and grappling. Community-driven. Always evolving.</p>
             </div>
-
-            <div class="footer-section">
-                <h3 class="footer-title">Navigation</h3>
-                <ul class="footer-links">
-                    <li><a href="{{ url_for('main.index') }}">Home</a></li>
-                    <li><a href="{{ url_for('main.categories') }}">Categories</a></li>
-                    <li><a href="{{ url_for('main.recent_changes') }}">Recent Changes</a></li>
-                    <li><a href="{{ url_for('main.random_article') }}">Random Article</a></li>
-                </ul>
-            </div>
-
-            <div class="footer-section">
-                <h3 class="footer-title">Community</h3>
-                <ul class="footer-links">
-                    <li><a href="#">Help & Guidelines</a></li>
-                    <li><a href="#">How to Contribute</a></li>
-                    <li><a href="#">Contact Us</a></li>
-                    <li><a href="#">Donate</a></li>
-                </ul>
-            </div>
-
-            <div class="footer-section">
-                <h3 class="footer-title">Legal</h3>
-                <ul class="footer-links">
-                    <li><a href="#">Privacy Policy</a></li>
-                    <li><a href="#">Terms of Service</a></li>
-                    <li><a href="#">License</a></li>
-                </ul>
+            <div class="footer-section footer-nav">
+                <a href="{{ url_for('main.categories') }}">Browse</a>
+                <a href="{{ url_for('main.explore') }}">Explore</a>
+                <a href="{{ url_for('main.recent_changes') }}">Recent Changes</a>
+                <a href="{{ url_for('main.random_article') }}">Random</a>
+                <a href="{{ url_for('main.roadmap') }}">Roadmap</a>
+                <a href="https://github.com/keenancornelius/grappling-wiki" target="_blank" rel="noopener">GitHub</a>
             </div>
         </div>
-
         <div class="footer-bottom">
-            <p>&copy; 2026 GrapplingWiki. Licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></p>
-            <p>Made with knowledge and respect for the grappling arts.</p>
+            <p>&copy; 2026 GrapplingWiki &middot; <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> &middot; A <a href="https://legionajj.com" target="_blank" rel="noopener">Legion AJJ</a> project</p>
         </div>
     </footer>
 

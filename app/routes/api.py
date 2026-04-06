@@ -4,10 +4,11 @@ Provides search, article listing, and single article data.
 """
 
 from flask import Blueprint, request, jsonify
+from flask_login import login_required, current_user
 from sqlalchemy import desc, or_
 
 from app import db
-from app.models import Article, Tag
+from app.models import Article, ArticleRelationship, Category
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
@@ -21,7 +22,7 @@ def search():
     """
     query = request.args.get('q', '').strip()
     limit = request.args.get('limit', 20, type=int)
-    limit = min(limit, 100)  # Cap at 100 results
+    limit = min(limit, 100)
 
     results = []
 
@@ -45,7 +46,7 @@ def search():
                 'slug': article.slug,
                 'summary': article.summary,
                 'url': f'/wiki/{article.slug}',
-                'category': article.category,
+                'category': article.category_name,
                 'view_count': article.view_count,
                 'created_at': article.created_at.isoformat()
             }
@@ -66,36 +67,31 @@ def articles():
     Query parameters:
         ?page=1 (default 1)
         ?per_page=20 (default 20, max 100)
-        ?category=technique (optional filter)
-        ?tag=slug (optional filter by tag)
+        ?category=slug (optional filter by category slug)
         ?sort=updated|created|views (default updated)
     """
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
-    per_page = min(per_page, 100)  # Cap at 100
-    category = request.args.get('category', '').strip()
-    tag_slug = request.args.get('tag', '').strip()
+    per_page = min(per_page, 100)
+    category_slug = request.args.get('category', '').strip()
     sort = request.args.get('sort', 'updated')
 
-    # Build query
     query = Article.query.filter_by(is_published=True)
 
-    # Filter by category
-    if category and category in Article.VALID_CATEGORIES:
-        query = query.filter_by(category=category)
-
-    # Filter by tag
-    if tag_slug:
-        tag = Tag.query.filter_by(slug=tag_slug).first()
-        if tag:
-            query = query.filter(Article.tags.contains(tag))
+    # Filter by category (try FK first, then legacy string)
+    if category_slug:
+        cat = Category.query.filter_by(slug=category_slug).first()
+        if cat:
+            query = query.filter_by(category_id=cat.id)
+        else:
+            query = query.filter_by(category=category_slug)
 
     # Sort
     if sort == 'created':
         query = query.order_by(desc(Article.created_at))
     elif sort == 'views':
         query = query.order_by(desc(Article.view_count))
-    else:  # default: updated
+    else:
         query = query.order_by(desc(Article.updated_at))
 
     pagination = query.paginate(page=page, per_page=per_page)
@@ -107,7 +103,7 @@ def articles():
             'slug': article.slug,
             'summary': article.summary,
             'url': f'/wiki/{article.slug}',
-            'category': article.category,
+            'category': article.category_name,
             'view_count': article.view_count,
             'created_at': article.created_at.isoformat(),
             'updated_at': article.updated_at.isoformat(),
@@ -115,10 +111,6 @@ def articles():
                 'username': article.author.username,
                 'url': f'/auth/profile/{article.author.username}'
             },
-            'tags': [
-                {'name': tag.name, 'slug': tag.slug}
-                for tag in article.tags
-            ]
         }
         for article in pagination.items
     ]
@@ -138,20 +130,13 @@ def articles():
 
 @api_bp.route('/article/<slug>', methods=['GET'])
 def article(slug):
-    """
-    Get detailed data for a single article (JSON).
-    """
+    """Get detailed data for a single article (JSON)."""
     article = Article.query.filter_by(slug=slug).first()
 
     if not article or not article.is_published:
-        return jsonify({
-            'error': 'Article not found'
-        }), 404
+        return jsonify({'error': 'Article not found'}), 404
 
-    # Get revision count
     revision_count = article.revisions.count()
-
-    # Get discussion count
     discussion_count = article.discussions.count()
 
     article_data = {
@@ -160,7 +145,7 @@ def article(slug):
         'slug': article.slug,
         'content': article.content,
         'summary': article.summary,
-        'category': article.category,
+        'category': article.category_name,
         'view_count': article.view_count,
         'is_published': article.is_published,
         'is_protected': article.is_protected,
@@ -173,15 +158,6 @@ def article(slug):
             'username': article.author.username,
             'url': f'/auth/profile/{article.author.username}'
         },
-        'tags': [
-            {
-                'id': tag.id,
-                'name': tag.name,
-                'slug': tag.slug,
-                'url': f'/category/{tag.slug}'
-            }
-            for tag in article.tags
-        ],
         'urls': {
             'view': f'/wiki/{article.slug}',
             'edit': f'/wiki/{article.slug}/edit',
@@ -193,28 +169,166 @@ def article(slug):
     return jsonify(article_data)
 
 
+# ── Categories API ──
+
+@api_bp.route('/categories', methods=['GET'])
+def list_categories():
+    """List all categories with nesting info."""
+    cats = Category.query.order_by(Category.name).all()
+    return jsonify({
+        'categories': [
+            {
+                'id': c.id,
+                'name': c.name,
+                'slug': c.slug,
+                'description': c.description,
+                'parent_id': c.parent_id,
+                'article_count': c.articles.filter_by(is_published=True).count(),
+            }
+            for c in cats
+        ]
+    })
+
+
+# ── Relationship CRUD ──
+
+@api_bp.route('/article/<slug>/relationships', methods=['GET'])
+def article_relationships(slug):
+    """List all relationships for an article (both outgoing and incoming)."""
+    article = Article.query.filter_by(slug=slug, is_published=True).first()
+    if not article:
+        return jsonify({'error': 'Article not found'}), 404
+
+    outgoing = ArticleRelationship.query.filter_by(source_article_id=article.id).all()
+    incoming = ArticleRelationship.query.filter_by(target_article_id=article.id).all()
+
+    def rel_dict(rel, direction):
+        if direction == 'outgoing':
+            other = rel.target_article
+            label = rel.type_label
+        else:
+            other = rel.source_article
+            label = rel.inverse_label
+        return {
+            'id': rel.id,
+            'direction': direction,
+            'relationship_type': rel.relationship_type,
+            'label': label,
+            'notes': rel.notes or '',
+            'article': {
+                'id': other.id,
+                'title': other.title,
+                'slug': other.slug,
+                'category': other.category_name,
+                'url': f'/wiki/{other.slug}',
+            },
+            'created_at': rel.created_at.isoformat() if rel.created_at else None,
+        }
+
+    relationships = (
+        [rel_dict(r, 'outgoing') for r in outgoing] +
+        [rel_dict(r, 'incoming') for r in incoming]
+    )
+
+    return jsonify({
+        'article_id': article.id,
+        'article_slug': article.slug,
+        'relationships': relationships,
+        'total': len(relationships),
+    })
+
+
+@api_bp.route('/relationships', methods=['POST'])
+@login_required
+def create_relationship():
+    """Create a new relationship between two articles."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'error': 'JSON body required'}), 400
+
+    source_slug = (data.get('source_slug') or '').strip()
+    target_slug = (data.get('target_slug') or '').strip()
+    rel_type = (data.get('relationship_type') or '').strip()
+    notes = (data.get('notes') or '').strip() or None
+
+    if not source_slug or not target_slug or not rel_type:
+        return jsonify({'error': 'source_slug, target_slug, and relationship_type are required'}), 400
+
+    if rel_type not in ArticleRelationship.VALID_TYPES:
+        return jsonify({
+            'error': f'Invalid relationship_type. Must be one of: {", ".join(ArticleRelationship.VALID_TYPES)}'
+        }), 400
+
+    source = Article.query.filter_by(slug=source_slug, is_published=True).first()
+    target = Article.query.filter_by(slug=target_slug, is_published=True).first()
+
+    if not source:
+        return jsonify({'error': f'Source article "{source_slug}" not found'}), 404
+    if not target:
+        return jsonify({'error': f'Target article "{target_slug}" not found'}), 404
+    if source.id == target.id:
+        return jsonify({'error': 'Cannot create a relationship from an article to itself'}), 400
+
+    existing = ArticleRelationship.query.filter_by(
+        source_article_id=source.id,
+        target_article_id=target.id,
+        relationship_type=rel_type
+    ).first()
+    if existing:
+        return jsonify({'error': 'This relationship already exists', 'id': existing.id}), 409
+
+    rel = ArticleRelationship(
+        source_article_id=source.id,
+        target_article_id=target.id,
+        relationship_type=rel_type,
+        notes=notes,
+        created_by_id=current_user.id,
+    )
+    db.session.add(rel)
+
+    try:
+        db.session.commit()
+        return jsonify({
+            'id': rel.id,
+            'source_slug': source_slug,
+            'target_slug': target_slug,
+            'relationship_type': rel_type,
+            'label': rel.type_label,
+            'notes': notes,
+            'message': 'Relationship created',
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/relationships/<int:rel_id>', methods=['DELETE'])
+@login_required
+def delete_relationship(rel_id):
+    """Delete a relationship by ID."""
+    rel = ArticleRelationship.query.get(rel_id)
+    if not rel:
+        return jsonify({'error': 'Relationship not found'}), 404
+
+    db.session.delete(rel)
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Relationship deleted', 'id': rel_id}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
 @api_bp.errorhandler(400)
 def bad_request(error):
-    """Handle bad request errors."""
-    return jsonify({
-        'error': 'Bad request',
-        'message': str(error)
-    }), 400
+    return jsonify({'error': 'Bad request', 'message': str(error)}), 400
 
 
 @api_bp.errorhandler(404)
 def not_found(error):
-    """Handle not found errors."""
-    return jsonify({
-        'error': 'Not found',
-        'message': str(error)
-    }), 404
+    return jsonify({'error': 'Not found', 'message': str(error)}), 404
 
 
 @api_bp.errorhandler(500)
 def internal_error(error):
-    """Handle internal server errors."""
-    return jsonify({
-        'error': 'Internal server error',
-        'message': 'An unexpected error occurred'
-    }), 500
+    return jsonify({'error': 'Internal server error', 'message': 'An unexpected error occurred'}), 500

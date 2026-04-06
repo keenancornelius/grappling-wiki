@@ -10,39 +10,66 @@ import subprocess
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app import create_app, db
-from app.models import Article
+from app.models import Article, Category
 
 app = create_app(os.environ.get('FLASK_CONFIG', 'default'))
 
 with app.app_context():
     db.create_all()
 
-    # ── Ensure taxonomy columns exist (safe on fresh + existing DBs) ──
-    # db.create_all() doesn't add new columns to existing tables,
-    # so we ALTER TABLE for each missing column.
-    TAXONOMY_COLUMNS = [
-        ('mechanism',         'VARCHAR(50)'),
-        ('target',            'VARCHAR(50)'),
-        ('spatial_qualifier', 'VARCHAR(50)'),
-        ('graph_tier',        'VARCHAR(200)'),
-        ('taxonomy_complete', 'BOOLEAN NOT NULL DEFAULT FALSE'),
-    ]
+    # ── Ensure category_id column exists on articles (safe on fresh + existing DBs) ──
     try:
         existing_cols = set()
         result = db.session.execute(db.text(
             "SELECT column_name FROM information_schema.columns WHERE table_name = 'articles'"
         ))
         existing_cols = {row[0] for row in result}
-        for col_name, col_type in TAXONOMY_COLUMNS:
-            if col_name not in existing_cols:
-                db.session.execute(db.text(
-                    f'ALTER TABLE articles ADD COLUMN {col_name} {col_type}'
-                ))
-                print(f"[auto_seed] Added column: {col_name}")
-        db.session.commit()
+        if 'category_id' not in existing_cols:
+            db.session.execute(db.text(
+                'ALTER TABLE articles ADD COLUMN category_id INTEGER REFERENCES categories(id)'
+            ))
+            print("[auto_seed] Added column: category_id")
+            db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"[auto_seed] Taxonomy migration note: {e}")
+        print(f"[auto_seed] Migration note: {e}")
+
+    # ── Seed default categories if categories table is empty ──
+    cat_count = Category.query.count()
+    if cat_count == 0:
+        print("[auto_seed] Seeding default categories...")
+        default_cats = [
+            ('Technique', 'technique', 'Submissions, sweeps, passes, escapes, and takedowns.'),
+            ('Position', 'position', 'Guards, pins, dominant positions, and transitional states.'),
+            ('Concept', 'concept', 'Principles, strategies, and mental models.'),
+            ('Person', 'person', 'Practitioners, instructors, competitors, and pioneers.'),
+            ('Competition', 'competition', 'Tournaments, rulesets, and organizations.'),
+            ('Style', 'style', 'Martial arts disciplines and grappling systems.'),
+            ('Glossary', 'glossary', 'Terminology, Japanese and Portuguese terms, and slang.'),
+        ]
+        for name, slug, desc in default_cats:
+            cat = Category(name=name, slug=slug, description=desc)
+            db.session.add(cat)
+        db.session.commit()
+        print(f"[auto_seed] Created {len(default_cats)} default categories.")
+
+    # ── Migrate legacy string categories to category_id FK ──
+    try:
+        unmigrated = Article.query.filter(
+            Article.category_id.is_(None),
+            Article.category.isnot(None)
+        ).all()
+        if unmigrated:
+            print(f"[auto_seed] Migrating {len(unmigrated)} articles to category FK...")
+            for article in unmigrated:
+                cat = Category.query.filter_by(slug=article.category).first()
+                if cat:
+                    article.category_id = cat.id
+            db.session.commit()
+            print("[auto_seed] Category migration complete.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[auto_seed] Category migration note: {e}")
 
     count = Article.query.count()
     print(f"[auto_seed] Current article count: {count}")
@@ -69,33 +96,7 @@ with app.app_context():
             else:
                 print(f"[auto_seed] {seed_file} OK")
 
-        # Recount
         final_count = Article.query.count()
         print(f"[auto_seed] Seeding complete. {final_count} articles.")
     else:
         print(f"[auto_seed] Database has {count} articles — skipping seed.")
-
-    # ── Always run taxonomy backfill (safe to repeat, overwrites taxonomy data) ──
-    print("[auto_seed] Running taxonomy backfill...")
-    try:
-        from scripts.backfill_taxonomy import TAXONOMY
-        updated = 0
-        for slug, (mechanism, target, spatial, graph_tier) in TAXONOMY.items():
-            tc = bool(mechanism and graph_tier)
-            db.session.execute(db.text(
-                "UPDATE articles SET mechanism = :m, target = :t, "
-                "spatial_qualifier = :s, graph_tier = :g, taxonomy_complete = :tc "
-                "WHERE slug = :slug"
-            ), {'m': mechanism, 't': target, 's': spatial, 'g': graph_tier,
-                'tc': tc, 'slug': slug})
-            updated += 1
-        # Mark non-graph categories as complete
-        db.session.execute(db.text(
-            "UPDATE articles SET taxonomy_complete = TRUE "
-            "WHERE category IN ('person', 'competition', 'style', 'glossary')"
-        ))
-        db.session.commit()
-        print(f"[auto_seed] Taxonomy backfill done ({updated} mappings applied).")
-    except Exception as e:
-        db.session.rollback()
-        print(f"[auto_seed] Taxonomy backfill error: {e}")

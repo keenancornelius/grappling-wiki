@@ -90,9 +90,6 @@ def generate_meta_tags(title, description, url, article=None):
             author_name = article.author.username if hasattr(article.author, 'username') else str(article.author)
             meta_tags['article_author'] = author_name
 
-        if hasattr(article, 'tags') and article.tags:
-            meta_tags['article_tags'] = ', '.join([tag.name if hasattr(tag, 'name') else str(tag) for tag in article.tags])
-
         if hasattr(article, 'category') and article.category:
             meta_tags['article_section'] = article.category
 
@@ -157,11 +154,6 @@ def generate_article_jsonld(article, base_url='https://grapplingwiki.com'):
             '@type': 'ImageObject',
             'url': article.image_url
         }
-
-    # Add keywords from tags
-    if hasattr(article, 'tags') and article.tags:
-        keywords = ', '.join([tag.name if hasattr(tag, 'name') else str(tag) for tag in article.tags])
-        schema['keywords'] = keywords
 
     # Wrap in script tag format
     jsonld_script = f'<script type="application/ld+json">\n{json.dumps(schema, indent=2)}\n</script>'

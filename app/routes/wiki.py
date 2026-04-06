@@ -10,9 +10,10 @@ from sqlalchemy import desc
 import markdown
 import bleach
 from difflib import unified_diff
+import re
 
 from app import db
-from app.models import Article, ArticleRevision, Discussion, DiscussionReply, Tag, User
+from app.models import Article, ArticleRevision, ArticleRelationship, Category, Discussion, DiscussionReply, User
 
 wiki_bp = Blueprint('wiki', __name__, url_prefix='/wiki')
 
@@ -28,48 +29,130 @@ ALLOWED_ATTRIBUTES = {
 }
 
 
+def _get_all_categories_flat():
+    """
+    Return all categories as a flat list, ordered for a nested dropdown.
+    Each item has a .depth attribute for indentation.
+    """
+    def _walk(parent_id, depth):
+        cats = Category.query.filter_by(parent_id=parent_id).order_by(Category.name).all()
+        result = []
+        for cat in cats:
+            cat._display_depth = depth
+            result.append(cat)
+            result.extend(_walk(cat.id, depth + 1))
+        return result
+
+    all_cats = _walk(None, 0)
+    # Add depth as a regular attribute for template access
+    for cat in all_cats:
+        cat.depth = getattr(cat, '_display_depth', 0)
+    return all_cats
+
+
+def _get_or_create_category(category_id, new_category_name):
+    """
+    Resolve category from form data.
+    If new_category_name is provided, create a new category
+    (optionally as a child of category_id).
+    Returns a Category instance or None.
+    """
+    if new_category_name:
+        new_name = new_category_name.strip()
+        if not new_name:
+            return None
+
+        # Generate slug
+        slug = re.sub(r'[^a-z0-9]+', '-', new_name.lower()).strip('-')
+        if not slug:
+            return None
+
+        # Check if it already exists
+        existing = Category.query.filter_by(slug=slug).first()
+        if existing:
+            return existing
+
+        # Determine parent
+        parent_id = None
+        if category_id:
+            try:
+                parent_id = int(category_id)
+                # Verify parent exists
+                if not Category.query.get(parent_id):
+                    parent_id = None
+            except (ValueError, TypeError):
+                parent_id = None
+
+        new_cat = Category(
+            name=new_name,
+            slug=slug,
+            parent_id=parent_id,
+            created_by_id=current_user.id if current_user.is_authenticated else None,
+        )
+        db.session.add(new_cat)
+        db.session.flush()  # Get the ID
+        return new_cat
+
+    elif category_id:
+        try:
+            cat_id = int(category_id)
+            return Category.query.get(cat_id)
+        except (ValueError, TypeError):
+            return None
+
+    return None
+
+
 @wiki_bp.route('/<slug>')
 def view(slug):
-    """
-    View an article.
-    Increments view count and renders markdown to HTML.
-    """
+    """View an article."""
     article = Article.query.filter_by(slug=slug).first_or_404()
 
     if not article.is_published:
         abort(404)
 
-    # Increment view count
     article.increment_view_count()
 
-    # Convert markdown to HTML and sanitize
     html_content = markdown.markdown(article.content, extensions=['extra', 'codehilite'])
     html_content = bleach.clean(html_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
 
-    # Get revision count
     revision_count = article.revisions.count()
 
-    # Get related articles (same tags)
+    # Get related articles via relationships
     related_articles = []
-    if article.tags:
-        tag_ids = [tag.id for tag in article.tags]
-        related_articles = Article.query.filter(
-            Article.id != article.id,
-            Article.is_published == True,
-            Article.tags.any(Tag.id.in_(tag_ids))
-        ).limit(5).all()
+    outgoing_targets = [r.target_article for r in article.outgoing_relationships.all()]
+    incoming_sources = [r.source_article for r in article.incoming_relationships.all()]
+    seen_ids = {article.id}
+    for a in outgoing_targets + incoming_sources:
+        if a.id not in seen_ids and a.is_published:
+            related_articles.append(a)
+            seen_ids.add(a.id)
+        if len(related_articles) >= 6:
+            break
 
-    # Article data for contextual knowledge graph
-    all_articles = Article.query.filter_by(is_published=True).all()
-    graph_articles = [
-        {'id': a.id, 'title': a.title, 'slug': a.slug,
-         'summary': a.summary or '', 'category': a.category or '',
-         'tags': [t.name for t in a.tags],
-         'mechanism': a.mechanism or '', 'target': a.target or '',
-         'spatial': a.spatial_qualifier or '',
-         'graphTier': a.graph_tier or ''}
-        for a in all_articles
-    ]
+    # Get relationships (outgoing and incoming)
+    outgoing_rels = ArticleRelationship.query.filter_by(source_article_id=article.id).all()
+    incoming_rels = ArticleRelationship.query.filter_by(target_article_id=article.id).all()
+
+    relationships = []
+    for rel in outgoing_rels:
+        relationships.append({
+            'id': rel.id,
+            'direction': 'outgoing',
+            'type': rel.relationship_type,
+            'label': rel.type_label,
+            'notes': rel.notes or '',
+            'other': rel.target_article,
+        })
+    for rel in incoming_rels:
+        relationships.append({
+            'id': rel.id,
+            'direction': 'incoming',
+            'type': rel.relationship_type,
+            'label': rel.inverse_label,
+            'notes': rel.notes or '',
+            'other': rel.source_article,
+        })
 
     return render_template(
         'wiki/view.html',
@@ -77,21 +160,18 @@ def view(slug):
         html_content=html_content,
         revision_count=revision_count,
         related_articles=related_articles,
-        graph_articles=graph_articles
+        relationships=relationships,
+        relationship_types=ArticleRelationship.VALID_TYPES,
+        relationship_labels=ArticleRelationship.TYPE_LABELS,
     )
 
 
 @wiki_bp.route('/<slug>/edit', methods=['GET', 'POST'])
 @login_required
 def edit(slug):
-    """
-    Edit an article.
-    GET: Show edit form
-    POST: Save edit and create new revision
-    """
+    """Edit an article."""
     article = Article.query.filter_by(slug=slug).first_or_404()
 
-    # Check permissions
     if article.is_protected and not (current_user.can_edit()):
         flash('You do not have permission to edit this article.', 'danger')
         abort(403)
@@ -105,13 +185,11 @@ def edit(slug):
             flash('Article content cannot be empty.', 'danger')
             return redirect(url_for('wiki.edit', slug=slug))
 
-        # Get latest revision number
         latest_revision = article.revisions.order_by(
             desc(ArticleRevision.revision_number)
         ).first()
         next_revision_num = (latest_revision.revision_number + 1) if latest_revision else 1
 
-        # Create new revision
         new_revision = ArticleRevision(
             article_id=article.id,
             editor_id=current_user.id,
@@ -122,7 +200,6 @@ def edit(slug):
         )
         db.session.add(new_revision)
 
-        # Update article
         article.content = content
         article.updated_at = db.func.now()
 
@@ -143,9 +220,7 @@ def edit(slug):
 
 @wiki_bp.route('/<slug>/history')
 def history(slug):
-    """
-    Show all revisions of an article.
-    """
+    """Show all revisions of an article."""
     article = Article.query.filter_by(slug=slug).first_or_404()
 
     if not article.is_published:
@@ -168,9 +243,7 @@ def history(slug):
 
 @wiki_bp.route('/<slug>/revision/<int:rev_id>')
 def view_revision(slug, rev_id):
-    """
-    View a specific revision of an article.
-    """
+    """View a specific revision of an article."""
     article = Article.query.filter_by(slug=slug).first_or_404()
 
     if not article.is_published:
@@ -181,7 +254,6 @@ def view_revision(slug, rev_id):
         article_id=article.id
     ).first_or_404()
 
-    # Convert markdown to HTML and sanitize
     html_content = markdown.markdown(revision.content, extensions=['extra', 'codehilite'])
     html_content = bleach.clean(html_content, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRIBUTES)
 
@@ -195,35 +267,28 @@ def view_revision(slug, rev_id):
 
 @wiki_bp.route('/<slug>/diff/<int:rev1>/<int:rev2>')
 def diff(slug, rev1, rev2):
-    """
-    Compare two revisions and show diff.
-    """
+    """Compare two revisions and show diff."""
     article = Article.query.filter_by(slug=slug).first_or_404()
 
     if not article.is_published:
         abort(404)
 
     revision1 = ArticleRevision.query.filter_by(
-        id=rev1,
-        article_id=article.id
+        id=rev1, article_id=article.id
     ).first_or_404()
 
     revision2 = ArticleRevision.query.filter_by(
-        id=rev2,
-        article_id=article.id
+        id=rev2, article_id=article.id
     ).first_or_404()
 
-    # Ensure rev1 is older than rev2
     if revision1.created_at > revision2.created_at:
         revision1, revision2 = revision2, revision1
 
-    # Generate diff
     content1_lines = revision1.content.splitlines(keepends=True)
     content2_lines = revision2.content.splitlines(keepends=True)
 
     diff_lines = list(unified_diff(
-        content1_lines,
-        content2_lines,
+        content1_lines, content2_lines,
         fromfile=f'Revision {revision1.revision_number}',
         tofile=f'Revision {revision2.revision_number}',
         lineterm=''
@@ -240,11 +305,7 @@ def diff(slug, rev1, rev2):
 
 @wiki_bp.route('/<slug>/talk', methods=['GET', 'POST'])
 def talk(slug):
-    """
-    View discussion/talk page for an article.
-    GET: Show discussions
-    POST: Add new discussion or reply
-    """
+    """View discussion/talk page for an article."""
     article = Article.query.filter_by(slug=slug).first_or_404()
 
     if not article.is_published:
@@ -291,8 +352,7 @@ def talk(slug):
                 return redirect(url_for('wiki.talk', slug=slug))
 
             discussion = Discussion.query.filter_by(
-                id=discussion_id,
-                article_id=article.id
+                id=discussion_id, article_id=article.id
             ).first_or_404()
 
             new_reply = DiscussionReply(
@@ -311,7 +371,6 @@ def talk(slug):
 
             return redirect(url_for('wiki.talk', slug=slug))
 
-    # Get all discussions for this article
     page = request.args.get('page', 1, type=int)
     per_page = 10
 
@@ -330,17 +389,14 @@ def talk(slug):
 @wiki_bp.route('/create', methods=['GET', 'POST'])
 @login_required
 def create():
-    """
-    Create a new article.
-    GET: Show create form
-    POST: Save new article
-    """
+    """Create a new article."""
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         slug = request.form.get('slug', '').strip()
         content = request.form.get('content', '').strip()
         summary = request.form.get('summary', '').strip()
-        category = request.form.get('category', 'technique')
+        category_id = request.form.get('category_id', '').strip()
+        new_category = request.form.get('new_category', '').strip()
 
         # Validate inputs
         errors = []
@@ -358,26 +414,25 @@ def create():
         if errors:
             for error in errors:
                 flash(error, 'danger')
+            categories = _get_all_categories_flat()
             return render_template(
                 'wiki/create.html',
+                categories=categories,
                 form_data={
                     'title': title,
                     'slug': slug,
                     'content': content,
                     'summary': summary,
-                    'category': category
+                    'category_id': category_id,
+                    'new_category': new_category,
                 }
             )
 
         # Sanitize slug
         slug = secure_filename(slug).lower().replace('_', '-')
 
-        # Read taxonomy fields (optional — flagged if missing on graph categories)
-        mechanism = request.form.get('mechanism', '').strip() or None
-        target = request.form.get('target', '').strip() or None
-        spatial_qualifier = request.form.get('spatial_qualifier', '').strip() or None
-        graph_tier_list = request.form.getlist('graph_tier')
-        graph_tier = ','.join(t.strip() for t in graph_tier_list if t.strip()) or None
+        # Resolve category
+        cat = _get_or_create_category(category_id, new_category)
 
         # Create article
         new_article = Article(
@@ -386,18 +441,14 @@ def create():
             content=content,
             summary=summary,
             author_id=current_user.id,
-            category=category,
+            category_id=cat.id if cat else None,
+            category=cat.slug if cat else None,  # Legacy column
             is_published=True,
-            mechanism=mechanism,
-            target=target,
-            spatial_qualifier=spatial_qualifier,
-            graph_tier=graph_tier,
         )
-        new_article.compute_taxonomy_complete()
         db.session.add(new_article)
 
         try:
-            db.session.flush()  # Get the ID without committing
+            db.session.flush()
 
             # Create initial revision
             initial_revision = ArticleRevision(
@@ -408,6 +459,26 @@ def create():
                 revision_number=1
             )
             db.session.add(initial_revision)
+
+            # Process queued relationships from the create form
+            idx = 0
+            while True:
+                rel_type = request.form.get(f'rel_type_{idx}', '').strip()
+                rel_target = request.form.get(f'rel_target_{idx}', '').strip()
+                if not rel_type or not rel_target:
+                    break
+                if rel_type in ArticleRelationship.VALID_TYPES:
+                    target_article = Article.query.filter_by(slug=rel_target, is_published=True).first()
+                    if target_article and target_article.id != new_article.id:
+                        rel = ArticleRelationship(
+                            source_article_id=new_article.id,
+                            target_article_id=target_article.id,
+                            relationship_type=rel_type,
+                            created_by_id=current_user.id,
+                        )
+                        db.session.add(rel)
+                idx += 1
+
             db.session.commit()
 
             flash('Article created successfully!', 'success')
@@ -417,8 +488,8 @@ def create():
             flash(f'Error creating article: {str(e)}', 'danger')
             return redirect(url_for('wiki.create'))
 
-    # Get valid categories
-    categories = Article.VALID_CATEGORIES
+    # GET: show create form
+    categories = _get_all_categories_flat()
 
     return render_template(
         'wiki/create.html',

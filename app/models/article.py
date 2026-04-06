@@ -1,40 +1,92 @@
 """
 Article models for Flask wiki application.
-Handles articles, tags, revisions, and version history.
+Handles articles, categories, revisions, relationships, and version history.
 """
 
 from datetime import datetime
 from app import db
 
 
-# Association table for many-to-many relationship between Articles and Tags
-article_tags = db.Table(
-    'article_tags',
-    db.Column('article_id', db.Integer, db.ForeignKey('articles.id'), primary_key=True),
-    db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
-)
-
-
-class Tag(db.Model):
+class Category(db.Model):
     """
-    Category tag for organizing articles.
+    User-created category with nesting support.
+
+    Categories replace the old fixed VALID_CATEGORIES list + Tag model.
+    Any logged-in user can create new categories or subcategories.
+    Nesting is achieved via the parent_id self-referential foreign key.
+
+    Examples:
+        Technique (top-level)
+        ├── Submission
+        │   ├── Choke
+        │   └── Joint Lock
+        ├── Sweep
+        └── Pass
 
     Attributes:
-        id: Primary key
-        name: Unique tag name (e.g., 'Guard Passing')
-        slug: URL-friendly slug for tag
-        description: Optional description of the tag
+        id:          Primary key
+        name:        Display name (e.g., 'Joint Lock')
+        slug:        URL-friendly slug (unique, indexed)
+        description: Optional description of the category
+        parent_id:   FK to parent category (NULL = top-level)
+        created_by_id: User who created this category
+        created_at:  Creation timestamp
     """
 
-    __tablename__ = 'tags'
+    __tablename__ = 'categories'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False, index=True)
     slug = db.Column(db.String(100), unique=True, nullable=False, index=True)
     description = db.Column(db.Text, nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True, index=True)
+    created_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # Self-referential relationship for nesting
+    children = db.relationship(
+        'Category',
+        backref=db.backref('parent', remote_side='Category.id'),
+        lazy='dynamic',
+        cascade='all, delete-orphan',
+    )
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
 
     def __repr__(self):
-        return f'<Tag {self.name}>'
+        return f'<Category {self.name}>'
+
+    @property
+    def breadcrumb(self):
+        """Return list of categories from root to self."""
+        chain = [self]
+        current = self
+        while current.parent:
+            current = current.parent
+            chain.append(current)
+        return list(reversed(chain))
+
+    @property
+    def breadcrumb_str(self):
+        """Return 'Root > Child > Grandchild' style string."""
+        return ' > '.join(c.name for c in self.breadcrumb)
+
+    @property
+    def depth(self):
+        """Return nesting depth (0 = top-level)."""
+        d = 0
+        current = self
+        while current.parent:
+            current = current.parent
+            d += 1
+        return d
+
+    def descendants(self):
+        """Return flat list of all descendant categories (recursive)."""
+        result = []
+        for child in self.children.all():
+            result.append(child)
+            result.extend(child.descendants())
+        return result
 
 
 class Article(db.Model):
@@ -48,95 +100,15 @@ class Article(db.Model):
         content: Markdown content of the article
         summary: Brief summary for previews
         author_id: Foreign key to User who created the article
+        category_id: Foreign key to Category
         created_at: Creation timestamp
         updated_at: Last modification timestamp
         is_published: Whether article is publicly visible
         is_protected: Whether article requires elevated privileges to edit
         view_count: Number of times article has been viewed
-        category: Article category (technique, position, concept, person, competition, glossary, style)
-
-    Taxonomy fields (English-from-Japanese naming convention):
-        mechanism:         What kind of action — lock, choke, entanglement, throw, reap, sweep, pass, etc.
-                           Maps to Japanese suffixes: Gatame→lock, Jime→choke, Garami→entanglement,
-                           Nage→throw, Gari→reap, Harai→sweep, Gake→hook, Otoshi→drop, Guruma→wheel.
-        target:            Body part involved — arm, leg, neck, hip, shoulder, knee, ankle, wrist, body.
-                           Maps to Japanese prefixes: Ude→arm, Ashi→leg, Koshi→hip, Kata→shoulder.
-        spatial_qualifier: Directional modifier — inner, outer, major, minor, forward, rear, cross,
-                           triangle, naked, side. Maps to: Uchi→inner, Soto→outer, O→major, Ko→minor,
-                           Mae→forward, Ushiro→rear, Juji→cross, Sankaku→triangle, Hadaka→naked.
-        graph_tier:        Comma-separated sys_ node IDs from graph-engine.js indicating where this
-                           article lives in the inverse tree (e.g. 'sys_close_guard,sys_mount').
-                           Drives the categories page hierarchy and graph node placement.
-        taxonomy_complete: True when graph_tier + mechanism are both set for Technique/Position/Concept
-                           articles. False flags the article as needing taxonomy metadata.
-                           Person, Competition, Style, Glossary articles default to True.
     """
 
     __tablename__ = 'articles'
-
-    # Valid article categories
-    VALID_CATEGORIES = ['technique', 'position', 'concept', 'person', 'competition', 'glossary', 'style']
-
-    # Categories excluded from the knowledge graph (no taxonomy required)
-    NON_GRAPH_CATEGORIES = ['person', 'competition', 'style', 'glossary']
-
-    # Controlled vocabulary for taxonomy fields
-    VALID_MECHANISMS = [
-        'lock',          # Joint hyperextension (Gatame)
-        'choke',         # Blood/air restriction (Jime/Shime)
-        'entanglement',  # Rotational joint attack (Garami)
-        'compression',   # Crushing (slicers)
-        'throw',         # Projection (Nage)
-        'reap',          # Leg reap takedown (Gari)
-        'sweep',         # Positional reversal (Harai)
-        'pass',          # Guard passing
-        'hook',          # Hooking technique (Gake)
-        'drop',          # Drop technique (Otoshi)
-        'wheel',         # Rotation-based throw (Guruma)
-        'pin',           # Holding position (Osae)
-        'concept',       # Strategic/positional concept
-    ]
-
-    VALID_TARGETS = [
-        'arm',       # Ude
-        'leg',       # Ashi
-        'neck',      # throat/neck chokes
-        'hip',       # Koshi
-        'shoulder',  # Kata
-        'knee',
-        'ankle',
-        'wrist',
-        'body',      # whole-body / positional
-    ]
-
-    VALID_SPATIAL = [
-        'inner',     # Uchi
-        'outer',     # Soto
-        'major',     # O (large)
-        'minor',     # Ko (small)
-        'forward',   # Mae
-        'rear',      # Ushiro
-        'side',      # Yoko
-        'cross',     # Juji
-        'triangle',  # Sankaku
-        'naked',     # Hadaka (exposed/bare)
-    ]
-
-    # Valid graph tier node IDs (from graph-engine.js SYSTEM_NODES)
-    VALID_GRAPH_TIERS = [
-        'sys_standing',
-        'sys_upper_td',
-        'sys_lower_td',
-        'sys_far_guard',
-        'sys_mid_guard',
-        'sys_close_guard',
-        'sys_leg_entangle',
-        'sys_front_headlock',
-        'sys_side_control',
-        'sys_mount',
-        'sys_kob',
-        'sys_back_control',
-    ]
 
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -149,28 +121,17 @@ class Article(db.Model):
     is_published = db.Column(db.Boolean, nullable=False, default=False, index=True)
     is_protected = db.Column(db.Boolean, nullable=False, default=False)
     view_count = db.Column(db.Integer, nullable=False, default=0)
-    category = db.Column(
-        db.String(50),
-        nullable=False,
-        default='technique',
-        index=True
-    )
 
-    # ── Taxonomy: English-from-Japanese naming convention ──
-    mechanism = db.Column(db.String(50), nullable=True, index=True)
-    target = db.Column(db.String(50), nullable=True, index=True)
-    spatial_qualifier = db.Column(db.String(50), nullable=True)
-    # Comma-separated sys_ tier IDs, e.g. 'sys_close_guard,sys_mount'
-    graph_tier = db.Column(db.String(200), nullable=True, index=True)
-    # False = article needs taxonomy metadata; flagged in UI
-    taxonomy_complete = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    # ── Category FK (replaces old string column) ──
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True, index=True)
+
+    # Keep a plain-text category column for backwards compatibility during migration.
+    # Old articles have category='technique' etc. New articles set category_id.
+    # Once all articles are migrated, this column can be dropped.
+    category = db.Column(db.String(50), nullable=True, index=True)
 
     # Relationships
-    tags = db.relationship(
-        'Tag',
-        secondary=article_tags,
-        backref=db.backref('articles', lazy='dynamic')
-    )
+    category_ref = db.relationship('Category', backref=db.backref('articles', lazy='dynamic'))
     revisions = db.relationship(
         'ArticleRevision',
         backref='article',
@@ -189,126 +150,163 @@ class Article(db.Model):
     def __repr__(self):
         return f'<Article {self.title}>'
 
-    def __init__(self, *args, **kwargs):
-        """Validate category on initialization."""
-        super().__init__(*args, **kwargs)
-        if self.category and self.category not in self.VALID_CATEGORIES:
-            raise ValueError(f'Invalid category. Must be one of: {", ".join(self.VALID_CATEGORIES)}')
-        # Non-graph categories are always taxonomy_complete
-        if self.category in self.NON_GRAPH_CATEGORIES:
-            self.taxonomy_complete = True
+    @property
+    def category_name(self):
+        """Return the category display name (from FK or legacy string)."""
+        if self.category_ref:
+            return self.category_ref.name
+        return (self.category or '').title()
 
-    def compute_taxonomy_complete(self):
-        """
-        Recompute and set taxonomy_complete based on current fields.
-        Call this after setting mechanism/graph_tier on Technique, Position, Concept articles.
-        Non-graph categories (Person, Competition, Style, Glossary) are always complete.
-        """
-        if self.category in self.NON_GRAPH_CATEGORIES:
-            self.taxonomy_complete = True
-        else:
-            # Require at minimum: graph_tier and mechanism
-            self.taxonomy_complete = bool(self.graph_tier and self.mechanism)
-        return self.taxonomy_complete
-
-    def get_graph_tiers(self):
-        """
-        Return graph_tier as a list of sys_ node IDs.
-        e.g. 'sys_close_guard,sys_mount' → ['sys_close_guard', 'sys_mount']
-        """
-        if not self.graph_tier:
-            return []
-        return [t.strip() for t in self.graph_tier.split(',') if t.strip()]
-
-    def taxonomy_display_name(self):
-        """
-        Build the English-from-Japanese display name from taxonomy components.
-        Format: '{Spatial} {Target} {Mechanism}' — omits None components.
-        e.g. spatial=cross, target=arm, mechanism=lock → 'Cross Arm Lock'
-        Falls back to article title if components are unset.
-        """
-        parts = []
-        if self.spatial_qualifier:
-            parts.append(self.spatial_qualifier.title())
-        if self.target:
-            parts.append(self.target.title())
-        if self.mechanism:
-            parts.append(self.mechanism.title())
-        return ' '.join(parts) if parts else self.title
+    @property
+    def category_slug(self):
+        """Return the category slug (from FK or legacy string)."""
+        if self.category_ref:
+            return self.category_ref.slug
+        return self.category or ''
 
     def get_latest_revision(self):
-        """
-        Get the most recent revision of this article.
-
-        Returns:
-            ArticleRevision: Latest revision or None if no revisions exist
-        """
+        """Get the most recent revision of this article."""
         return self.revisions.order_by(ArticleRevision.created_at.desc()).first()
 
     def get_revision_diff(self, rev1, rev2):
-        """
-        Generate a diff between two revisions.
-
-        Args:
-            rev1: First ArticleRevision object (older)
-            rev2: Second ArticleRevision object (newer)
-
-        Returns:
-            dict: Dictionary with keys 'rev1', 'rev2', 'diff_lines' containing unified diff
-        """
+        """Generate a diff between two revisions."""
         import difflib
-
         content1 = rev1.content.splitlines(keepends=True) if rev1 else []
         content2 = rev2.content.splitlines(keepends=True) if rev2 else []
-
         diff = list(difflib.unified_diff(content1, content2, lineterm=''))
-
-        return {
-            'rev1': rev1,
-            'rev2': rev2,
-            'diff_lines': diff
-        }
+        return {'rev1': rev1, 'rev2': rev2, 'diff_lines': diff}
 
     def increment_view_count(self):
         """Increment the article's view counter."""
         self.view_count += 1
         db.session.commit()
 
-    def add_tag(self, tag):
-        """
-        Add a tag to this article.
 
-        Args:
-            tag: Tag object to add
-        """
-        if tag not in self.tags:
-            self.tags.append(tag)
+class ArticleRelationship(db.Model):
+    """
+    Typed, directional relationship between two articles.
 
-    def remove_tag(self, tag):
-        """
-        Remove a tag from this article.
+    Instead of hardcoded graph connections, articles declare how they
+    relate to each other via relationship tags. This powers the knowledge
+    graph layout, the "Related" sidebar, and category-style browsing.
 
-        Args:
-            tag: Tag object to remove
-        """
-        if tag in self.tags:
-            self.tags.remove(tag)
+    Examples:
+        Armbar  --submits_from-->  Mount
+        Scissor Sweep  --transitions_to-->  Mount
+        Turtle  --escapes_from-->  Back Control
+        Kimura  --variation_of-->  Americana
+        Half Guard  --counters-->  Guard Pass
+
+    Attributes:
+        id:                Primary key
+        source_article_id: The article declaring the relationship (FK)
+        target_article_id: The article being related to (FK)
+        relationship_type: The kind of edge (see VALID_TYPES)
+        notes:             Optional free-text context for the relationship
+        created_at:        When this relationship was created
+        created_by_id:     User who created this relationship (FK)
+    """
+
+    __tablename__ = 'article_relationships'
+
+    # Controlled vocabulary for relationship types.
+    VALID_TYPES = [
+        'submits_from',
+        'transitions_to',
+        'escapes_from',
+        'counters',
+        'sets_up',
+        'variation_of',
+        'requires_position',
+        'part_of_system',
+        'related_to',
+    ]
+
+    TYPE_LABELS = {
+        'submits_from':      'Submits from',
+        'transitions_to':    'Transitions to',
+        'escapes_from':      'Escapes from',
+        'counters':          'Counters',
+        'sets_up':           'Sets up',
+        'variation_of':      'Variation of',
+        'requires_position': 'Requires position',
+        'part_of_system':    'Part of system',
+        'related_to':        'Related to',
+    }
+
+    INVERSE_LABELS = {
+        'submits_from':      'Has submission',
+        'transitions_to':    'Reached from',
+        'escapes_from':      'Escaped via',
+        'counters':          'Countered by',
+        'sets_up':           'Set up by',
+        'variation_of':      'Has variation',
+        'requires_position': 'Enables technique',
+        'part_of_system':    'Contains',
+        'related_to':        'Related to',
+    }
+
+    id = db.Column(db.Integer, primary_key=True)
+    source_article_id = db.Column(
+        db.Integer, db.ForeignKey('articles.id'), nullable=False, index=True
+    )
+    target_article_id = db.Column(
+        db.Integer, db.ForeignKey('articles.id'), nullable=False, index=True
+    )
+    relationship_type = db.Column(db.String(50), nullable=False, index=True)
+    notes = db.Column(db.String(300), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_by_id = db.Column(
+        db.Integer, db.ForeignKey('users.id'), nullable=True
+    )
+
+    # Relationships
+    source_article = db.relationship(
+        'Article', foreign_keys=[source_article_id],
+        backref=db.backref('outgoing_relationships', lazy='dynamic', cascade='all, delete-orphan')
+    )
+    target_article = db.relationship(
+        'Article', foreign_keys=[target_article_id],
+        backref=db.backref('incoming_relationships', lazy='dynamic', cascade='all, delete-orphan')
+    )
+    created_by = db.relationship('User', foreign_keys=[created_by_id])
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            'source_article_id', 'target_article_id', 'relationship_type',
+            name='uq_article_relationship'
+        ),
+        db.Index('idx_rel_type', 'relationship_type'),
+        db.Index('idx_rel_source_type', 'source_article_id', 'relationship_type'),
+        db.Index('idx_rel_target_type', 'target_article_id', 'relationship_type'),
+    )
+
+    def __repr__(self):
+        return (f'<ArticleRelationship {self.source_article_id} '
+                f'--{self.relationship_type}--> {self.target_article_id}>')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.relationship_type and self.relationship_type not in self.VALID_TYPES:
+            raise ValueError(
+                f'Invalid relationship type "{self.relationship_type}". '
+                f'Must be one of: {", ".join(self.VALID_TYPES)}'
+            )
+
+    @property
+    def type_label(self):
+        """Human-readable label for this relationship direction."""
+        return self.TYPE_LABELS.get(self.relationship_type, self.relationship_type)
+
+    @property
+    def inverse_label(self):
+        """Human-readable label for the reverse direction."""
+        return self.INVERSE_LABELS.get(self.relationship_type, self.relationship_type)
 
 
 class ArticleRevision(db.Model):
     """
     Version history entry for articles.
-    Allows tracking of changes and reverting to previous versions.
-
-    Attributes:
-        id: Primary key
-        article_id: Foreign key to Article
-        editor_id: Foreign key to User who made the revision
-        content: Content at this revision
-        edit_summary: Brief description of changes
-        created_at: When this revision was created
-        revision_number: Sequential revision number
-        parent_revision_id: Self-referential FK to previous revision
     """
 
     __tablename__ = 'article_revisions'
@@ -326,7 +324,6 @@ class ArticleRevision(db.Model):
         nullable=True
     )
 
-    # Self-referential relationship for revision chain
     parent_revision = db.relationship(
         'ArticleRevision',
         remote_side=[id],
@@ -343,31 +340,13 @@ class ArticleRevision(db.Model):
         return f'<ArticleRevision article_id={self.article_id} rev={self.revision_number}>'
 
     def get_next_revision(self):
-        """
-        Get the revision that follows this one.
-
-        Returns:
-            ArticleRevision: Next revision or None if this is the latest
-        """
         return ArticleRevision.query.filter_by(
             article_id=self.article_id,
             parent_revision_id=self.id
         ).first()
 
     def get_previous_revision(self):
-        """
-        Get the revision that precedes this one.
-
-        Returns:
-            ArticleRevision: Previous revision or None if this is the first
-        """
         return self.parent_revision
 
     def is_latest(self):
-        """
-        Check if this is the latest revision of the article.
-
-        Returns:
-            bool: True if no child revisions exist
-        """
         return len(self.child_revisions) == 0

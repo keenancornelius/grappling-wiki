@@ -32,11 +32,22 @@
         <div class="form-section">
             <div class="form-group">
                 <label for="category" class="form-label">Category</label>
-                <select id="category" name="category" class="form-input">
-                    {% for cat in categories | default(['technique', 'position', 'concept', 'person', 'competition', 'glossary', 'style']) %}
-                    <option value="{{ cat }}" {% if form_data and form_data.category == cat %}selected{% endif %}>{{ cat | capitalize }}</option>
+                <select id="category" name="category_id" class="form-input">
+                    <option value="">— Select a category —</option>
+                    {% for cat in categories | default([]) %}
+                    <option value="{{ cat.id }}" {% if form_data and form_data.category_id == cat.id|string %}selected{% endif %}>
+                        {{ '— ' * cat.depth }}{{ cat.name }}
+                    </option>
                     {% endfor %}
                 </select>
+                <p class="form-help">Or create a new one below.</p>
+            </div>
+            <div class="form-group">
+                <label for="new_category" class="form-label">New Category <span class="form-label-optional">(optional)</span></label>
+                <input type="text" id="new_category" name="new_category" class="form-input"
+                       placeholder="e.g. Leg Lock, Guard Pass, Wrestling Style..."
+                       value="{{ form_data.new_category if form_data else '' }}">
+                <p class="form-help">Creates a new category. To make it a subcategory, select its parent above first.</p>
             </div>
         </div>
 
@@ -58,6 +69,39 @@
                           placeholder="Write your article in Markdown..." required>{% if article %}{{ article.content }}{% elif form_data %}{{ form_data.content }}{% endif %}</textarea>
             </div>
         </div>
+
+        {% if not article %}
+        <!-- Relationships (create only — queued and saved after article is created) -->
+        <div class="form-section">
+            <div class="form-group">
+                <label class="form-label">Relationships <span class="form-label-optional">(optional)</span></label>
+                <p class="form-help">Connect this article to others. You can also add these later from the article page.</p>
+                <div class="create-rels-staged" id="create-rels-staged"></div>
+                <div class="create-rels-form">
+                    <div class="create-rels-row">
+                        <select id="create-rel-type" class="rels-select">
+                            <option value="submits_from">Submits from</option>
+                            <option value="transitions_to">Transitions to</option>
+                            <option value="escapes_from">Escapes from</option>
+                            <option value="counters">Counters</option>
+                            <option value="sets_up">Sets up</option>
+                            <option value="variation_of">Variation of</option>
+                            <option value="requires_position">Requires position</option>
+                            <option value="part_of_system">Part of system</option>
+                            <option value="related_to">Related to</option>
+                        </select>
+                    </div>
+                    <div class="create-rels-row" style="position:relative;">
+                        <input type="text" id="create-rel-target" class="rels-input" placeholder="Search articles..." autocomplete="off">
+                        <div class="rels-autocomplete" id="create-rel-autocomplete"></div>
+                    </div>
+                    <button type="button" class="button button-secondary button-sm" id="create-rel-add" disabled>Add</button>
+                </div>
+                <!-- Hidden inputs populated by JS -->
+                <div id="create-rels-hidden"></div>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Edit Summary (for edits only) -->
         {% if article %}
@@ -85,4 +129,112 @@
         </div>
     </form>
 </div>
+
+{% if not article %}
+<script>
+(function() {
+    var typeSelect = document.getElementById('create-rel-type');
+    var input = document.getElementById('create-rel-target');
+    var dropdown = document.getElementById('create-rel-autocomplete');
+    var addBtn = document.getElementById('create-rel-add');
+    var staged = document.getElementById('create-rels-staged');
+    var hidden = document.getElementById('create-rels-hidden');
+    var selectedSlug = null;
+    var queued = [];
+
+    if (!input || !addBtn) return;
+
+    // Autocomplete
+    var debounce;
+    input.addEventListener('input', function() {
+        clearTimeout(debounce);
+        selectedSlug = null;
+        addBtn.disabled = true;
+        var q = input.value.trim();
+        if (q.length < 2) { dropdown.innerHTML = ''; dropdown.style.display = 'none'; return; }
+        debounce = setTimeout(function() {
+            fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=8')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.results || !data.results.length) {
+                        dropdown.innerHTML = '<div class="rels-ac-empty">No results</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    dropdown.innerHTML = data.results.map(function(a) {
+                        return '<div class="rels-ac-item" data-slug="' + a.slug + '">' +
+                            '<span class="rels-ac-title">' + a.title + '</span>' +
+                            '<span class="rels-ac-cat">' + (a.category || '') + '</span>' +
+                            '</div>';
+                    }).join('');
+                    dropdown.style.display = 'block';
+                });
+        }, 200);
+    });
+
+    dropdown.addEventListener('click', function(e) {
+        var item = e.target.closest('.rels-ac-item');
+        if (!item) return;
+        selectedSlug = item.dataset.slug;
+        input.value = item.querySelector('.rels-ac-title').textContent;
+        dropdown.style.display = 'none';
+        addBtn.disabled = false;
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#create-rel-autocomplete') && !e.target.closest('#create-rel-target')) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // Stage a relationship
+    addBtn.addEventListener('click', function() {
+        if (!selectedSlug) return;
+        var relType = typeSelect.value;
+        var label = typeSelect.options[typeSelect.selectedIndex].text;
+        var title = input.value;
+
+        for (var i = 0; i < queued.length; i++) {
+            if (queued[i].slug === selectedSlug && queued[i].type === relType) return;
+        }
+
+        var idx = queued.length;
+        queued.push({ slug: selectedSlug, type: relType, label: label, title: title });
+
+        var chip = document.createElement('div');
+        chip.className = 'rel-item';
+        chip.dataset.idx = idx;
+        chip.innerHTML =
+            '<span class="rel-label">' + label + '</span>' +
+            '<span class="rel-target">' + title + '</span>' +
+            '<button type="button" class="rel-remove" data-idx="' + idx + '">&times;</button>';
+        staged.appendChild(chip);
+
+        var h1 = document.createElement('input');
+        h1.type = 'hidden'; h1.name = 'rel_type_' + idx; h1.value = relType;
+        var h2 = document.createElement('input');
+        h2.type = 'hidden'; h2.name = 'rel_target_' + idx; h2.value = selectedSlug;
+        h1.id = 'rh_type_' + idx;
+        h2.id = 'rh_target_' + idx;
+        hidden.appendChild(h1);
+        hidden.appendChild(h2);
+
+        input.value = '';
+        selectedSlug = null;
+        addBtn.disabled = true;
+    });
+
+    staged.addEventListener('click', function(e) {
+        var btn = e.target.closest('.rel-remove');
+        if (!btn) return;
+        var idx = btn.dataset.idx;
+        btn.parentElement.remove();
+        var h1 = document.getElementById('rh_type_' + idx);
+        var h2 = document.getElementById('rh_target_' + idx);
+        if (h1) h1.remove();
+        if (h2) h2.remove();
+    });
+})();
+</script>
+{% endif %}
 {% endblock %}

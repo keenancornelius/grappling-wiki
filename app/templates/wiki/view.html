@@ -13,7 +13,6 @@
 {% block twitter_description %}{{ article.summary | default('', true) | e }}{% endblock %}
 
 {% block head_extra %}
-<script src="{{ url_for('static', filename='js/graph-engine.js') }}"></script>
 <script type="application/ld+json">
 {
     "@context": "https://schema.org",
@@ -45,8 +44,8 @@
     <!-- ── Module: Hero Header ── -->
     <section class="gw-module article-hero">
         <div class="article-hero-inner">
-            {% if article.category %}
-            <span class="article-hero-badge">{{ article.category | e }}</span>
+            {% if article.category_name %}
+            <span class="article-hero-badge">{{ article.category_name | e }}</span>
             {% endif %}
             <h1 class="article-hero-title">{{ article.title | e }}</h1>
             {% if article.summary %}
@@ -86,54 +85,47 @@
                 </div>
             </nav>
 
-            <!-- ── Tags (collapsible) ── -->
-            {% if article.tags %}
-            <div class="article-toc-tags">
-                <button class="gw-module-toggle" aria-expanded="true" aria-controls="tags-content">
-                    <span class="gw-module-toggle-label">Tags</span>
+            <!-- ── Relationships (collapsible) ── -->
+            <div class="article-toc-relationships" id="relationships-panel">
+                <button class="gw-module-toggle" aria-expanded="true" aria-controls="rels-content">
+                    <span class="gw-module-toggle-label">Relationships</span>
                     <svg class="gw-module-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <polyline points="6 9 12 15 18 9"></polyline>
                     </svg>
                 </button>
-                <div class="gw-module-body" id="tags-content">
-                    <div class="tags-list">
-                        {% for tag in article.tags %}
-                        <a href="{{ url_for('main.category', name=tag.slug) }}" class="tag">{{ tag.name | e }}</a>
-                        {% endfor %}
+                <div class="gw-module-body" id="rels-content">
+                    <div class="rels-list" id="rels-list">
+                        {% if relationships %}
+                            {% for rel in relationships %}
+                            <div class="rel-item" data-rel-id="{{ rel.id }}">
+                                <span class="rel-label">{{ rel.label }}</span>
+                                <a href="{{ url_for('wiki.view', slug=rel.other.slug) }}" class="rel-target">{{ rel.other.title | e }}</a>
+                                {% if current_user.is_authenticated %}
+                                <button class="rel-remove" data-rel-id="{{ rel.id }}" title="Remove relationship">&times;</button>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="rels-empty" id="rels-empty">No relationships yet.</p>
+                        {% endif %}
                     </div>
-                </div>
-            </div>
-            {% endif %}
 
-            <!-- ── Metadata (collapsible) ── -->
-            <div class="article-toc-meta">
-                <button class="gw-module-toggle" aria-expanded="false" aria-controls="meta-content">
-                    <span class="gw-module-toggle-label">Metadata</span>
-                    <svg class="gw-module-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <polyline points="6 9 12 15 18 9"></polyline>
-                    </svg>
-                </button>
-                <div class="gw-module-body collapsed" id="meta-content">
-                    <div class="metadata-box">
-                        <div class="metadata-item">
-                            <span class="metadata-label">Last Updated</span>
-                            <span class="metadata-value">{{ article.updated_at.strftime('%B %d, %Y') }}</span>
+                    {% if current_user.is_authenticated %}
+                    <div class="rels-add" id="rels-add">
+                        <div class="rels-add-row">
+                            <select id="rel-type-select" class="rels-select">
+                                {% for rt in relationship_types %}
+                                <option value="{{ rt }}">{{ relationship_labels[rt] }}</option>
+                                {% endfor %}
+                            </select>
                         </div>
-                        <div class="metadata-item">
-                            <span class="metadata-label">Author</span>
-                            <span class="metadata-value">
-                                <a href="{{ url_for('auth.profile', username=article.author.username) }}">{{ article.author.username | e }}</a>
-                            </span>
+                        <div class="rels-add-row">
+                            <input type="text" id="rel-target-input" class="rels-input" placeholder="Search articles..." autocomplete="off">
+                            <div class="rels-autocomplete" id="rel-autocomplete"></div>
                         </div>
-                        <div class="metadata-item">
-                            <span class="metadata-label">Category</span>
-                            <span class="metadata-value">{{ article.category | e }}</span>
-                        </div>
-                        <div class="metadata-item">
-                            <span class="metadata-label">Views</span>
-                            <span class="metadata-value">{{ article.view_count | default(0) }}</span>
-                        </div>
+                        <button class="button button-primary button-sm" id="rel-add-btn" disabled>Add</button>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </aside>
@@ -147,14 +139,14 @@
 
     </div>
 
-    <!-- ── Module: Related Techniques ── -->
+    <!-- ── Module: Related Articles (via relationships) ── -->
     {% if related_articles %}
     <section class="gw-module article-related-module">
-        <h2 class="gw-module-heading">Related Techniques</h2>
+        <h2 class="gw-module-heading">Related Articles</h2>
         <div class="related-grid">
             {% for related in related_articles[:6] %}
             <a href="{{ url_for('wiki.view', slug=related.slug) }}" class="related-card">
-                <span class="related-card-category">{{ related.category | e }}</span>
+                <span class="related-card-category">{{ related.category_name | e }}</span>
                 <span class="related-card-title">{{ related.title | e }}</span>
                 {% if related.summary %}
                 <span class="related-card-summary">{{ related.summary | truncate(80) | e }}</span>
@@ -164,23 +156,6 @@
         </div>
     </section>
     {% endif %}
-
-    <!-- ── Module: Knowledge Graph Context ── -->
-    <section class="gw-module article-graph-module">
-        <div class="article-graph-header">
-            <h2 class="gw-module-heading">Position in Knowledge Graph</h2>
-            <a href="{{ url_for('main.explore') }}" class="gw-module-link">Explore Full Graph &rarr;</a>
-        </div>
-        <div class="article-graph-container" id="article-graph-container">
-            <canvas id="article-graph-canvas"></canvas>
-        </div>
-        <div class="graph-tooltip" id="article-graph-tooltip">
-            <div class="graph-tooltip-category"></div>
-            <div class="graph-tooltip-title"></div>
-            <div class="graph-tooltip-summary"></div>
-            <div class="graph-tooltip-hint">Click to open article</div>
-        </div>
-    </section>
 
     <!-- ── Module: Revision Footer ── -->
     <section class="gw-module article-revision-module">
@@ -206,8 +181,6 @@
         </div>
         {% if article.discussions.count() > 0 %}
         <div class="discussion-preview-list">
-            {% for disc in article.discussions.order_by(article.discussions._entity_zero().entity.created_at.desc()).limit(3).all() if false %}
-            {% endfor %}
             <p class="discussion-preview-count">
                 {{ article.discussions.count() }} discussion thread{{ 's' if article.discussions.count() != 1 else '' }}
             </p>
@@ -219,16 +192,132 @@
 
 </div>
 
+{% if current_user.is_authenticated %}
 <script>
 (function() {
-    var articles = {{ graph_articles | tojson }};
-    GWGraph.init('article-graph-canvas', 'article-graph-tooltip', articles, {
-        mode: 'article',
-        focusSlug: '{{ article.slug }}',
-        height: 400,
-        interactive: true,
-        particleCount: 15
+    var currentSlug = '{{ article.slug }}';
+    var input = document.getElementById('rel-target-input');
+    var dropdown = document.getElementById('rel-autocomplete');
+    var addBtn = document.getElementById('rel-add-btn');
+    var typeSelect = document.getElementById('rel-type-select');
+    var relsList = document.getElementById('rels-list');
+    var relsEmpty = document.getElementById('rels-empty');
+    var selectedSlug = null;
+
+    if (!input || !addBtn) return;
+
+    // ── Autocomplete search ──
+    var debounce;
+    input.addEventListener('input', function() {
+        clearTimeout(debounce);
+        selectedSlug = null;
+        addBtn.disabled = true;
+        var q = input.value.trim();
+        if (q.length < 2) { dropdown.innerHTML = ''; dropdown.style.display = 'none'; return; }
+        debounce = setTimeout(function() {
+            fetch('/api/search?q=' + encodeURIComponent(q) + '&limit=8')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.results || !data.results.length) {
+                        dropdown.innerHTML = '<div class="rels-ac-empty">No results</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    dropdown.innerHTML = data.results
+                        .filter(function(a) { return a.slug !== currentSlug; })
+                        .map(function(a) {
+                            return '<div class="rels-ac-item" data-slug="' + a.slug + '">' +
+                                '<span class="rels-ac-title">' + a.title + '</span>' +
+                                '<span class="rels-ac-cat">' + (a.category || '') + '</span>' +
+                                '</div>';
+                        }).join('');
+                    dropdown.style.display = 'block';
+                });
+        }, 200);
+    });
+
+    // ── Select from autocomplete ──
+    dropdown.addEventListener('click', function(e) {
+        var item = e.target.closest('.rels-ac-item');
+        if (!item) return;
+        selectedSlug = item.dataset.slug;
+        input.value = item.querySelector('.rels-ac-title').textContent;
+        dropdown.style.display = 'none';
+        addBtn.disabled = false;
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#rel-autocomplete') && !e.target.closest('#rel-target-input')) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    // ── Add relationship ──
+    addBtn.addEventListener('click', function() {
+        if (!selectedSlug) return;
+        addBtn.disabled = true;
+        addBtn.textContent = '...';
+
+        fetch('/api/relationships', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                source_slug: currentSlug,
+                target_slug: selectedSlug,
+                relationship_type: typeSelect.value
+            })
+        })
+        .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+        .then(function(res) {
+            addBtn.textContent = 'Add';
+            if (!res.ok) {
+                alert(res.data.error || 'Failed to add relationship');
+                addBtn.disabled = false;
+                return;
+            }
+
+            if (relsEmpty) relsEmpty.style.display = 'none';
+
+            var div = document.createElement('div');
+            div.className = 'rel-item';
+            div.dataset.relId = res.data.id;
+            div.innerHTML =
+                '<span class="rel-label">' + res.data.label + '</span>' +
+                '<a href="/wiki/' + selectedSlug + '" class="rel-target">' + input.value + '</a>' +
+                '<button class="rel-remove" data-rel-id="' + res.data.id + '" title="Remove relationship">&times;</button>';
+            relsList.appendChild(div);
+
+            input.value = '';
+            selectedSlug = null;
+        })
+        .catch(function() {
+            addBtn.textContent = 'Add';
+            addBtn.disabled = false;
+            alert('Network error');
+        });
+    });
+
+    // ── Remove relationship (event delegation) ──
+    relsList.addEventListener('click', function(e) {
+        var btn = e.target.closest('.rel-remove');
+        if (!btn) return;
+        var relId = btn.dataset.relId;
+        if (!confirm('Remove this relationship?')) return;
+
+        fetch('/api/relationships/' + relId, { method: 'DELETE' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.message) {
+                    var item = relsList.querySelector('[data-rel-id="' + relId + '"]');
+                    if (item) item.remove();
+                    if (!relsList.querySelector('.rel-item') && relsEmpty) {
+                        relsEmpty.style.display = '';
+                    }
+                }
+            });
     });
 })();
 </script>
+{% endif %}
 {% endblock %}

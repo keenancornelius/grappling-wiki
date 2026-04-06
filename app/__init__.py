@@ -48,6 +48,7 @@ def create_app(config_name='default'):
     app.register_blueprint(wiki_bp, url_prefix='/wiki')
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(api_bp, url_prefix='/api')
+    csrf.exempt(api_bp)
 
     # Register template filters
     from app.utils.filters import register_filters

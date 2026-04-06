@@ -5,7 +5,7 @@ WTForms for GrapplingWiki application
 from flask_wtf import FlaskForm
 from wtforms import (
     StringField, PasswordField, BooleanField, SubmitField,
-    TextAreaField, SelectField, SelectMultipleField, HiddenField
+    TextAreaField, SelectField, HiddenField
 )
 from wtforms.validators import (
     DataRequired, Email, EqualTo, ValidationError,
@@ -104,102 +104,11 @@ class ArticleForm(FlaskForm):
     )
     category = SelectField(
         'Category',
-        validators=[DataRequired('Please select a category')],
-        choices=[
-            ('technique', 'Technique'),
-            ('position', 'Position'),
-            ('concept', 'Concept'),
-            ('person', 'Notable Person'),
-            ('competition', 'Competition'),
-            ('glossary', 'Glossary'),
-            ('style', 'Grappling Style')
-        ]
-    )
-    tags = StringField(
-        'Tags',
         validators=[Optional()],
-        render_kw={'placeholder': 'Comma-separated tags (e.g., takedown, submission, defense)'}
+        choices=[],  # Populated dynamically from Category model
+        coerce=str
     )
     is_published = BooleanField('Publish immediately')
-
-    # ── Taxonomy: English-from-Japanese naming convention ──
-    # Required for Technique, Position, Concept articles.
-    # Missing fields set taxonomy_complete=False and flag the article in the UI.
-
-    mechanism = SelectField(
-        'Mechanism',
-        validators=[Optional()],
-        choices=[
-            ('', '— select mechanism —'),
-            ('lock',         'Lock (Gatame) — joint hyperextension'),
-            ('choke',        'Choke (Jime) — blood/air restriction'),
-            ('entanglement', 'Entanglement (Garami) — rotational joint attack'),
-            ('compression',  'Compression — crushing / slicer'),
-            ('throw',        'Throw (Nage) — projection'),
-            ('reap',         'Reap (Gari) — leg reap takedown'),
-            ('sweep',        'Sweep (Harai) — positional reversal'),
-            ('pass',         'Pass — guard passing'),
-            ('hook',         'Hook (Gake) — hooking technique'),
-            ('drop',         'Drop (Otoshi) — drop technique'),
-            ('wheel',        'Wheel (Guruma) — rotation-based throw'),
-            ('pin',          'Pin (Osae) — holding position'),
-            ('concept',      'Concept — strategic / positional principle'),
-        ]
-    )
-
-    target = SelectField(
-        'Target',
-        validators=[Optional()],
-        choices=[
-            ('',         '— select target —'),
-            ('arm',      'Arm (Ude)'),
-            ('leg',      'Leg (Ashi)'),
-            ('neck',     'Neck / Throat'),
-            ('hip',      'Hip (Koshi)'),
-            ('shoulder', 'Shoulder (Kata)'),
-            ('knee',     'Knee'),
-            ('ankle',    'Ankle'),
-            ('wrist',    'Wrist'),
-            ('body',     'Body / Positional'),
-        ]
-    )
-
-    spatial_qualifier = SelectField(
-        'Spatial Qualifier',
-        validators=[Optional()],
-        choices=[
-            ('',         '— select qualifier —'),
-            ('inner',    'Inner (Uchi)'),
-            ('outer',    'Outer (Soto)'),
-            ('major',    'Major / Large (O)'),
-            ('minor',    'Minor / Small (Ko)'),
-            ('forward',  'Forward (Mae)'),
-            ('rear',     'Rear (Ushiro)'),
-            ('side',     'Side (Yoko)'),
-            ('cross',    'Cross (Juji)'),
-            ('triangle', 'Triangle (Sankaku)'),
-            ('naked',    'Naked / Bare (Hadaka)'),
-        ]
-    )
-
-    graph_tier = SelectMultipleField(
-        'Graph Tier(s)',
-        validators=[Optional()],
-        choices=[
-            ('sys_standing',       'Standing Neutral'),
-            ('sys_upper_td',       'Upper Body Takedowns'),
-            ('sys_lower_td',       'Lower Body Takedowns'),
-            ('sys_close_guard',    'Close Distance Guards'),
-            ('sys_mid_guard',      'Mid Distance Guards'),
-            ('sys_leg_entangle',   'Leg Entanglements'),
-            ('sys_far_guard',      'Far Distance Guards'),
-            ('sys_front_headlock', 'Front Headlock'),
-            ('sys_side_control',   'Side Control'),
-            ('sys_mount',          'Mount'),
-            ('sys_kob',            'Knee on Belly'),
-            ('sys_back_control',   'Back Control'),
-        ]
-    )
 
     submit = SubmitField('Save Article')
 
@@ -344,15 +253,7 @@ class FilterForm(FlaskForm):
     """Form for filtering articles"""
     category = SelectField(
         'Category',
-        choices=[('', 'All Categories')] + [
-            ('technique', 'Technique'),
-            ('position', 'Position'),
-            ('concept', 'Concept'),
-            ('person', 'Notable Person'),
-            ('competition', 'Competition'),
-            ('glossary', 'Glossary'),
-            ('style', 'Grappling Style')
-        ],
+        choices=[('', 'All Categories')],  # Populated dynamically from Category model
         validators=[Optional()]
     )
     sort_by = SelectField(

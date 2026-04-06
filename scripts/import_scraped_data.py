@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from slugify import slugify
 from app import create_app, db
-from app.models import User, Article, ArticleRevision, Tag
+from app.models import User, Article, ArticleRevision, Category
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -94,14 +94,14 @@ INSTRUCTIONAL_TEMPLATE = """## Overview
 """
 
 
-def get_or_create_tag(name: str, slug_str: str, description: str = "") -> Tag:
-    """Get existing tag or create it."""
-    tag = Tag.query.filter_by(slug=slug_str).first()
-    if not tag:
-        tag = Tag(name=name, slug=slug_str, description=description)
-        db.session.add(tag)
+def get_or_create_category(name: str, slug_str: str, description: str = "") -> Category:
+    """Get existing category or create it."""
+    cat = Category.query.filter_by(slug=slug_str).first()
+    if not cat:
+        cat = Category(name=name, slug=slug_str, description=description)
+        db.session.add(cat)
         db.session.flush()
-    return tag
+    return cat
 
 
 def get_bot_user() -> User:
@@ -255,10 +255,10 @@ def import_entries(entries: list[dict], category: str, dry_run: bool, bot_user, 
         )
         db.session.add(revision)
 
-        # Add appropriate tag
-        tag_name = article_category.capitalize()
-        tag = get_or_create_tag(tag_name, article_category, f"Articles about {tag_name.lower()}.")
-        article.tags.append(tag)
+        # Assign category FK
+        cat_name = article_category.capitalize()
+        cat = get_or_create_category(cat_name, article_category, f"Articles about {cat_name.lower()}.")
+        article.category_id = cat.id
 
         created += 1
         if created % 50 == 0:

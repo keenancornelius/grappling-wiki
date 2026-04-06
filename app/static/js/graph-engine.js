@@ -55,7 +55,7 @@ var GWGraph = (function() {
     style:       { r: 130, g: 195, b: 210 },   // ice blue
     glossary:    { r: 170, g: 170, b: 180 },   // cool gray
 
-    // ── Force vector colors — submission finish mechanics ──
+    // ── Force vector colors — kept for FORCE_VECTORS lookup compatibility ──
     fv_arterial:     { r: 190, g: 100, b: 100 },
     fv_extension:    { r: 210, g: 140, b: 110 },
     fv_torsion:      { r: 200, g: 175, b: 100 },
@@ -63,87 +63,345 @@ var GWGraph = (function() {
   };
 
   // ── Excluded categories (not mapped in the graph) ──
-  var EXCLUDED_CATEGORIES = ['person', 'competition', 'style', 'concept'];
+  var EXCLUDED_CATEGORIES = ['person', 'competition', 'style'];
 
   // ══════════════════════════════════════════════════════════
-  // ── TAXONOMY-DRIVEN RADIAL GRAPH ──
+  // ── INVERSE TREE: OPTION COMPRESSION MODEL ──
   // ══════════════════════════════════════════════════════════
   //
-  // No hardcoded positions or connections. Every node's placement
-  // and every edge derives from the article's taxonomy fields:
+  // THREE SEMANTIC AXES:
   //
-  //   graph_tier  → radial depth (center = standing, outer = submissions)
-  //   mechanism   → angular sector (chokes cluster, locks cluster, etc.)
-  //   target      → phi offset (body part sub-clustering)
-  //   spatial     → theta fine-tuning (inner/outer/cross shifts)
+  //   X axis = Guard leg reconnection spectrum
+  //            LEFT  = most closed (legs locked around opponent)
+  //            RIGHT = most open (feet on opponent, connected only by grips)
+  //            → wraps back to standing at far right
+  //            Spectrum: Closed Guard → Half → Deep Half → Knee Shield →
+  //            SLX/Ashi (leg locks) → Lasso → DLR → Spider → Sit-up → Standing
   //
-  // Layout is a continuous inside-out gradient with jitter,
-  // not rigid shells. Taxonomy similarity drives edges.
+  //   Y axis = Optionality / causal chain progression
+  //            TOP    = max options (standing)
+  //            BOTTOM = end states (submissions / tap)
+  //            Guards sit ABOVE dominant positions (you must pass guard
+  //            to reach side control/mount — passing is a step DOWN the chain)
+  //
+  //   Z axis = Offense / defense spectrum
+  //            POSITIVE Z = offensive perspective (attacks, passes, submissions)
+  //            NEGATIVE Z = defensive perspective (frames, retention, escapes)
+  //            ZERO       = neutral / symmetrical (standing, 50/50)
+  //
+  // Sweeps = polarity flips (edges between guard and dominant position).
+  // Passes = distance compressions (edges from guard → past guard).
   // ──────────────────────────────────────────────────────────
 
-  // Spherical coordinate helper
-  function spherePos(R, theta, phi) {
-    return {
-      x: R * Math.sin(phi) * Math.cos(theta),
-      y: -R * Math.cos(phi),
-      z: R * Math.sin(phi) * Math.sin(theta)
-    };
-  }
+  var SYSTEM_NODES = [
+    // ── Tier 0: Standing — max optionality, top of tree ──
+    // X far right: standing is the "most open" state (no guard at all)
+    // Z=0: neutral
+    { id: 'sys_standing', label: 'Standing\nNeutral', tier: 0, x: 200, y: -340, z: 0 },
 
-  // ── Tier depth mapping ──
-  // graph_tier sys_* IDs → radial depth (0 = innermost, 4 = outermost)
-  var TIER_DEPTH = {
-    'sys_standing': 0,
-    'sys_upper_td': 1, 'sys_lower_td': 1,
-    'sys_close_guard': 2, 'sys_mid_guard': 2, 'sys_leg_entangle': 2,
-    'sys_far_guard': 2, 'sys_front_headlock': 2,
-    'sys_side_control': 3, 'sys_mount': 3, 'sys_kob': 3, 'sys_back_control': 3,
+    // ── Tier 1: Takedown types ──
+    // Z positive: takedowns are offensive actions
+    { id: 'sys_upper_td', label: 'Upper Body\nTakedowns', tier: 1, x: 100,  y: -200, z: 50 },
+    { id: 'sys_lower_td', label: 'Lower Body\nTakedowns', tier: 1, x: 300,  y: -200, z: 50 },
+
+    // ── Tier 2: Guards — ordered by leg reconnection on X axis ──
+    // LEFT = most closed (legs fully locked) → RIGHT = most open
+    // Z negative: guards are defensive (bottom player maintaining space)
+
+    // Closed guards: legs fully reconnect around the opponent
+    { id: 'sys_close_guard', label: 'Close Distance\nGuards', tier: 2, x: -420, y: -40, z: -20 },
+
+    // Mid guards: partial leg entanglement (half guard, deep half, knee shield)
+    { id: 'sys_mid_guard',   label: 'Mid Distance\nGuards',   tier: 2, x: -260, y: -10, z: -30 },
+
+    // Leg entanglements: legs control opponent's leg (the leg lock game)
+    // Z near zero: symmetrical — both players can attack (esp. 50/50)
+    { id: 'sys_leg_entangle', label: 'Leg\nEntanglements', tier: 2, x: -100, y: 10, z: 5 },
+
+    // Far/open guards: feet on opponent, connected by grips (DLR, spider, lasso)
+    // Closest to standing on the X spectrum
+    { id: 'sys_far_guard',   label: 'Far Distance\nGuards',   tier: 2, x: 60,  y: -30, z: -40 },
+
+    // Front headlock: face-to-back control from sprawls/snap-downs.
+    // OPPOSITE of close guard on X axis (mirrored), offensive Z.
+    // Gateway to guillotines, darces, anacondas.
+    { id: 'sys_front_headlock', label: 'Front\nHeadlock', tier: 2, x: 420, y: -40, z: 30 },
+
+    // ── Tier 3: Passed / dominant positions — BELOW guards on Y ──
+    // Passing guard is a step down the causal chain (fewer options for bottom)
+    // Z positive: dominant positions are offensive (top player controls)
+    { id: 'sys_side_control', label: 'Side\nControl',  tier: 3, x: -300, y: 140, z: 40 },
+    { id: 'sys_mount',        label: 'Mount',          tier: 3, x: -120, y: 170, z: 55 },
+    { id: 'sys_kob',          label: 'Knee on\nBelly', tier: 3, x: 60,   y: 130, z: 45 },
+    { id: 'sys_back_control', label: 'Back\nControl',  tier: 3, x: 240,  y: 160, z: 65 },
+
+    // Submissions are NOT system nodes — they are green article nodes
+    // that connect to the positions they're available from. Lightning
+    // travels to individual submission articles as endpoints.
+  ];
+
+  var SYSTEM_EDGES = [
+    // ── Standing → takedowns ──
+    ['sys_standing', 'sys_upper_td'],
+    ['sys_standing', 'sys_lower_td'],
+
+    // ── Standing ↔ far guard (guard pull / wrestle-up) ──
+    ['sys_standing', 'sys_far_guard'],        // guard pull → open guard
+    ['sys_far_guard', 'sys_standing'],        // wrestle-up → back to feet
+
+    // ── Upper body TDs → positions ──
+    ['sys_upper_td', 'sys_side_control'],     // throw → land in side control
+    ['sys_upper_td', 'sys_back_control'],     // snap down → back exposure
+    ['sys_upper_td', 'sys_close_guard'],      // failed throw → land in guard
+    ['sys_upper_td', 'sys_mid_guard'],        // sprawl → half guard
+
+    // ── Lower body TDs → positions ──
+    ['sys_lower_td', 'sys_side_control'],     // double leg → pass to side control
+    ['sys_lower_td', 'sys_mid_guard'],        // single leg → land in half guard
+    ['sys_lower_td', 'sys_far_guard'],        // guard pull → open guard
+    ['sys_lower_td', 'sys_close_guard'],      // takedown → closed guard
+    ['sys_lower_td', 'sys_leg_entangle'],     // imanari roll, failed shot → leg entangle
+
+    // ── Guard transitions along X spectrum (openness) ──
+    // Moving right = opening guard, moving left = closing guard
+    ['sys_close_guard', 'sys_mid_guard'],     // open up from closed → half
+    ['sys_mid_guard', 'sys_leg_entangle'],    // half guard → leg entangle
+    ['sys_mid_guard', 'sys_far_guard'],       // half → open guard (recover)
+    ['sys_leg_entangle', 'sys_far_guard'],    // disengage legs → open guard
+    ['sys_far_guard', 'sys_mid_guard'],       // opponent closes distance → half
+    ['sys_close_guard', 'sys_leg_entangle'],  // closed guard → leg entangle entry
+
+    // ── Guard → passed (passes drop DOWN on Y) ──
+    ['sys_far_guard', 'sys_side_control'],    // pass: far → past guard
+    ['sys_mid_guard', 'sys_side_control'],    // pass: mid → past guard
+    ['sys_close_guard', 'sys_side_control'],  // pass: close → past guard
+
+    // ── Dominant position transitions ──
+    ['sys_side_control', 'sys_mount'],        // advance
+    ['sys_side_control', 'sys_kob'],          // advance
+    ['sys_side_control', 'sys_back_control'], // take back from side
+    ['sys_mount', 'sys_back_control'],        // take back from mount
+    ['sys_kob', 'sys_mount'],                 // advance KOB → mount
+
+    // ── Back control access from guards (berimbolo, etc.) ──
+    ['sys_far_guard', 'sys_back_control'],
+    ['sys_mid_guard', 'sys_back_control'],
+
+    // ── Front headlock — face-to-back control zone ──
+    // Entries: snap down from standing, sprawl on shots, failed clinch
+    ['sys_standing', 'sys_front_headlock'],    // snap down → front headlock
+    ['sys_lower_td', 'sys_front_headlock'],    // sprawl on shot → front headlock
+    ['sys_upper_td', 'sys_front_headlock'],    // clinch fight → front headlock
+    // Exits: advance to dominant positions
+    ['sys_front_headlock', 'sys_side_control'], // snap to mat → side control
+    ['sys_front_headlock', 'sys_back_control'], // spin behind → back control
+    // Recovery: opponent pulls guard from front headlock
+    ['sys_front_headlock', 'sys_close_guard'],  // opponent pulls guard
+    ['sys_front_headlock', 'sys_mid_guard'],    // scramble → half guard
+
+  ];
+
+  // ── Article → Combat Zone mapping ──
+  // Each article connects to the Combat Zone(s) where it lives in the tree.
+  // Submissions connect to every position they're available from.
+  // Sweeps are polarity flips: connect guard origin → dominant position destination.
+  // Passes connect guard → dominant position (distance compression).
+  var ARTICLE_CONNECTIONS = {
+    // ══════════════════════════════════════════════════════════
+    // STANDING CONCEPTS
+    // ══════════════════════════════════════════════════════════
+    'grip-fighting':        ['sys_standing'],
+    'underhooks':           ['sys_standing', 'sys_upper_td'],
+    'base-and-posture':     ['sys_standing'],
+    'inside-position':      ['sys_standing', 'sys_mid_guard'],
+    'chain-wrestling':      ['sys_standing', 'sys_upper_td', 'sys_lower_td'],
+
+    // ══════════════════════════════════════════════════════════
+    // UPPER BODY TAKEDOWNS (throws, clinch takedowns)
+    // ══════════════════════════════════════════════════════════
+    'osoto-gari':           ['sys_upper_td'],
+    'seoi-nage':            ['sys_upper_td'],
+    'uchi-mata':            ['sys_upper_td'],
+    'snap-down':            ['sys_upper_td', 'sys_back_control'],
+    'arm-drag':             ['sys_upper_td', 'sys_back_control'],
+
+    // ══════════════════════════════════════════════════════════
+    // LOWER BODY TAKEDOWNS (shots, leg attacks)
+    // ══════════════════════════════════════════════════════════
+    'double-leg-takedown':  ['sys_lower_td'],
+    'single-leg-takedown':  ['sys_lower_td'],
+    'ankle-pick':           ['sys_lower_td'],
+    'high-crotch':          ['sys_lower_td'],
+
+    // ══════════════════════════════════════════════════════════
+    // FAR DISTANCE GUARDS
+    // ══════════════════════════════════════════════════════════
+    'de-la-riva-guard':     ['sys_far_guard'],
+    'spider-guard':         ['sys_far_guard'],
+    'x-guard':              ['sys_far_guard'],
+    'lasso-guard':          ['sys_far_guard'],
+    'reverse-de-la-riva':   ['sys_far_guard'],
+
+    // ══════════════════════════════════════════════════════════
+    // MID DISTANCE GUARDS
+    // ══════════════════════════════════════════════════════════
+    'half-guard':           ['sys_mid_guard'],
+    'butterfly-guard':      ['sys_mid_guard', 'sys_far_guard'],
+    'z-guard':              ['sys_mid_guard'],
+    'deep-half-guard':      ['sys_mid_guard'],
+
+    // ══════════════════════════════════════════════════════════
+    // CLOSE DISTANCE GUARDS
+    // ══════════════════════════════════════════════════════════
+    'closed-guard':         ['sys_close_guard'],
+    'rubber-guard':         ['sys_close_guard'],
+    'worm-guard':           ['sys_close_guard'],
+
+    // ══════════════════════════════════════════════════════════
+    // LEG ENTANGLEMENT POSITIONS (the leg lock game)
+    // These are guard positions where control is through leg-on-leg.
+    // ══════════════════════════════════════════════════════════
+    'single-leg-x':         ['sys_leg_entangle'],
+    'ashi-garami':          ['sys_leg_entangle'],
+    'inside-sankaku':       ['sys_leg_entangle'],
+    'fifty-fifty':          ['sys_leg_entangle'],
+    'outside-ashi':         ['sys_leg_entangle'],
+    'cross-ashi':           ['sys_leg_entangle'],
+
+    // ══════════════════════════════════════════════════════════
+    // DOMINANT POSITIONS
+    // ══════════════════════════════════════════════════════════
+    'side-control':         ['sys_side_control'],
+    'north-south':          ['sys_side_control'],
+    'kesa-gatame':          ['sys_side_control'],
+    'reverse-kesa-gatame':  ['sys_side_control'],
+    'double-under-side-control': ['sys_side_control'],
+    'reverse-side-control': ['sys_side_control'],
+    'shoulder-pressure':    ['sys_side_control'],
+    'mount':                ['sys_mount'],
+    'knee-on-belly':        ['sys_kob'],
+    'back-control':         ['sys_back_control'],
+    'turtle-position':      ['sys_back_control'],
+
+    // ══════════════════════════════════════════════════════════
+    // POLARITY FLIPS (sweeps) — guard origin → position achieved
+    // ══════════════════════════════════════════════════════════
+    'scissor-sweep':        ['sys_close_guard', 'sys_mount'],
+    'hip-bump-sweep':       ['sys_close_guard', 'sys_mount'],
+    'flower-sweep':         ['sys_close_guard', 'sys_mount'],
+    'tripod-sweep':         ['sys_far_guard', 'sys_side_control'],
+    'berimbolo':            ['sys_far_guard', 'sys_back_control'],
+
+    // ══════════════════════════════════════════════════════════
+    // DISTANCE COMPRESSIONS (passes) — guard → past guard
+    // ══════════════════════════════════════════════════════════
+    'guard-passing':        ['sys_far_guard', 'sys_side_control'],
+    'toreando-pass':        ['sys_far_guard', 'sys_side_control'],
+    'knee-slice-pass':      ['sys_mid_guard', 'sys_side_control'],
+    'leg-drag-pass':        ['sys_far_guard', 'sys_side_control', 'sys_back_control'],
+    'body-lock-pass':       ['sys_close_guard', 'sys_mid_guard', 'sys_side_control'],
+
+    // ══════════════════════════════════════════════════════════
+    // CONCEPTS (connect to where the concept is most contested)
+    // ══════════════════════════════════════════════════════════
+    'frames-and-framing':   ['sys_close_guard', 'sys_side_control'],
+    'shrimping':            ['sys_close_guard', 'sys_side_control'],
+    'guard-retention':      ['sys_far_guard', 'sys_mid_guard', 'sys_close_guard'],
+    'pressure':             ['sys_side_control', 'sys_mount'],
+    'weight-distribution':  ['sys_side_control', 'sys_mount', 'sys_kob'],
+
+    // ══════════════════════════════════════════════════════════
+    // SUBMISSIONS — connect to the positions they're available from.
+    // These are terminal endpoints (green technique nodes).
+    // Lightning travels to these as final destinations.
+    // ══════════════════════════════════════════════════════════
+
+    // Guard submissions
+    'triangle-choke':       ['sys_close_guard'],
+    'omoplata':             ['sys_close_guard'],
+    'guillotine':           ['sys_close_guard', 'sys_standing', 'sys_front_headlock'],
+    'armbar':               ['sys_close_guard', 'sys_mount'],
+    'buggy-choke':          ['sys_side_control'],
+
+    // Leg lock submissions (from leg entanglements)
+    'heel-hook':            ['sys_leg_entangle'],
+    'straight-ankle-lock':  ['sys_leg_entangle'],
+    'kneebar':              ['sys_leg_entangle'],
+    'toe-hold':             ['sys_leg_entangle'],
+    'calf-slicer':          ['sys_leg_entangle'],
+
+    // Front headlock submissions
+    'darce-choke':          ['sys_front_headlock', 'sys_side_control', 'sys_mid_guard'],
+    'anaconda-choke':       ['sys_front_headlock', 'sys_side_control'],
+    'peruvian-necktie':     ['sys_front_headlock'],
+    'japanese-necktie':     ['sys_front_headlock'],
+
+    // Top submissions (from dominant positions)
+    'kimura':               ['sys_side_control', 'sys_close_guard'],
+    'americana':            ['sys_mount', 'sys_side_control'],
+    'ezekiel-choke':        ['sys_mount', 'sys_close_guard'],
+    'north-south-choke':    ['sys_side_control'],
+    'arm-triangle':         ['sys_side_control', 'sys_mount'],
+    'cross-collar-choke':   ['sys_mount', 'sys_close_guard'],
+    'wrist-lock':           ['sys_mount', 'sys_close_guard'],
+
+    // Back submissions
+    'rear-naked-choke':     ['sys_back_control'],
+    'bow-and-arrow-choke':  ['sys_back_control'],
   };
 
-  // ── Radial bands ──
-  // depth → [minRadius, maxRadius]. Jitter within each band for organic spread.
-  var DEPTH_RADII = {
-    0: [30, 80],      // Standing — tight core
-    1: [100, 160],    // Takedowns
-    2: [180, 260],    // Guards + Front Headlock
-    3: [280, 340],    // Dominant Positions
-    4: [360, 430],    // Submissions — outermost
-  };
+  // ── Submission slugs — lightning endpoints ──
+  // Every submission article slug. Lightning bolts travel down
+  // the tree and terminate at these green nodes with a flash.
+  var SUBMISSION_SLUGS = [
+    'triangle-choke', 'omoplata', 'guillotine', 'armbar', 'buggy-choke',
+    'heel-hook', 'straight-ankle-lock', 'kneebar', 'toe-hold', 'calf-slicer',
+    'kimura', 'americana', 'darce-choke', 'anaconda-choke', 'ezekiel-choke',
+    'north-south-choke', 'arm-triangle', 'cross-collar-choke', 'wrist-lock',
+    'rear-naked-choke', 'bow-and-arrow-choke',
+    'peruvian-necktie', 'japanese-necktie',
+  ];
 
-  // Wireframe ring radii (midpoints of each band for visual guides)
-  var RING_RADII = [55, 130, 220, 310, 395];
+  // ── Force vector classification ──
+  // Determines submission node color. Each force vector type
+  // maps to a distinct hue so you can read the finish mechanic at a glance.
+  //
+  //   arterial    = chokes (blood/air restriction)
+  //   extension   = hyperextension of a joint (armbar, kneebar)
+  //   torsion     = rotation of a joint (kimura, heel hook)
+  //   compression = crushing tissue against bone (slicers, can opener)
+  //
+  var FORCE_VECTORS = {
+    // Arterial compression (chokes)
+    'triangle-choke':       'arterial',
+    'guillotine':           'arterial',
+    'darce-choke':          'arterial',
+    'anaconda-choke':       'arterial',
+    'ezekiel-choke':        'arterial',
+    'north-south-choke':    'arterial',
+    'cross-collar-choke':   'arterial',
+    'rear-naked-choke':     'arterial',
+    'bow-and-arrow-choke':  'arterial',
+    'buggy-choke':          'arterial',
+    'arm-triangle':         'arterial',
+    'peruvian-necktie':     'arterial',
+    'japanese-necktie':     'arterial',
 
-  // ── Finishing mechanisms ──
-  // These are submission mechanics — always placed on the outermost shell.
-  var FINISHING_MECHS = ['choke', 'lock', 'entanglement', 'compression'];
+    // Extension (hyperextension)
+    'armbar':               'extension',
+    'kneebar':              'extension',
+    'straight-ankle-lock':  'extension',
 
-  // ── Mechanism → force vector type (for submission coloring) ──
-  var MECH_TO_FV = {
-    'choke': 'arterial', 'lock': 'extension',
-    'entanglement': 'torsion', 'compression': 'compression'
-  };
+    // Torsion (rotation)
+    'kimura':               'torsion',
+    'americana':            'torsion',
+    'omoplata':             'torsion',
+    'heel-hook':            'torsion',
+    'toe-hold':             'torsion',
+    'wrist-lock':           'torsion',
 
-  // ── Mechanism angular sectors ──
-  // Each mechanism gets a slice of theta so related techniques cluster.
-  var MECH_THETA = {
-    'choke': 0,          'lock': 0.55,        'entanglement': 1.1,
-    'compression': 1.65, 'pin': 2.2,          'hook': 2.75,
-    'throw': 3.3,        'reap': 3.75,        'sweep': 4.2,
-    'pass': 4.75,        'drop': 5.2,         'wheel': 5.6,
-  };
-
-  // ── Target body part → phi offset for sub-clustering ──
-  var TARGET_PHI = {
-    'neck': -0.35, 'shoulder': -0.22, 'arm': -0.1,
-    'wrist': 0.02, 'body': 0.12, 'hip': 0.22,
-    'leg': 0.32, 'knee': 0.4, 'ankle': 0.48,
-  };
-
-  // ── Spatial qualifier → theta offset ──
-  var SPATIAL_THETA = {
-    'inner': -0.2, 'outer': 0.2, 'cross': 0.12,
-    'major': -0.15, 'minor': 0.15, 'forward': -0.06,
-    'rear': 0.06, 'side': 0.12, 'triangle': -0.1,
+    // Compression / wedge
+    'calf-slicer':          'compression',
   };
 
   function rgba(c, a) { return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + a + ')'; }
@@ -161,11 +419,27 @@ var GWGraph = (function() {
   }
 
   // ══════════════════════════════════════════════════════════
-  // ── BUILD GRAPH (taxonomy-driven) ──
+  // ── BUILD GRAPH ──
   // ══════════════════════════════════════════════════════════
   function buildGraph(articles, opts) {
     var nodes = [], edges = [], nodeMap = {};
     var scale = opts.mode === 'article' ? 0.6 : 1;
+
+    // System nodes — explicit tree coordinates scaled by mode
+    SYSTEM_NODES.forEach(function(sn) {
+      var node = {
+        id: sn.id, label: sn.label,
+        x: sn.x * scale,
+        y: sn.y * scale,
+        z: sn.z * scale,
+        radius: sn.tier === 0 ? 9 * scale : 6 * scale,
+        color: C.system, type: 'system',
+        slug: null, summary: null, category: null,
+        tier: sn.tier, pulse: Math.random() * Math.PI * 2,
+        dimmed: false,
+      };
+      nodes.push(node); nodeMap[sn.id] = node;
+    });
 
     // Filter out excluded categories
     var filtered = articles.filter(function(a) {
@@ -173,117 +447,165 @@ var GWGraph = (function() {
       return EXCLUDED_CATEGORIES.indexOf(cat) === -1;
     });
 
-    // ── Place each article on the radial gradient ──
+    // Article nodes
     filtered.forEach(function(a) {
-      var mech    = (a.mechanism || '').toLowerCase();
-      var target  = (a.target  || '').toLowerCase();
-      var spatial = (a.spatial || '').toLowerCase();
-      var graphTier = (a.graphTier || '');
+      // Connection sources, in priority order:
+      //   1. Hardcoded ARTICLE_CONNECTIONS (hand-tuned placements)
+      //   2. DB taxonomy: article.graphTier (set when article is created)
+      //   3. Fallback: random outer orbit
+      var connections = ARTICLE_CONNECTIONS[a.slug];
 
-      // Deterministic hash from slug for spread/jitter
-      var slugHash = 0;
-      for (var si = 0; si < a.slug.length; si++) slugHash += a.slug.charCodeAt(si);
-
-      // ── Radial depth from graph_tier ──
-      var tiers = graphTier ? graphTier.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
-      var isFinisher = FINISHING_MECHS.indexOf(mech) !== -1;
-
-      var depth;
-      if (isFinisher) {
-        depth = 4;  // Submissions always outermost
-      } else if (tiers.length > 0) {
-        var depthSum = 0, depthCnt = 0;
-        tiers.forEach(function(t) {
-          if (TIER_DEPTH[t] !== undefined) { depthSum += TIER_DEPTH[t]; depthCnt++; }
-        });
-        depth = depthCnt > 0 ? depthSum / depthCnt : 2;
-      } else {
-        depth = 2;  // fallback: guard level
+      // If no hardcoded connection, derive from taxonomy graphTier field
+      if (!connections && a.graphTier) {
+        connections = a.graphTier.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
       }
 
-      // Radius: jitter within the depth band for gradient feel
-      var band = DEPTH_RADII[Math.round(depth)] || DEPTH_RADII[2];
-      var bandT = (slugHash % 100) / 100;  // 0-1 within band
-      var R = (band[0] + (band[1] - band[0]) * bandT) * scale;
+      var cx = 0, cy = 0, cz = 0, count = 0;
+      if (connections && connections.length > 0) {
+        connections.forEach(function(sid) {
+          var sn = nodeMap[sid];
+          if (sn) { cx += sn.x; cy += sn.y; cz += sn.z; count++; }
+        });
+        if (count > 0) { cx /= count; cy /= count; cz /= count; }
+      } else {
+        var ang = Math.random() * Math.PI * 2;
+        var elev = (Math.random() - 0.5) * 0.8;
+        var outerR = 500 * scale;
+        cx = Math.cos(ang) * outerR; cy = elev * outerR * 0.5; cz = Math.sin(ang) * outerR;
+      }
+      // ── Spatial + Target driven node arrangement ──
+      // Instead of random jitter, use taxonomy fields to deterministically
+      // position nodes within their tier cluster.
+      //
+      //   spatial_qualifier → X/Z offset (inner=left, outer=right, cross=spread,
+      //                       forward=front Z, rear=back Z, side=side X, etc.)
+      //   target → angular sub-clustering (arm/leg/neck/body get distinct angles)
+      //
+      var spatial = (a.spatial || '').toLowerCase();
+      var target  = (a.target  || '').toLowerCase();
 
-      // ── Angular position from mechanism ──
-      var theta = MECH_THETA[mech] !== undefined ? MECH_THETA[mech] : (slugHash % 628) / 100;
-      theta += SPATIAL_THETA[spatial] || 0;
-      theta += ((slugHash % 41) / 41 - 0.5) * 0.45;  // spread within sector
+      // Spatial qualifier → X and Z offsets
+      var SPATIAL_OFFSETS = {
+        'inner':   { dx: -45, dz:   0 },
+        'outer':   { dx:  45, dz:   0 },
+        'cross':   { dx:  30, dz:  25 },
+        'major':   { dx: -35, dz: -15 },
+        'minor':   { dx:  35, dz:  15 },
+        'forward': { dx:   0, dz: -40 },
+        'rear':    { dx:   0, dz:  40 },
+        'side':    { dx:  40, dz:  10 },
+        'triangle':{ dx: -20, dz: -30 },
+      };
+      var spatOff = SPATIAL_OFFSETS[spatial] || { dx: 0, dz: 0 };
 
-      // ── Phi from target body part ──
-      var phi = 1.57;  // equator baseline
-      phi += TARGET_PHI[target] || 0;
-      phi += ((slugHash % 29) / 29 - 0.5) * 0.25;  // spread
-      phi = Math.max(0.3, Math.min(2.8, phi));  // avoid poles
+      // Target body part → angular offset for sub-clustering
+      var TARGET_ANGLES = {
+        'neck':     0,
+        'shoulder': 0.5,
+        'arm':      1.0,
+        'wrist':    1.3,
+        'body':     2.0,
+        'hip':      2.8,
+        'leg':      3.5,
+        'knee':     4.0,
+        'ankle':    4.5,
+      };
+      // Use target angle as base, add slug hash for spread within cluster
+      var slugHash = 0;
+      for (var si = 0; si < a.slug.length; si++) slugHash += a.slug.charCodeAt(si);
+      var baseAngle = TARGET_ANGLES[target] !== undefined ? TARGET_ANGLES[target] : (slugHash % 628) / 100;
+      var spreadAngle = baseAngle + ((slugHash % 37) / 37) * 0.8 - 0.4;  // ±0.4 rad spread within target group
 
-      var pos = spherePos(R, theta, phi);
+      var jitterDist = (45 + (slugHash % 50)) * scale;
+      var jitterElev = ((slugHash % 31) / 31 - 0.5) * 0.5;
+
+      cx += Math.cos(spreadAngle) * jitterDist + spatOff.dx * scale;
+      cy += Math.sin(jitterElev) * jitterDist * 0.5;
+      cz += Math.sin(spreadAngle) * jitterDist + spatOff.dz * scale;
 
       // ── Mechanism-driven color ──
+      // Priority: 1. FORCE_VECTORS (hardcoded submission classification)
+      //           2. Mechanism taxonomy field → mech_* color
+      //           3. Category fallback
       var cat = (a.category || 'glossary').toLowerCase();
       var nodeColor = C[cat] || C.glossary;
-      var fv = null;
+      var mech = (a.mechanism || '').toLowerCase();
+      var fv = FORCE_VECTORS[a.slug];
 
+      // First: try mechanism-based color (covers ALL node types)
       if (mech && C['mech_' + mech]) {
         nodeColor = C['mech_' + mech];
       }
-      if (isFinisher) {
-        fv = MECH_TO_FV[mech] || null;
-        if (fv && C['fv_' + fv]) nodeColor = C['fv_' + fv];
+
+      // Second: force vector override for submissions (more specific)
+      if (!fv && mech) {
+        var mechToFv = {
+          'choke': 'arterial', 'lock': 'extension',
+          'entanglement': 'torsion', 'compression': 'compression'
+        };
+        fv = mechToFv[mech] || null;
+      }
+      if (fv) {
+        nodeColor = C['fv_' + fv] || nodeColor;
       }
 
       var node = {
         id: 'art_' + a.slug, label: a.title,
-        x: pos.x, y: pos.y, z: pos.z,
-        radius: (isFinisher ? 4.5 : 3.5) * scale,
+        x: cx, y: cy, z: cz,
+        radius: 3.5 * scale,
         color: nodeColor, type: 'article',
         slug: a.slug, summary: a.summary, category: a.category,
         mechanism: mech || null, target: target || null, spatial: spatial || null,
-        forceVector: fv, depth: depth,
+        forceVector: fv || null,
         tags: a.tags, pulse: Math.random() * Math.PI * 2,
         dimmed: false,
       };
-      nodes.push(node); nodeMap[node.id] = node;
+      nodes.push(node); nodeMap['art_' + a.slug] = node;
     });
 
-    // ── Taxonomy-driven edges ──
-    // Edges form between articles that share taxonomy properties.
-    // Stronger connections for shared mechanism, lighter for shared target.
-    // Adjacent depth bands with shared properties get cross-tier edges.
-    for (var i = 0; i < nodes.length; i++) {
-      for (var j = i + 1; j < nodes.length; j++) {
-        var nA = nodes[i], nB = nodes[j];
-        var strength = 0;
+    // System edges
+    SYSTEM_EDGES.forEach(function(e) {
+      if (nodeMap[e[0]] && nodeMap[e[1]])
+        edges.push({ from: nodeMap[e[0]], to: nodeMap[e[1]], type: 'system', strength: 1 });
+    });
 
-        // Same mechanism → strong connection
-        if (nA.mechanism && nA.mechanism === nB.mechanism) strength += 0.25;
+    // Article-to-system edges
+    filtered.forEach(function(a) {
+      var conns = ARTICLE_CONNECTIONS[a.slug];
+      if (!conns) return;
+      var artNode = nodeMap['art_' + a.slug];
+      if (!artNode) return;
+      conns.forEach(function(sid) {
+        var sn = nodeMap[sid];
+        if (sn) edges.push({ from: artNode, to: sn, type: 'article', strength: 0.5 });
+      });
+    });
 
-        // Same target body part → medium connection
-        if (nA.target && nA.target === nB.target) strength += 0.15;
-
-        // Same spatial qualifier → light connection
-        if (nA.spatial && nA.spatial === nB.spatial) strength += 0.08;
-
-        // Bonus for adjacent depth bands (shows flow between tiers)
-        var depthDiff = Math.abs((nA.depth || 0) - (nB.depth || 0));
-        if (depthDiff <= 1 && strength > 0) strength += 0.05;
-
-        // Only draw edges above a threshold to avoid clutter
-        if (strength >= 0.25) {
-          edges.push({ from: nA, to: nB, type: 'peer', strength: Math.min(strength, 0.5) });
+    // Peer edges (shared system connections)
+    var slugs = filtered.map(function(a) { return a.slug; });
+    for (var i = 0; i < slugs.length; i++) {
+      for (var j = i + 1; j < slugs.length; j++) {
+        var cA = ARTICLE_CONNECTIONS[slugs[i]];
+        var cB = ARTICLE_CONNECTIONS[slugs[j]];
+        if (!cA || !cB) continue;
+        var shared = cA.filter(function(c) { return cB.indexOf(c) !== -1; });
+        if (shared.length > 0) {
+          var nA = nodeMap['art_' + slugs[i]];
+          var nB = nodeMap['art_' + slugs[j]];
+          if (nA && nB) edges.push({ from: nA, to: nB, type: 'peer', strength: shared.length * 0.15 });
         }
       }
     }
 
-    // Center the graph (all axes — it's a sphere, not a tree)
+    // Center X and Z only — preserve Y for tree vertical structure
     if (nodes.length > 0) {
-      var avgX = 0, avgY = 0, avgZ = 0;
-      nodes.forEach(function(n) { avgX += n.x; avgY += n.y; avgZ += n.z; });
-      avgX /= nodes.length; avgY /= nodes.length; avgZ /= nodes.length;
-      nodes.forEach(function(n) { n.x -= avgX; n.y -= avgY; n.z -= avgZ; });
+      var cx = 0, cz = 0;
+      nodes.forEach(function(n) { cx += n.x; cz += n.z; });
+      cx /= nodes.length; cz /= nodes.length;
+      nodes.forEach(function(n) { n.x -= cx; n.z -= cz; });
     }
 
-    return { nodes: nodes, edges: edges, nodeMap: nodeMap, scale: scale };
+    return { nodes: nodes, edges: edges, nodeMap: nodeMap };
   }
 
   // ── Focus mode ──
@@ -294,6 +616,8 @@ var GWGraph = (function() {
 
     var connectedIds = {};
     connectedIds[focusNode.id] = true;
+    var artConns = ARTICLE_CONNECTIONS[focusSlug] || [];
+    artConns.forEach(function(sid) { connectedIds[sid] = true; });
     graph.edges.forEach(function(e) {
       if (e.from === focusNode) connectedIds[e.to.id] = true;
       if (e.to === focusNode) connectedIds[e.from.id] = true;
@@ -306,7 +630,8 @@ var GWGraph = (function() {
     focusNode.radius = 12;
     graph.nodes.forEach(function(n) {
       if (!n.dimmed && n !== focusNode) {
-        n.radius = Math.max(n.radius, 5);
+        if (n.type === 'system') n.radius = Math.max(n.radius, 7);
+        else n.radius = Math.max(n.radius, 5);
       }
     });
 
@@ -355,7 +680,6 @@ var GWGraph = (function() {
     // Build & filter
     var graph = buildGraph(articles, opts);
     var nodes = graph.nodes, edges = graph.edges;
-    var graphScale = graph.scale;  // mode-based scale for sphere radii in draw loop
 
     // Focus
     var focusNode = opts.focusSlug ? applyFocus(graph, opts.focusSlug) : null;
@@ -529,86 +853,97 @@ var GWGraph = (function() {
     }
 
     // ══════════════════════════════════════════════════════════
-    // ── LIGHTNING / ELECTRICITY SYSTEM (radial) ──
+    // ── LIGHTNING / ELECTRICITY PATH SYSTEM ──
     // ══════════════════════════════════════════════════════════
-    // Lightning emanates from the center (origin) and strikes
-    // submission nodes on the outer shell. Path goes through
-    // 2-3 intermediate waypoints at increasing radii, following
-    // nearby nodes at each depth band for organic routing.
+    // Lightning travels DOWN the tree from sys_standing through
+    // game states, then jumps to a green submission article node
+    // as the terminal endpoint. Flash on arrival.
 
-    // Collect submission (finisher) nodes sorted by depth
-    var submissionNodes = nodes.filter(function(n) {
-      return n.depth === 4 && n.type === 'article';
+    // Build downward adjacency from SYSTEM_EDGES
+    var adjDown = {};
+    SYSTEM_EDGES.forEach(function(e) {
+      var fromNode = graph.nodeMap[e[0]];
+      var toNode = graph.nodeMap[e[1]];
+      if (!fromNode || !toNode) return;
+      if (toNode.tier > fromNode.tier || (toNode.tier === fromNode.tier && toNode.y > fromNode.y)) {
+        if (!adjDown[e[0]]) adjDown[e[0]] = [];
+        adjDown[e[0]].push(e[1]);
+      }
     });
 
-    // Sort all article nodes by depth for waypoint selection
-    var nodesByDepth = {};
-    nodes.forEach(function(n) {
-      if (n.type !== 'article') return;
-      var d = Math.round(n.depth || 0);
-      if (!nodesByDepth[d]) nodesByDepth[d] = [];
-      nodesByDepth[d].push(n);
+    // Build map of submission article IDs and which system nodes they connect to
+    var subArticleIds = {};  // 'art_slug' → true
+    var subBySystem = {};    // 'sys_xxx' → ['art_slug1', 'art_slug2', ...]
+    SUBMISSION_SLUGS.forEach(function(slug) {
+      var artId = 'art_' + slug;
+      if (!graph.nodeMap[artId]) return; // article not in graph
+      subArticleIds[artId] = true;
+      var conns = ARTICLE_CONNECTIONS[slug] || [];
+      conns.forEach(function(sysId) {
+        if (!subBySystem[sysId]) subBySystem[sysId] = [];
+        subBySystem[sysId].push(artId);
+      });
     });
+
+    // Add edges from system nodes → their connected submission articles
+    // These are the final hops in lightning paths
+    Object.keys(subBySystem).forEach(function(sysId) {
+      if (!adjDown[sysId]) adjDown[sysId] = [];
+      subBySystem[sysId].forEach(function(artId) {
+        adjDown[sysId].push(artId);
+      });
+    });
+
+    // Find all paths from sys_standing to submission article nodes via DFS
+    var lightningPaths = [];
+    function findPaths(current, path) {
+      path.push(current);
+      if (subArticleIds[current]) {
+        lightningPaths.push(path.slice()); // clone — reached a submission
+      }
+      var children = adjDown[current] || [];
+      for (var i = 0; i < children.length; i++) {
+        if (path.indexOf(children[i]) === -1) { // no cycles
+          findPaths(children[i], path);
+        }
+      }
+      path.pop();
+    }
+    findPaths('sys_standing', []);
 
     // Active lightning bolts
     var lightningBolts = [];
-    var lightningFlashes = [];
+    var lightningFlashes = []; // {nodeId, startTime, duration}
     var lightningTimer = 0;
-    var lightningInterval = 1.2;
+    var lightningInterval = 1.2; // seconds between new bolts
 
     function spawnLightningBolt() {
-      if (submissionNodes.length === 0) return;
-
-      // Pick a random submission as the endpoint
-      var endNode = submissionNodes[Math.floor(Math.random() * submissionNodes.length)];
-
-      // Build path: origin → depth 1 node → depth 2 node → depth 3 node → submission
-      // Pick the closest node at each intermediate depth to the line from center to endpoint
+      if (lightningPaths.length === 0) return;
+      var pathIds = lightningPaths[Math.floor(Math.random() * lightningPaths.length)];
+      // Build path of node references
       var pathNodes = [];
-
-      // Start at origin (virtual point)
-      var origin = { x: 0, y: 0, z: 0 };
-      pathNodes.push(origin);
-
-      // Waypoints at each intermediate depth band
-      var wayDepths = [1, 2, 3];
-      for (var wi = 0; wi < wayDepths.length; wi++) {
-        var dNodes = nodesByDepth[wayDepths[wi]];
-        if (!dNodes || dNodes.length === 0) continue;
-        // Find node closest to the line from origin to endNode
-        var bestDist = Infinity, bestNode = null;
-        for (var ni = 0; ni < dNodes.length; ni++) {
-          var dn = dNodes[ni];
-          // Project onto the line origin → endNode, measure perpendicular distance
-          var dx = endNode.x, dy = endNode.y, dz = endNode.z;
-          var len2 = dx*dx + dy*dy + dz*dz;
-          if (len2 < 1) continue;
-          var t = (dn.x*dx + dn.y*dy + dn.z*dz) / len2;
-          t = Math.max(0, Math.min(1, t));
-          var px = dx*t - dn.x, py = dy*t - dn.y, pz = dz*t - dn.z;
-          var dist = Math.sqrt(px*px + py*py + pz*pz);
-          if (dist < bestDist) { bestDist = dist; bestNode = dn; }
-        }
-        if (bestNode) pathNodes.push(bestNode);
+      for (var i = 0; i < pathIds.length; i++) {
+        var n = graph.nodeMap[pathIds[i]];
+        if (n) pathNodes.push(n);
       }
-
-      pathNodes.push(endNode);
       if (pathNodes.length < 2) return;
 
+      // Calculate total path length for consistent speed
       var totalLen = 0;
       for (var j = 1; j < pathNodes.length; j++) {
-        var ddx = pathNodes[j].x - pathNodes[j-1].x;
-        var ddy = pathNodes[j].y - pathNodes[j-1].y;
-        var ddz = pathNodes[j].z - pathNodes[j-1].z;
-        totalLen += Math.sqrt(ddx*ddx + ddy*ddy + ddz*ddz);
+        var dx = pathNodes[j].x - pathNodes[j-1].x;
+        var dy = pathNodes[j].y - pathNodes[j-1].y;
+        var dz = pathNodes[j].z - pathNodes[j-1].z;
+        totalLen += Math.sqrt(dx*dx + dy*dy + dz*dz);
       }
 
       lightningBolts.push({
         path: pathNodes,
-        t: 0,
-        speed: 0.01 + 0.004 / Math.max(1, pathNodes.length - 1),
+        pathIds: pathIds,
+        t: 0,                          // 0 = at start, 1 = at end
+        speed: 0.008 + 0.003 / Math.max(1, pathNodes.length - 1), // ~2-3 seconds to traverse
         totalLen: totalLen,
-        forkSeed: Math.random() * 100,
+        forkSeed: Math.random() * 100,  // for jagged offsets
         width: 1.5 + Math.random() * 1.5,
         opacity: 0.8 + Math.random() * 0.2,
       });
@@ -640,32 +975,23 @@ var GWGraph = (function() {
 
       ctx.clearRect(0, 0, W, H);
 
-      // ── Concentric sphere wireframes ──
-      // Faint ring outlines at each depth band's midpoint for visual structure.
-      var ringSegments = 64;
-      for (var ti = 0; ti < RING_RADII.length; ti++) {
-        var tR = RING_RADII[ti] * graphScale;
-        var tAlpha = ti === 0 ? 0.08 : (ti === 4 ? 0.04 : 0.06);
-        ctx.strokeStyle = rgba(C.grid, tAlpha);
-        ctx.lineWidth = 0.6;
-
-        // Equatorial ring (XZ plane, y=0)
-        ctx.beginPath();
-        for (var ri = 0; ri <= ringSegments; ri++) {
-          var rAngle = (ri / ringSegments) * Math.PI * 2;
-          var rp = project(Math.cos(rAngle) * tR, 0, Math.sin(rAngle) * tR);
-          if (ri === 0) ctx.moveTo(rp.x, rp.y); else ctx.lineTo(rp.x, rp.y);
-        }
-        ctx.stroke();
-
-        // Meridian ring (XY plane, z=0)
-        ctx.beginPath();
-        for (var ri2 = 0; ri2 <= ringSegments; ri2++) {
-          var rAngle2 = (ri2 / ringSegments) * Math.PI * 2;
-          var rp2 = project(Math.cos(rAngle2) * tR, Math.sin(rAngle2) * tR, 0);
-          if (ri2 === 0) ctx.moveTo(rp2.x, rp2.y); else ctx.lineTo(rp2.x, rp2.y);
-        }
-        ctx.stroke();
+      // ── 3D Grid (XZ plane) ──
+      var gridSize = 80, gridExtent = 600;
+      for (var gx = -gridExtent; gx <= gridExtent; gx += gridSize) {
+        var p1 = project(gx, 0, -gridExtent);
+        var p2 = project(gx, 0, gridExtent);
+        var a = (gx === 0) ? 0.1 : 0.04;
+        ctx.strokeStyle = rgba(C.grid, a);
+        ctx.lineWidth = (gx === 0) ? 1 : 0.5;
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      }
+      for (var gz = -gridExtent; gz <= gridExtent; gz += gridSize) {
+        var q1 = project(-gridExtent, 0, gz);
+        var q2 = project(gridExtent, 0, gz);
+        var ag = (gz === 0) ? 0.1 : 0.04;
+        ctx.strokeStyle = rgba(C.grid, ag);
+        ctx.lineWidth = (gz === 0) ? 1 : 0.5;
+        ctx.beginPath(); ctx.moveTo(q1.x, q1.y); ctx.lineTo(q2.x, q2.y); ctx.stroke();
       }
 
       // ── Edges ──
@@ -896,14 +1222,14 @@ var GWGraph = (function() {
 
         // Depth-based alpha
         var depthAlpha = Math.max(0.3, Math.min(1, 1 - ns.depth / 1400));
-        var nodeAlpha = node.dimmed ? 0.12 : 0.9;
+        var nodeAlpha = node.dimmed ? 0.12 : (node.type === 'system' ? 1 : 0.9);
         if (isHovered || isFocused) nodeAlpha = 1;
         nodeAlpha *= depthAlpha;
 
         var col = node.color;
 
         // Glow
-        if (!node.dimmed && (isHovered || isFocused || opts.focusSlug)) {
+        if (!node.dimmed && (node.type === 'system' || isHovered || isFocused || opts.focusSlug)) {
           var glowR = r * (isFocused ? 5 : isHovered ? 4 : 2.5) * pulseScale;
           var glow = ctx.createRadialGradient(ns.x, ns.y, r * 0.3, ns.x, ns.y, glowR);
           var glowA = isFocused ? 0.35 : (isHovered ? 0.25 : 0.1);
@@ -922,22 +1248,23 @@ var GWGraph = (function() {
         ctx.fill(); ctx.shadowBlur = 0;
 
         // Bright core
-        if (!node.dimmed && (isHovered || isFocused)) {
+        if (!node.dimmed && (node.type === 'system' || isHovered || isFocused)) {
           var coreA = isFocused ? 0.9 : (isHovered ? 0.8 : 0.5);
           ctx.beginPath(); ctx.arc(ns.x, ns.y, drawR * 0.35, 0, Math.PI * 2);
           ctx.fillStyle = 'rgba(255,255,255,' + (coreA * depthAlpha) + ')'; ctx.fill();
         }
 
-        // Labels (system nodes are hidden — only article nodes get labels)
-        var showLabel = !node.dimmed && node.type !== 'system' && (
-          isFocused || isHovered ||
+        // Labels
+        var showLabel = !node.dimmed && (
+          node.type === 'system' || isFocused || isHovered ||
           (opts.focusSlug && !node.dimmed) ||
           (r > 3)
         );
         if (showLabel && depthAlpha > 0.35) {
-          var fs = isFocused ? Math.max(9, 11 * ns.scale) :
+          var fs = node.type === 'system' ? Math.max(8, 10 * ns.scale) :
+                   isFocused ? Math.max(9, 11 * ns.scale) :
                    Math.max(7, 8.5 * ns.scale);
-          var weight = isFocused ? '600 ' : '400 ';
+          var weight = (node.type === 'system' || isFocused) ? '600 ' : '400 ';
           ctx.font = weight + fs + 'px Inter,sans-serif';
           ctx.textAlign = 'center';
           var lines = node.label.split('\n');
@@ -1010,19 +1337,20 @@ var GWGraph = (function() {
         // handler = { onMouseDown, onMouseMove, onMouseUp, onClick }
         editorMouseHandler = handler;
       },
-      // Export graph state as JSON (taxonomy-driven — no legacy data)
+      // Export graph state as JSON
       exportState: function() {
-        var articleNodes = [];
-        nodes.forEach(function(n) {
-          if (n.type === 'article') {
-            articleNodes.push({
-              id: n.id, slug: n.slug, label: n.label,
-              mechanism: n.mechanism, target: n.target, spatial: n.spatial,
-              depth: n.depth, x: n.x, y: n.y, z: n.z,
-            });
-          }
+        var sysNodes = [];
+        SYSTEM_NODES.forEach(function(sn) {
+          var n = graph.nodeMap[sn.id];
+          if (n) sysNodes.push({ id: sn.id, label: sn.label, tier: sn.tier, x: n.x, y: n.y, z: n.z });
         });
-        return { articleNodes: articleNodes, tierDepth: TIER_DEPTH };
+        return {
+          systemNodes: sysNodes,
+          systemEdges: SYSTEM_EDGES.slice(),
+          articleConnections: JSON.parse(JSON.stringify(ARTICLE_CONNECTIONS)),
+          submissionSlugs: SUBMISSION_SLUGS.slice(),
+          forceVectors: JSON.parse(JSON.stringify(FORCE_VECTORS)),
+        };
       },
     };
 
@@ -1033,5 +1361,5 @@ var GWGraph = (function() {
     return api;
   }
 
-  return { init: init, COLORS: C, TIER_DEPTH: TIER_DEPTH, FINISHING_MECHS: FINISHING_MECHS };
+  return { init: init, COLORS: C, SYSTEM_NODES: SYSTEM_NODES, SYSTEM_EDGES: SYSTEM_EDGES, ARTICLE_CONNECTIONS: ARTICLE_CONNECTIONS, SUBMISSION_SLUGS: SUBMISSION_SLUGS, FORCE_VECTORS: FORCE_VECTORS };
 })();

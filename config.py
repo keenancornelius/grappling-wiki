@@ -7,10 +7,16 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 
 def _fix_db_url(url):
-    """SQLAlchemy 1.4+ requires postgresql:// not postgres://.
-    Render and some providers still issue the old scheme."""
-    if url and url.startswith('postgres://'):
-        return url.replace('postgres://', 'postgresql://', 1)
+    """Normalise the database URL for SQLAlchemy + psycopg v3.
+    - Render/Neon may issue the old postgres:// scheme.
+    - SQLAlchemy 2.x uses postgresql+psycopg:// for the v3 driver.
+    """
+    if not url:
+        return url
+    if url.startswith('postgres://'):
+        return url.replace('postgres://', 'postgresql+psycopg://', 1)
+    if url.startswith('postgresql://'):
+        return url.replace('postgresql://', 'postgresql+psycopg://', 1)
     return url
 
 

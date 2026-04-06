@@ -610,7 +610,7 @@ var GWGraph = (function() {
       nodes.forEach(function(n) { n.x -= cx; n.z -= cz; });
     }
 
-    return { nodes: nodes, edges: edges, nodeMap: nodeMap };
+    return { nodes: nodes, edges: edges, nodeMap: nodeMap, scale: scale };
   }
 
   // ── Focus mode ──
@@ -684,6 +684,7 @@ var GWGraph = (function() {
     // Build & filter
     var graph = buildGraph(articles, opts);
     var nodes = graph.nodes, edges = graph.edges;
+    var graphScale = graph.scale;  // mode-based scale for sphere radii in draw loop
 
     // Focus
     var focusNode = opts.focusSlug ? applyFocus(graph, opts.focusSlug) : null;
@@ -986,7 +987,7 @@ var GWGraph = (function() {
       var tierAlphas = { 0: 0.08, 1: 0.06, 2: 0.06, 3: 0.06, sub: 0.04 };
       var ringSegments = 64;
       for (var ti = 0; ti < tierKeys.length; ti++) {
-        var tR = TIER_RADII[tierKeys[ti]] * scale;
+        var tR = TIER_RADII[tierKeys[ti]] * graphScale;
         var tAlpha = tierAlphas[tierKeys[ti]];
         ctx.strokeStyle = rgba(C.grid, tAlpha);
         ctx.lineWidth = 0.6;

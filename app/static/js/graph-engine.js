@@ -440,34 +440,122 @@ var GWGraph = (function () {
     });
   }
 
-  // ── Ambient pulse animation ──
-  var ambientInterval;
+  // ── Electric trace: continuous bolt from Standing → Submission ──
+  var traceInterval;
+  var traceG; // dedicated SVG group for trace paths
+
+  function buildTracePath() {
+    // Find one random path from tier 0 down to tier TIER_COUNT-1
+    // by picking the most-connected node at each tier, with some randomness
+    var path = [];
+    for (var t = 0; t < TIER_COUNT; t++) {
+      var candidates = nodes.filter(function (n) { return n.tier === t; });
+      if (!candidates.length) continue;
+
+      if (path.length === 0) {
+        // Pick random starting node in tier 0
+        path.push(candidates[Math.floor(Math.random() * candidates.length)]);
+      } else {
+        // Find nodes in this tier connected to the previous node
+        var prev = path[path.length - 1];
+        var connected = candidates.filter(function (c) {
+          return edges.some(function (e) {
+            return (e.source === prev.id && e.target === c.id) ||
+                   (e.target === prev.id && e.source === c.id);
+          });
+        });
+        if (connected.length > 0) {
+          path.push(connected[Math.floor(Math.random() * connected.length)]);
+        } else {
+          // No direct connection — pick closest node in tier
+          candidates.sort(function (a, b) {
+            return Math.abs(a.x - prev.x) - Math.abs(b.x - prev.x);
+          });
+          path.push(candidates[0]);
+        }
+      }
+    }
+    return path;
+  }
+
+  function animateTrace() {
+    if (reducedMotion || hoveredNode) return;
+
+    var path = buildTracePath();
+    if (path.length < 2) return;
+
+    // Build SVG path through the chain
+    var d = 'M ' + path[0].x + ' ' + path[0].y;
+    for (var i = 1; i < path.length; i++) {
+      var prev = path[i - 1];
+      var curr = path[i];
+      var cpx = (prev.x + curr.x) / 2 + (Math.random() - 0.5) * 40;
+      var cpy = (prev.y + curr.y) / 2;
+      d += ' Q ' + cpx + ' ' + cpy + ' ' + curr.x + ' ' + curr.y;
+    }
+
+    // Create the trace line
+    var tracePath = svgEl('path', {
+      d: d,
+      fill: 'none',
+      stroke: COLORS.pulse,
+      'stroke-width': '1.5',
+      opacity: '0',
+      filter: 'url(#glow)',
+    });
+    traceG.appendChild(tracePath);
+
+    // Create moving dot
+    var dot = svgEl('circle', {
+      r: 3,
+      fill: '#fff',
+      opacity: '0',
+      filter: 'url(#glow)',
+    });
+    var motion = svgEl('animateMotion', {
+      dur: '2.5s',
+      repeatCount: '1',
+      fill: 'freeze',
+      path: d,
+    });
+    dot.appendChild(motion);
+    traceG.appendChild(dot);
+
+    // Animate: fade in path, run dot, fade out
+    tracePath.setAttribute('opacity', '0.25');
+    dot.setAttribute('opacity', '0.8');
+
+    // Also briefly highlight the nodes in the path
+    path.forEach(function (n, idx) {
+      setTimeout(function () {
+        if (n._glow) {
+          n._glow.setAttribute('opacity', '0.3');
+          setTimeout(function () {
+            if (!hoveredNode) n._glow.setAttribute('opacity', '0');
+          }, 800);
+        }
+      }, idx * 350);
+    });
+
+    // Clean up after animation
+    setTimeout(function () {
+      tracePath.setAttribute('opacity', '0');
+      dot.setAttribute('opacity', '0');
+      setTimeout(function () {
+        if (tracePath.parentNode) traceG.removeChild(tracePath);
+        if (dot.parentNode) traceG.removeChild(dot);
+      }, 300);
+    }, 2800);
+  }
+
   function startAmbientPulse() {
     if (reducedMotion || !edges.length) return;
 
-    ambientInterval = setInterval(function () {
-      if (hoveredNode) return; // don't run during hover
-
-      // Pick 2-3 random edges to pulse
-      var count = Math.min(3, edges.length);
-      for (var i = 0; i < count; i++) {
-        var e = edges[Math.floor(Math.random() * edges.length)];
-        if (e._pulse) {
-          e._pulse.setAttribute('opacity', '0.4');
-          e._path.setAttribute('stroke', 'rgba(74, 158, 255, 0.15)');
-
-          // Fade out after animation
-          (function (edge) {
-            setTimeout(function () {
-              if (!hoveredNode) {
-                edge._pulse.setAttribute('opacity', '0');
-                edge._path.setAttribute('stroke', COLORS.edge);
-              }
-            }, 1800);
-          })(e);
-        }
-      }
-    }, 2500);
+    // Fire first trace after a short delay, then repeat
+    setTimeout(animateTrace, 1500);
+    traceInterval = setInterval(function () {
+      if (!hoveredNode) animateTrace();
+    }, 5000);
   }
 
   // ── Pan and zoom ──
@@ -560,9 +648,12 @@ var GWGraph = (function () {
     pulseG = svgEl('g', { class: 'pulses', filter: 'url(#glow)' });
     nodesG = svgEl('g', { class: 'nodes' });
 
+    traceG = svgEl('g', { class: 'traces', filter: 'url(#glow)' });
+
     container.appendChild(labelsG);
     container.appendChild(edgesG);
     container.appendChild(pulseG);
+    container.appendChild(traceG);
     container.appendChild(nodesG);
     svg.appendChild(container);
 

@@ -86,8 +86,15 @@ with app.app_context():
         db.session.rollback()
         print(f"[auto_seed] Category migration note: {e}")
 
+    # ── Reset admin password on every deploy so dashboard env var works ──
+    if admin:
+        new_pw = os.environ.get('ADMIN_PASSWORD', 'LegionAJJ2024!')
+        admin.set_password(new_pw)
+        db.session.commit()
+        print(f"[auto_seed] Admin password set from ADMIN_PASSWORD env var.")
+
     # ── Always run individual article seeds (they skip if already present) ──
-    always_run = ['seed_miha.py']
+    always_run = ['seed_miha.py', 'seed_comprehensive.py']
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     for seed_file in always_run:
         seed_path = os.path.join(scripts_dir, seed_file)

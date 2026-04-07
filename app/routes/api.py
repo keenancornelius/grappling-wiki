@@ -319,6 +319,149 @@ def delete_relationship(rel_id):
         return jsonify({'error': str(e)}), 500
 
 
+# ── Graph API ──
+
+# Tier assignment based on subcategory/category slugs.
+# Determines vertical position on the knowledge graph.
+TIER_MAP = {
+    # Subcategory slugs → tier
+    'guard': 2, 'leg-entanglement': 2,
+    'sweep': 2,
+    'pass': 3,
+    'dominant-position': 4,
+    'submission': 5,
+    'takedown': 1,
+    'transitional': 3,
+    'principle': -1,  # concepts float, resolved by relationships
+    # Parent category slugs (fallback)
+    'standing': 0,    # top-level Standing category = tier 0
+    'position': 2,
+    'technique': 2,
+    'concept': -1,
+    'person': -1,
+    'competition': -1,
+    'style': -1,
+    'glossary': -1,
+}
+
+# Force vector classification for submission coloring
+FORCE_VECTORS = {
+    'arterial': [
+        'rear-naked-choke', 'guillotine-choke', 'darce-choke', 'anaconda-choke',
+        'triangle-choke', 'triangle-from-bottom', 'arm-triangle', 'north-south-choke',
+        'ezekiel-choke', 'bow-and-arrow-choke', 'cross-collar-choke', 'loop-choke',
+    ],
+    'extension': [
+        'armbar', 'kneebar', 'straight-ankle-lock',
+    ],
+    'torsion': [
+        'kimura', 'americana', 'omoplata', 'heel-hook', 'toe-hold', 'wrist-lock',
+    ],
+    'compression': [
+        'calf-slicer',
+    ],
+}
+
+# Build reverse lookup: slug → force_vector
+_SLUG_TO_VECTOR = {}
+for vec, slugs in FORCE_VECTORS.items():
+    for s in slugs:
+        _SLUG_TO_VECTOR[s] = vec
+
+
+def _get_article_tier(article):
+    """Derive the graph tier for an article from its category hierarchy."""
+    # Check subcategory slug first
+    if article.category_ref:
+        slug = article.category_ref.slug
+        if slug in TIER_MAP:
+            t = TIER_MAP[slug]
+            if t >= 0:
+                return t
+        # Check parent category
+        if article.category_ref.parent:
+            parent_slug = article.category_ref.parent.slug
+            if parent_slug in TIER_MAP:
+                t = TIER_MAP[parent_slug]
+                if t >= 0:
+                    return t
+    # Legacy string category
+    if article.category and article.category in TIER_MAP:
+        t = TIER_MAP[article.category]
+        if t >= 0:
+            return t
+    # Special case: "standing" slug is always tier 0
+    if article.slug == 'standing' or article.slug == 'standing-neutral':
+        return 0
+    return -1  # unplaceable
+
+
+@api_bp.route('/graph', methods=['GET'])
+def graph_data():
+    """
+    Full knowledge graph payload: all published articles with tier + all edges.
+    Single request, designed to power the SVG visualization.
+    """
+    from sqlalchemy.orm import joinedload
+
+    articles = Article.query.filter_by(is_published=True).options(
+        joinedload(Article.category_ref).joinedload(Category.parent)
+    ).all()
+
+    rels = ArticleRelationship.query.options(
+        joinedload(ArticleRelationship.source_article),
+        joinedload(ArticleRelationship.target_article),
+    ).all()
+
+    nodes = []
+    for a in articles:
+        tier = _get_article_tier(a)
+        cat_slug = a.category_ref.slug if a.category_ref else (a.category or '')
+        parent_slug = ''
+        if a.category_ref and a.category_ref.parent:
+            parent_slug = a.category_ref.parent.slug
+
+        node = {
+            'id': a.id,
+            'title': a.title,
+            'slug': a.slug,
+            'summary': a.summary or '',
+            'category': cat_slug,
+            'parent_category': parent_slug,
+            'tier': tier,
+            'url': f'/wiki/{a.slug}',
+        }
+        # Add force vector for submissions
+        if a.slug in _SLUG_TO_VECTOR:
+            node['force_vector'] = _SLUG_TO_VECTOR[a.slug]
+
+        nodes.append(node)
+
+    edges = []
+    published_ids = {a.id for a in articles}
+    for r in rels:
+        if r.source_article_id in published_ids and r.target_article_id in published_ids:
+            edges.append({
+                'source': r.source_article_id,
+                'target': r.target_article_id,
+                'type': r.relationship_type,
+                'label': r.type_label,
+            })
+
+    return jsonify({
+        'nodes': nodes,
+        'edges': edges,
+        'tiers': {
+            0: 'Standing',
+            1: 'Takedowns',
+            2: 'Guards & Sweeps',
+            3: 'Passes',
+            4: 'Dominant Positions',
+            5: 'Submissions',
+        },
+    })
+
+
 @api_bp.errorhandler(400)
 def bad_request(error):
     return jsonify({'error': 'Bad request', 'message': str(error)}), 400

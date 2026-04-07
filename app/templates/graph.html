@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Graph — GrapplingWiki{% endblock %}
+{% block meta_description %}Interactive knowledge graph showing how all grappling techniques, positions, and submissions connect — from standing to submission.{% endblock %}
+
+{% block head_extra %}
+<style>
+  /* ── Graph page: full-bleed, immersive ── */
+  .graph-page { display: flex; flex-direction: column; height: calc(100vh - 60px); background: #0a0a0a; overflow: hidden; }
+  .graph-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px 12px; flex-shrink: 0; }
+  .graph-header h1 { font-size: 1.1rem; font-weight: 600; color: #fff; letter-spacing: -0.02em; margin: 0; }
+  .graph-meta { font-size: 0.75rem; color: rgba(255,255,255,0.4); letter-spacing: 0.02em; }
+  .graph-controls { display: flex; gap: 8px; align-items: center; }
+  .graph-controls button { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); font-size: 0.7rem; padding: 5px 10px; cursor: pointer; font-family: Inter, system-ui, sans-serif; letter-spacing: 0.03em; text-transform: uppercase; transition: all 120ms ease-out; }
+  .graph-controls button:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
+  .graph-viewport { flex: 1; position: relative; min-height: 0; }
+  #graph-container { width: 100%; height: 100%; }
+  .graph-legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 10px 24px 14px; flex-shrink: 0; border-top: 1px solid rgba(255,255,255,0.06); }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.65rem; color: rgba(255,255,255,0.4); letter-spacing: 0.02em; text-transform: uppercase; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 0; flex-shrink: 0; }
+  .graph-tier-hint { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 2px; pointer-events: none; z-index: 5; }
+  .tier-hint { font-size: 0.55rem; color: rgba(255,255,255,0.15); text-transform: uppercase; letter-spacing: 0.08em; padding: 2px 6px; }
+  .tier-hint svg { width: 8px; height: 8px; margin: 4px auto; display: block; opacity: 0.15; }
+
+  @media (max-width: 768px) {
+    .graph-header { padding: 12px 16px 8px; flex-wrap: wrap; gap: 8px; }
+    .graph-legend { padding: 8px 16px 10px; gap: 8px; }
+    .graph-tier-hint { display: none; }
+    .graph-controls { width: 100%; justify-content: flex-end; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="graph-page">
+  <div class="graph-header">
+    <div>
+      <h1>Knowledge Graph</h1>
+      <span class="graph-meta" id="graph-node-count">Loading graph…</span>
+    </div>
+    <div class="graph-controls">
+      <button onclick="GWGraph.resize('graph-container')" title="Reset view">Reset</button>
+    </div>
+  </div>
+
+  <div class="graph-viewport">
+    <div id="graph-container"></div>
+  </div>
+
+  <div class="graph-legend">
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(74,158,255)"></span> Standing</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(100,180,210)"></span> Takedowns</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(160,140,220)"></span> Guards</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(140,180,160)"></span> Sweeps</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(120,210,190)"></span> Passes</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(200,195,150)"></span> Dominant</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(190,100,100)"></span> Chokes</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(210,140,110)"></span> Extensions</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(200,175,100)"></span> Rotations</div>
+    <div class="legend-item"><span class="legend-dot" style="background:rgb(100,180,175)"></span> Compressions</div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/graph-engine.js') }}?v={{ config.ASSET_VERSION | default('1.0', true) }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    GWGraph.init('graph-container');
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() { GWGraph.resize('graph-container'); }, 200);
+    });
+  });
+</script>
+{% endblock %}

@@ -5836,11 +5836,23 @@ def seed_comprehensive():
 
         # Create subcategories
         print("\n[Subcategories]")
+        # ── Ensure "Standing" top-level category exists ──
+        standing_cat = Category.query.filter_by(slug='standing').first()
+        if not standing_cat:
+            standing_cat = Category(
+                name='Standing', slug='standing',
+                description='The standing phase — takedowns, throws, clinch work, grip fighting, and striking. Includes judo, wrestling, boxing, muay thai, karate, and all martial arts practiced on the feet.',
+                created_by_id=uid,
+            )
+            db.session.add(standing_cat)
+            db.session.flush()
+            print("  [created] Top-level category: Standing")
+
         subcats = {
             "submission": get_or_create_subcategory("technique", "Submission", "submission", "Submission techniques including chokes and joint locks", uid),
             "sweep": get_or_create_subcategory("technique", "Sweep", "sweep", "Guard sweeping and reversal techniques", uid),
             "pass": get_or_create_subcategory("technique", "Pass", "pass", "Guard passing techniques", uid),
-            "takedown": get_or_create_subcategory("technique", "Takedown", "takedown", "Takedown techniques from standing", uid),
+            "takedown": get_or_create_subcategory("standing", "Takedown", "takedown", "Takedown techniques from standing — shots, throws, trips", uid),
             "guard": get_or_create_subcategory("position", "Guard", "guard", "Guard positions and variations", uid),
             "dominant-position": get_or_create_subcategory("position", "Dominant Position", "dominant-position", "Top positions of dominance", uid),
             "transitional": get_or_create_subcategory("position", "Transitional", "transitional", "Transitional positions", uid),

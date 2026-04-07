@@ -517,10 +517,16 @@ def explore():
     )
 
 
+@main_bp.route('/graph')
+def graph():
+    """Interactive knowledge graph visualization."""
+    return render_template('graph.html')
+
+
 @main_bp.route('/graph/editor')
 def graph_editor():
-    """Graph editor placeholder — being rebuilt."""
-    return render_template('graph_editor.html')
+    """Redirect old URL to new graph page."""
+    return redirect(url_for('main.graph'))
 
 
 @main_bp.route('/roadmap')

@@ -2,7 +2,7 @@
  * GrapplingWiki Knowledge Graph — SVG visualization
  *
  * Tiered layout:
- *   0 Standing → 1 Takedowns → 2 Guards/Sweeps → 3 Passes → 4 Dominant → 5 Submissions
+ *   0 Standing → 1 Takedowns → 2 Guards → 3 Sweeps → 4 Passes → 5 Dominant → 6 Submissions
  *
  * Edges animate with an electric pulse tracing the causal chain.
  * Nodes are colored by category; submissions by force vector.
@@ -43,13 +43,14 @@ var GWGraph = (function () {
   var TIER_LABELS = {
     0: 'Standing',
     1: 'Takedowns',
-    2: 'Guards & Sweeps',
-    3: 'Passes',
-    4: 'Dominant Positions',
-    5: 'Submissions',
+    2: 'Guards',
+    3: 'Sweeps',
+    4: 'Passes',
+    5: 'Dominant Positions',
+    6: 'Submissions',
   };
 
-  var TIER_COUNT = 6;
+  var TIER_COUNT = 7;
 
   // ── State ──
   var svg, container, nodesG, edgesG, labelsG, pulseG;
@@ -118,9 +119,12 @@ var GWGraph = (function () {
       // Sort within tier for visual consistency
       tierNodes.sort(function (a, b) { return a.title.localeCompare(b.title); });
 
+      // For dense tiers (>12 nodes), stagger labels to avoid overlap
+      var dense = count > 12;
       tierNodes.forEach(function (n, i) {
         n.x = startX + i * spacing;
         n.y = y;
+        n._labelStagger = dense ? (i % 2 === 0 ? 0 : 12) : 0;
       });
     }
   }
@@ -292,9 +296,11 @@ var GWGraph = (function () {
       });
       g.appendChild(circle);
 
-      // Label
+      // Label — stagger vertically in dense tiers to reduce overlap
+      var labelOffset = r + 14;
+      if (n._labelStagger) labelOffset += n._labelStagger;
       var text = svgEl('text', {
-        x: 0, y: r + 14,
+        x: 0, y: labelOffset,
         fill: COLORS.textDim,
         'font-size': r > 7 ? '10' : '8',
         'font-family': 'Inter, system-ui, sans-serif',
@@ -305,7 +311,7 @@ var GWGraph = (function () {
       g.appendChild(text);
 
       // Submission terminal flash (bottom glow bar)
-      if (n.tier === 5 && n.force_vector) {
+      if (n.tier === 6 && n.force_vector) {
         var flash = svgEl('line', {
           x1: -r, y1: r + 2, x2: r, y2: r + 2,
           stroke: color,

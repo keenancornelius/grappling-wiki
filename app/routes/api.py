@@ -326,17 +326,17 @@ def delete_relationship(rel_id):
 TIER_MAP = {
     # Subcategory slugs → tier
     'guard': 2, 'leg-entanglement': 2,
-    'sweep': 2,
-    'pass': 3,
-    'dominant-position': 4,
-    'submission': 5,
+    'sweep': 3,
+    'pass': 4,
+    'dominant-position': 5,
+    'submission': 6,
     'takedown': 1,
-    'transitional': 3,
+    'transitional': 4,
     'principle': -1,  # concepts float, resolved by relationships
     # Parent category slugs (fallback)
     'standing': 0,    # top-level Standing category = tier 0
-    'position': 2,
-    'technique': 2,
+    'position': 2,    # generic positions default to guard tier
+    'technique': 3,   # generic techniques default to sweep tier
     'concept': -1,
     'person': -1,
     'competition': -1,
@@ -454,10 +454,11 @@ def graph_data():
         'tiers': {
             0: 'Standing',
             1: 'Takedowns',
-            2: 'Guards & Sweeps',
-            3: 'Passes',
-            4: 'Dominant Positions',
-            5: 'Submissions',
+            2: 'Guards',
+            3: 'Sweeps',
+            4: 'Passes',
+            5: 'Dominant Positions',
+            6: 'Submissions',
         },
     })
 

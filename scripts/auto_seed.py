@@ -127,7 +127,7 @@ with app.app_context():
         print(f"[auto_seed] Admin password set from ADMIN_PASSWORD env var.")
 
     # ── Always run individual article seeds (they skip if already present) ──
-    always_run = ['seed_miha.py', 'seed_comprehensive.py']
+    always_run = ['seed_miha.py', 'seed_comprehensive.py', 'seed_standing.py']
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     for seed_file in always_run:
         seed_path = os.path.join(scripts_dir, seed_file)

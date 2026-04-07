@@ -17,6 +17,39 @@ app = create_app(os.environ.get('FLASK_CONFIG', 'default'))
 with app.app_context():
     db.create_all()
 
+    # ── Add missing columns to existing tables ──
+    # db.create_all() only creates NEW tables, not new columns on existing ones.
+    # This block handles schema migrations without Flask-Migrate.
+    COLUMN_MIGRATIONS = [
+        # (table, column, SQL type + constraints)
+        ('users', 'is_banned', 'BOOLEAN NOT NULL DEFAULT FALSE'),
+        ('users', 'ban_reason', 'VARCHAR(500)'),
+        ('users', 'banned_at', 'TIMESTAMP'),
+        ('users', 'banned_by_id', 'INTEGER REFERENCES users(id)'),
+        ('users', 'is_suspended', 'BOOLEAN NOT NULL DEFAULT FALSE'),
+        ('users', 'suspended_until', 'TIMESTAMP'),
+        ('users', 'suspend_reason', 'VARCHAR(500)'),
+        ('users', 'registration_ip', 'VARCHAR(45)'),
+        ('users', 'last_login_at', 'TIMESTAMP'),
+        ('article_revisions', 'is_minor', 'BOOLEAN NOT NULL DEFAULT FALSE'),
+    ]
+
+    for table, column, col_type in COLUMN_MIGRATIONS:
+        try:
+            result = db.session.execute(db.text(
+                f"SELECT column_name FROM information_schema.columns "
+                f"WHERE table_name = '{table}' AND column_name = '{column}'"
+            ))
+            if not result.fetchone():
+                db.session.execute(db.text(
+                    f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'
+                ))
+                db.session.commit()
+                print(f"[auto_seed] Added column: {table}.{column}")
+        except Exception as e:
+            db.session.rollback()
+            print(f"[auto_seed] Migration note ({table}.{column}): {e}")
+
     # ── Ensure admin user exists (survives ephemeral DB wipes) ──
     admin = User.query.filter_by(username='keenan').first()
     if not admin:

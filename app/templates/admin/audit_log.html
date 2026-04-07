@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — Admin — GrapplingWiki{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <h1>Audit Log</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link">Dashboard</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link">Users</a>
+            <a href="{{ url_for('admin.articles') }}" class="admin-nav-link">Articles</a>
+            <a href="{{ url_for('admin.flags') }}" class="admin-nav-link">Flags</a>
+            <a href="{{ url_for('admin.audit_log') }}" class="admin-nav-link active">Audit Log</a>
+        </nav>
+    </div>
+
+    <!-- Filter -->
+    <div class="admin-toolbar">
+        <form action="{{ url_for('admin.audit_log') }}" method="get" class="admin-search-form">
+            <select name="action" class="admin-filter-select">
+                <option value="">All Actions</option>
+                {% for act in all_actions %}
+                <option value="{{ act }}" {% if action_filter == act %}selected{% endif %}>
+                    {{ act | replace('_', ' ') | title }}
+                </option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="button button-secondary button-sm">Filter</button>
+        </form>
+    </div>
+
+    {% if log.items %}
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>Moderator</th>
+                    <th>Target User</th>
+                    <th>Target Article</th>
+                    <th>Reason</th>
+                    <th>Details</th>
+                    <th>When</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in log.items %}
+                <tr>
+                    <td><span class="admin-action-badge">{{ entry.action_type | replace('_', ' ') | title }}</span></td>
+                    <td>
+                        <a href="{{ url_for('admin.user_detail', user_id=entry.moderator_id) }}">{{ entry.moderator.username | e }}</a>
+                    </td>
+                    <td>
+                        {% if entry.target_user %}
+                        <a href="{{ url_for('admin.user_detail', user_id=entry.target_user_id) }}">{{ entry.target_user.username | e }}</a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if entry.target_article %}
+                        <a href="/wiki/{{ entry.target_article.slug }}">{{ entry.target_article.title | e }}</a>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ (entry.reason or '—') | truncate(40) | e }}</td>
+                    <td>{{ (entry.details or '—') | truncate(40) | e }}</td>
+                    <td>{{ entry.created_at | timeago }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if log.pages > 1 %}
+    <nav class="admin-pagination">
+        {% if log.has_prev %}
+        <a href="{{ url_for('admin.audit_log', page=log.page - 1, action=action_filter) }}" class="pagination-link">&larr; Previous</a>
+        {% endif %}
+        <span class="pagination-info">Page {{ log.page }} of {{ log.pages }} ({{ log.total }} entries)</span>
+        {% if log.has_next %}
+        <a href="{{ url_for('admin.audit_log', page=log.page + 1, action=action_filter) }}" class="pagination-link">Next &rarr;</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="admin-empty-state">
+        <h3>No log entries</h3>
+        <p>No moderation actions have been recorded yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

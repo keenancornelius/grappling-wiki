@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — GrapplingWiki{% endblock %}
+{% block meta_description %}GrapplingWiki moderation dashboard.{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <h1>Moderation Dashboard</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link active">Dashboard</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link">Users</a>
+            <a href="{{ url_for('admin.articles') }}" class="admin-nav-link">Articles</a>
+            <a href="{{ url_for('admin.flags') }}" class="admin-nav-link">
+                Flags
+                {% if pending_flags > 0 %}<span class="admin-badge">{{ pending_flags }}</span>{% endif %}
+            </a>
+            <a href="{{ url_for('admin.audit_log') }}" class="admin-nav-link">Audit Log</a>
+        </nav>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="admin-stats-grid">
+        <div class="admin-stat-card">
+            <div class="admin-stat-num">{{ total_users }}</div>
+            <div class="admin-stat-label">Total Users</div>
+            <div class="admin-stat-sub">+{{ new_users_24h }} in 24h</div>
+        </div>
+        <div class="admin-stat-card">
+            <div class="admin-stat-num">{{ published_articles }}</div>
+            <div class="admin-stat-label">Published Articles</div>
+            <div class="admin-stat-sub">{{ total_articles }} total</div>
+        </div>
+        <div class="admin-stat-card">
+            <div class="admin-stat-num">{{ total_edits }}</div>
+            <div class="admin-stat-label">Total Edits</div>
+            <div class="admin-stat-sub">+{{ edits_24h }} in 24h</div>
+        </div>
+        <div class="admin-stat-card {% if pending_flags > 0 %}admin-stat-alert{% endif %}">
+            <div class="admin-stat-num">{{ pending_flags }}</div>
+            <div class="admin-stat-label">Pending Flags</div>
+            <div class="admin-stat-sub">{{ banned_users }} banned users</div>
+        </div>
+    </div>
+
+    <div class="admin-grid-2col">
+        <!-- Recent Registrations -->
+        <div class="admin-panel">
+            <h2 class="admin-panel-title">Recent Registrations</h2>
+            <div class="admin-table-wrap">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Joined</th>
+                            <th>Role</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in recent_users %}
+                        <tr>
+                            <td><a href="{{ url_for('admin.user_detail', user_id=user.id) }}">{{ user.username | e }}</a></td>
+                            <td class="admin-email">{{ user.email | e }}</td>
+                            <td>{{ user.created_at | timeago }}</td>
+                            <td>
+                                <span class="admin-role-badge admin-role-{{ user.role_display | lower }}">{{ user.role_display }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <a href="{{ url_for('admin.users') }}" class="admin-panel-link">View all users &rarr;</a>
+        </div>
+
+        <!-- Pending Flags -->
+        <div class="admin-panel">
+            <h2 class="admin-panel-title">Moderation Queue</h2>
+            {% if flags %}
+            <div class="admin-flag-list">
+                {% for flag in flags %}
+                <div class="admin-flag-item">
+                    <div class="admin-flag-header">
+                        <span class="admin-flag-reason">{{ flag.reason | replace('_', ' ') | title }}</span>
+                        <span class="admin-flag-date">{{ flag.created_at | timeago }}</span>
+                    </div>
+                    <div class="admin-flag-article">
+                        <a href="/wiki/{{ flag.article.slug }}">{{ flag.article.title | e }}</a>
+                    </div>
+                    {% if flag.details %}
+                    <p class="admin-flag-details">{{ flag.details | truncate(100) | e }}</p>
+                    {% endif %}
+                    <div class="admin-flag-meta">
+                        Reported by <a href="{{ url_for('admin.user_detail', user_id=flag.reporter_id) }}">{{ flag.reporter.username | e }}</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <a href="{{ url_for('admin.flags') }}" class="admin-panel-link">View all flags &rarr;</a>
+            {% else %}
+            <p class="admin-empty">No pending flags. The wiki is clean.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Edits -->
+    <div class="admin-panel">
+        <h2 class="admin-panel-title">Recent Edits</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Article</th>
+                        <th>Editor</th>
+                        <th>Summary</th>
+                        <th>Rev #</th>
+                        <th>When</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rev, article in recent_edits %}
+                    <tr>
+                        <td><a href="/wiki/{{ article.slug }}">{{ article.title | e }}</a></td>
+                        <td>
+                            {% if rev.editor %}
+                            <a href="{{ url_for('admin.user_detail', user_id=rev.editor_id) }}">{{ rev.editor.username | e }}</a>
+                            {% else %}Unknown{% endif %}
+                        </td>
+                        <td>{{ (rev.edit_summary or '—') | truncate(50) | e }}</td>
+                        <td>#{{ rev.revision_number }}</td>
+                        <td>{{ rev.created_at | timeago }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Mod Actions -->
+    {% if recent_actions %}
+    <div class="admin-panel">
+        <h2 class="admin-panel-title">Recent Mod Actions</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>Moderator</th>
+                        <th>Reason</th>
+                        <th>When</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for action in recent_actions %}
+                    <tr>
+                        <td><span class="admin-action-badge">{{ action.action_type | replace('_', ' ') | title }}</span></td>
+                        <td>{{ action.moderator.username | e }}</td>
+                        <td>{{ (action.reason or '—') | truncate(60) | e }}</td>
+                        <td>{{ action.created_at | timeago }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <a href="{{ url_for('admin.audit_log') }}" class="admin-panel-link">Full audit log &rarr;</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

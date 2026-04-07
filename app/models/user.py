@@ -22,6 +22,15 @@ class User(db.Model, UserMixin):
         created_at: Account creation timestamp
         is_admin: Boolean flag for admin privileges
         is_editor: Boolean flag for editor privileges
+        is_banned: Whether the user is permanently banned
+        ban_reason: Why the user was banned
+        banned_at: When the ban was applied
+        banned_by_id: Admin who banned them
+        is_suspended: Whether the user is temporarily suspended
+        suspended_until: When suspension expires
+        suspend_reason: Why they were suspended
+        registration_ip: IP address used during registration
+        last_login_at: Last successful login timestamp
     """
 
     __tablename__ = 'users'
@@ -34,6 +43,17 @@ class User(db.Model, UserMixin):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
     is_admin = db.Column(db.Boolean, nullable=False, default=False)
     is_editor = db.Column(db.Boolean, nullable=False, default=False)
+
+    # Moderation fields
+    is_banned = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    ban_reason = db.Column(db.String(500), nullable=True)
+    banned_at = db.Column(db.DateTime, nullable=True)
+    banned_by_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    is_suspended = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    suspended_until = db.Column(db.DateTime, nullable=True)
+    suspend_reason = db.Column(db.String(500), nullable=True)
+    registration_ip = db.Column(db.String(45), nullable=True)
+    last_login_at = db.Column(db.DateTime, nullable=True)
 
     # Relationships
     articles = db.relationship(
@@ -117,6 +137,37 @@ class User(db.Model, UserMixin):
             bool: True if user is admin
         """
         return self.is_admin
+
+    @property
+    def is_active_account(self):
+        """Check if user account is active (not banned or suspended)."""
+        if self.is_banned:
+            return False
+        if self.is_suspended and self.suspended_until:
+            if self.suspended_until > datetime.utcnow():
+                return False
+            # Suspension expired — clear it
+            self.is_suspended = False
+            self.suspended_until = None
+            self.suspend_reason = None
+            db.session.commit()
+        return True
+
+    @property
+    def is_active(self):
+        """Override Flask-Login's is_active to respect bans/suspensions."""
+        return self.is_active_account
+
+    @property
+    def role_display(self):
+        """Human-readable role string."""
+        if self.is_banned:
+            return 'Banned'
+        if self.is_admin:
+            return 'Admin'
+        if self.is_editor:
+            return 'Editor'
+        return 'User'
 
 
 @login_manager.user_loader

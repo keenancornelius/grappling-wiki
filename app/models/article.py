@@ -318,6 +318,7 @@ class ArticleRevision(db.Model):
     edit_summary = db.Column(db.String(500), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
     revision_number = db.Column(db.Integer, nullable=False)
+    is_minor = db.Column(db.Boolean, nullable=False, default=False)
     parent_revision_id = db.Column(
         db.Integer,
         db.ForeignKey('article_revisions.id'),

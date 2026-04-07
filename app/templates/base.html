@@ -122,6 +122,9 @@
                         <div class="user-menu-dropdown">
                             <a href="{{ url_for('auth.profile', username=current_user.username) }}" class="user-menu-item">Profile</a>
                             <a href="{{ url_for('wiki.create') }}" class="user-menu-item">New Article</a>
+                            {% if current_user.is_admin %}
+                            <a href="{{ url_for('admin.dashboard') }}" class="user-menu-item user-menu-admin">Admin Dashboard</a>
+                            {% endif %}
                             <hr class="user-menu-divider">
                             <a href="{{ url_for('auth.logout') }}" class="user-menu-item logout">Logout</a>
                         </div>

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}User Management — Admin — GrapplingWiki{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <h1>User Management</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link">Dashboard</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link active">Users</a>
+            <a href="{{ url_for('admin.articles') }}" class="admin-nav-link">Articles</a>
+            <a href="{{ url_for('admin.flags') }}" class="admin-nav-link">Flags</a>
+            <a href="{{ url_for('admin.audit_log') }}" class="admin-nav-link">Audit Log</a>
+        </nav>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="admin-toolbar">
+        <form action="{{ url_for('admin.users') }}" method="get" class="admin-search-form">
+            <input type="text" name="q" class="admin-search-input" placeholder="Search users..."
+                   value="{{ search | e }}">
+            <select name="role" class="admin-filter-select">
+                <option value="">All Roles</option>
+                <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admins</option>
+                <option value="editor" {% if role_filter == 'editor' %}selected{% endif %}>Editors</option>
+                <option value="banned" {% if role_filter == 'banned' %}selected{% endif %}>Banned</option>
+                <option value="suspended" {% if role_filter == 'suspended' %}selected{% endif %}>Suspended</option>
+            </select>
+            <select name="sort" class="admin-filter-select">
+                <option value="recent" {% if sort == 'recent' %}selected{% endif %}>Newest First</option>
+                <option value="username" {% if sort == 'username' %}selected{% endif %}>Username A-Z</option>
+                <option value="edits" {% if sort == 'edits' %}selected{% endif %}>Most Edits</option>
+            </select>
+            <button type="submit" class="button button-secondary button-sm">Filter</button>
+        </form>
+    </div>
+
+    <!-- User Table -->
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Edits</th>
+                    <th>Joined</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users.items %}
+                <tr class="{% if user.is_banned %}admin-row-banned{% elif user.is_suspended %}admin-row-suspended{% endif %}">
+                    <td>
+                        <a href="{{ url_for('admin.user_detail', user_id=user.id) }}">{{ user.username | e }}</a>
+                    </td>
+                    <td class="admin-email">{{ user.email | e }}</td>
+                    <td>
+                        <span class="admin-role-badge admin-role-{{ user.role_display | lower }}">{{ user.role_display }}</span>
+                    </td>
+                    <td>{{ edit_counts.get(user.id, 0) }}</td>
+                    <td>{{ user.created_at | timeago }}</td>
+                    <td>{{ user.last_login_at | timeago if user.last_login_at else '—' }}</td>
+                    <td>
+                        <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="button button-secondary button-xs">Manage</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if users.pages > 1 %}
+    <nav class="admin-pagination">
+        {% if users.has_prev %}
+        <a href="{{ url_for('admin.users', page=users.page - 1, q=search, role=role_filter, sort=sort) }}" class="pagination-link">&larr; Previous</a>
+        {% endif %}
+        <span class="pagination-info">Page {{ users.page }} of {{ users.pages }} ({{ users.total }} users)</span>
+        {% if users.has_next %}
+        <a href="{{ url_for('admin.users', page=users.page + 1, q=search, role=role_filter, sort=sort) }}" class="pagination-link">Next &rarr;</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

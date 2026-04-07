@@ -1,9 +1,157 @@
 {% extends "base.html" %}
 {% block title %}Explore — GrapplingWiki{% endblock %}
+{% block meta_description %}Browse and discover grappling techniques, positions, and concepts. Explore connections between articles on GrapplingWiki.{% endblock %}
+
 {% block content %}
-<div class="browse-page">
-    <h1 class="page-title">Explore</h1>
-    <p>The knowledge graph is being rebuilt using the new relationship-based system. Check back soon.</p>
-    <a href="{{ url_for('main.categories') }}" class="button button-primary">Browse Categories</a>
+<div class="explore-page">
+
+    <!-- Hero Header -->
+    <div class="explore-hero">
+        <h1 class="explore-title">Explore</h1>
+        <p class="explore-subtitle">Discover techniques, positions, and concepts — and how they connect.</p>
+        <div class="explore-stats-bar">
+            <div class="explore-stat">
+                <span class="explore-stat-num">{{ total_articles }}</span>
+                <span class="explore-stat-label">Articles</span>
+            </div>
+            <div class="explore-stat">
+                <span class="explore-stat-num">{{ total_relationships }}</span>
+                <span class="explore-stat-label">Connections</span>
+            </div>
+            <div class="explore-stat">
+                <span class="explore-stat-num">{{ total_categories }}</span>
+                <span class="explore-stat-label">Categories</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="explore-layout">
+        <!-- Sidebar: Filters -->
+        <aside class="explore-sidebar">
+            <!-- Sort Controls -->
+            <div class="explore-filter-section">
+                <h3 class="explore-filter-title">Sort By</h3>
+                <div class="explore-sort-options">
+                    <a href="{{ url_for('main.explore', category=filter_category, sort='connections') }}"
+                       class="explore-sort-option {% if sort_by == 'connections' %}active{% endif %}">Most Connected</a>
+                    <a href="{{ url_for('main.explore', category=filter_category, sort='views') }}"
+                       class="explore-sort-option {% if sort_by == 'views' %}active{% endif %}">Most Viewed</a>
+                    <a href="{{ url_for('main.explore', category=filter_category, sort='recent') }}"
+                       class="explore-sort-option {% if sort_by == 'recent' %}active{% endif %}">Recently Updated</a>
+                    <a href="{{ url_for('main.explore', category=filter_category, sort='title') }}"
+                       class="explore-sort-option {% if sort_by == 'title' %}active{% endif %}">A — Z</a>
+                </div>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="explore-filter-section">
+                <h3 class="explore-filter-title">Categories</h3>
+                <div class="explore-category-list">
+                    <a href="{{ url_for('main.explore', sort=sort_by) }}"
+                       class="explore-category-item {% if not filter_category %}active{% endif %}">
+                        <span>All</span>
+                        <span class="explore-category-count">{{ total_articles }}</span>
+                    </a>
+                    {% for item in category_counts %}
+                    <a href="{{ url_for('main.explore', category=item.category.slug, sort=sort_by) }}"
+                       class="explore-category-item {% if filter_category == item.category.slug %}active{% endif %}">
+                        <span>{{ item.category.name }}</span>
+                        <span class="explore-category-count">{{ item.count }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Most Connected -->
+            {% if top_connected %}
+            <div class="explore-filter-section">
+                <h3 class="explore-filter-title">Most Connected</h3>
+                <div class="explore-top-list">
+                    {% for item in top_connected %}
+                    <a href="/wiki/{{ item.article.slug }}" class="explore-top-item">
+                        <span class="explore-top-title">{{ item.article.title }}</span>
+                        <span class="explore-top-count">{{ item.count }} links</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </aside>
+
+        <!-- Main Content: Article Grid -->
+        <div class="explore-main">
+            {% if active_category %}
+            <div class="explore-active-filter">
+                <span>Filtered by: <strong>{{ active_category.name }}</strong></span>
+                <a href="{{ url_for('main.explore', sort=sort_by) }}" class="explore-clear-filter">Clear</a>
+            </div>
+            {% endif %}
+
+            {% if articles_with_counts %}
+            <div class="explore-grid">
+                {% for item in articles_with_counts %}
+                <a href="/wiki/{{ item.article.slug }}" class="explore-card">
+                    <div class="explore-card-header">
+                        <h3 class="explore-card-title">{{ item.article.title }}</h3>
+                        {% if item.article.category_name %}
+                        <span class="explore-card-category">{{ item.article.category_name }}</span>
+                        {% endif %}
+                    </div>
+                    {% if item.article.summary %}
+                    <p class="explore-card-summary">{{ item.article.summary | truncate(120) }}</p>
+                    {% endif %}
+                    <div class="explore-card-meta">
+                        {% if item.connection_count > 0 %}
+                        <span class="explore-card-connections">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                <circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle>
+                                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                            </svg>
+                            {{ item.connection_count }}
+                        </span>
+                        {% endif %}
+                        <span class="explore-card-views">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            {{ item.article.view_count }}
+                        </span>
+                        <span class="explore-card-date">{{ item.article.updated_at | timeago }}</span>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+            <nav class="explore-pagination">
+                {% if pagination.has_prev %}
+                <a href="{{ url_for('main.explore', page=pagination.page - 1, category=filter_category, sort=sort_by) }}" class="pagination-link">
+                    &larr; Previous
+                </a>
+                {% endif %}
+                <span class="pagination-info">Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                {% if pagination.has_next %}
+                <a href="{{ url_for('main.explore', page=pagination.page + 1, category=filter_category, sort=sort_by) }}" class="pagination-link">
+                    Next &rarr;
+                </a>
+                {% endif %}
+            </nav>
+            {% endif %}
+
+            {% else %}
+            <div class="explore-empty">
+                <h3>No articles found</h3>
+                {% if filter_category %}
+                <p>No published articles in this category yet.</p>
+                <a href="{{ url_for('main.explore') }}" class="button button-secondary">View All Articles</a>
+                {% else %}
+                <p>No published articles yet. Be the first to contribute.</p>
+                <a href="{{ url_for('wiki.create') }}" class="button button-primary">Create an Article</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
 </div>
 {% endblock %}

@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Content Flags — Admin — GrapplingWiki{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <h1>Content Flags</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link">Dashboard</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link">Users</a>
+            <a href="{{ url_for('admin.articles') }}" class="admin-nav-link">Articles</a>
+            <a href="{{ url_for('admin.flags') }}" class="admin-nav-link active">Flags</a>
+            <a href="{{ url_for('admin.audit_log') }}" class="admin-nav-link">Audit Log</a>
+        </nav>
+    </div>
+
+    <!-- Status Filter -->
+    <div class="admin-toolbar">
+        <div class="admin-tab-bar">
+            <a href="{{ url_for('admin.flags', status='pending') }}"
+               class="admin-tab {% if status_filter == 'pending' %}active{% endif %}">Pending</a>
+            <a href="{{ url_for('admin.flags', status='actioned') }}"
+               class="admin-tab {% if status_filter == 'actioned' %}active{% endif %}">Actioned</a>
+            <a href="{{ url_for('admin.flags', status='dismissed') }}"
+               class="admin-tab {% if status_filter == 'dismissed' %}active{% endif %}">Dismissed</a>
+            <a href="{{ url_for('admin.flags', status='') }}"
+               class="admin-tab {% if not status_filter %}active{% endif %}">All</a>
+        </div>
+    </div>
+
+    {% if flags.items %}
+    <div class="admin-flag-cards">
+        {% for flag in flags.items %}
+        <div class="admin-flag-card admin-flag-{{ flag.status }}">
+            <div class="admin-flag-card-header">
+                <span class="admin-flag-reason-badge">{{ flag.reason | replace('_', ' ') | title }}</span>
+                <span class="admin-flag-status-badge admin-status-{{ flag.status }}">{{ flag.status | title }}</span>
+                <span class="admin-flag-date">{{ flag.created_at | timeago }}</span>
+            </div>
+
+            <div class="admin-flag-card-body">
+                <h3 class="admin-flag-article-title">
+                    <a href="/wiki/{{ flag.article.slug }}">{{ flag.article.title | e }}</a>
+                </h3>
+                {% if flag.details %}
+                <p class="admin-flag-details">{{ flag.details | e }}</p>
+                {% endif %}
+                <p class="admin-flag-meta">
+                    Reported by <a href="{{ url_for('admin.user_detail', user_id=flag.reporter_id) }}">{{ flag.reporter.username | e }}</a>
+                </p>
+            </div>
+
+            {% if flag.status == 'pending' %}
+            <div class="admin-flag-card-actions">
+                <form method="POST" action="{{ url_for('admin.flag_action', flag_id=flag.id) }}" class="admin-flag-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="text" name="note" class="admin-reason-input" placeholder="Resolution note (optional)">
+                    <div class="admin-flag-buttons">
+                        <input type="hidden" name="action" value="">
+                        <button type="submit" class="button button-primary button-sm" onclick="this.form.action_field.value='resolve'" name="action_field" value="resolve"
+                                formaction="{{ url_for('admin.flag_action', flag_id=flag.id) }}">
+                            Resolve
+                        </button>
+                        <button type="submit" class="button button-secondary button-sm" onclick="this.form.action_field.value='dismiss'" name="action_field" value="dismiss"
+                                formaction="{{ url_for('admin.flag_action', flag_id=flag.id) }}">
+                            Dismiss
+                        </button>
+                    </div>
+                </form>
+                <!-- Simpler approach with two forms -->
+                <div class="admin-flag-buttons" style="margin-top: 0.5rem;">
+                    <form method="POST" action="{{ url_for('admin.flag_action', flag_id=flag.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="resolve">
+                        <input type="hidden" name="note" value="">
+                        <button type="submit" class="button button-primary button-sm">Resolve</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin.flag_action', flag_id=flag.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="action" value="dismiss">
+                        <input type="hidden" name="note" value="">
+                        <button type="submit" class="button button-secondary button-sm">Dismiss</button>
+                    </form>
+                </div>
+            </div>
+            {% elif flag.resolution_note %}
+            <div class="admin-flag-resolution">
+                <strong>Resolution:</strong> {{ flag.resolution_note | e }}
+                {% if flag.reviewer %} — {{ flag.reviewer.username | e }}{% endif %}
+                {% if flag.reviewed_at %} ({{ flag.reviewed_at | timeago }}){% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if flags.pages > 1 %}
+    <nav class="admin-pagination">
+        {% if flags.has_prev %}
+        <a href="{{ url_for('admin.flags', page=flags.page - 1, status=status_filter) }}" class="pagination-link">&larr; Previous</a>
+        {% endif %}
+        <span class="pagination-info">Page {{ flags.page }} of {{ flags.pages }}</span>
+        {% if flags.has_next %}
+        <a href="{{ url_for('admin.flags', page=flags.page + 1, status=status_filter) }}" class="pagination-link">Next &rarr;</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="admin-empty-state">
+        {% if status_filter == 'pending' %}
+        <h3>No pending flags</h3>
+        <p>The moderation queue is clear.</p>
+        {% else %}
+        <h3>No flags found</h3>
+        <p>No content flags matching this filter.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

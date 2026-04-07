@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}Manage {{ user.username | e }} — Admin — GrapplingWiki{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <h1>
+            Manage User: {{ user.username | e }}
+            <span class="admin-role-badge admin-role-{{ user.role_display | lower }}">{{ user.role_display }}</span>
+        </h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link">Dashboard</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link active">Users</a>
+            <a href="{{ url_for('admin.articles') }}" class="admin-nav-link">Articles</a>
+            <a href="{{ url_for('admin.flags') }}" class="admin-nav-link">Flags</a>
+            <a href="{{ url_for('admin.audit_log') }}" class="admin-nav-link">Audit Log</a>
+        </nav>
+    </div>
+
+    <div class="admin-grid-2col">
+        <!-- User Info -->
+        <div class="admin-panel">
+            <h2 class="admin-panel-title">Account Details</h2>
+            <dl class="admin-detail-list">
+                <dt>Username</dt>
+                <dd>{{ user.username | e }}</dd>
+                <dt>Email</dt>
+                <dd>{{ user.email | e }}</dd>
+                <dt>Joined</dt>
+                <dd>{{ user.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+                <dt>Last Login</dt>
+                <dd>{{ user.last_login_at.strftime('%Y-%m-%d %H:%M UTC') if user.last_login_at else 'Never' }}</dd>
+                <dt>Registration IP</dt>
+                <dd>{{ user.registration_ip or 'Not recorded' }}</dd>
+                <dt>Articles Created</dt>
+                <dd>{{ article_count }}</dd>
+                <dt>Total Edits</dt>
+                <dd>{{ edit_count }}</dd>
+                <dt>Discussions</dt>
+                <dd>{{ discussion_count }}</dd>
+            </dl>
+
+            {% if user.is_banned %}
+            <div class="admin-alert admin-alert-danger">
+                <strong>Banned</strong>
+                {% if user.ban_reason %} — {{ user.ban_reason | e }}{% endif %}
+                <br>Banned {{ user.banned_at | timeago if user.banned_at else '' }}
+            </div>
+            {% endif %}
+
+            {% if user.is_suspended and user.suspended_until %}
+            <div class="admin-alert admin-alert-warning">
+                <strong>Suspended until {{ user.suspended_until.strftime('%Y-%m-%d %H:%M UTC') }}</strong>
+                {% if user.suspend_reason %} — {{ user.suspend_reason | e }}{% endif %}
+            </div>
+            {% endif %}
+
+            <a href="{{ url_for('auth.profile', username=user.username) }}" class="button button-secondary button-sm" style="margin-top: 1rem;">View Public Profile</a>
+        </div>
+
+        <!-- Actions Panel -->
+        <div class="admin-panel">
+            <h2 class="admin-panel-title">Moderation Actions</h2>
+
+            <!-- Role Management -->
+            <div class="admin-action-group">
+                <h3 class="admin-action-group-title">Role Management</h3>
+                {% if not user.is_editor and not user.is_admin %}
+                <form method="POST" class="admin-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="promote_editor">
+                    <input type="text" name="reason" class="admin-reason-input" placeholder="Reason (optional)">
+                    <button type="submit" class="button button-primary button-sm">Promote to Editor</button>
+                </form>
+                {% elif user.is_editor and not user.is_admin %}
+                <form method="POST" class="admin-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="demote_editor">
+                    <input type="text" name="reason" class="admin-reason-input" placeholder="Reason (optional)">
+                    <button type="submit" class="button button-secondary button-sm">Remove Editor Role</button>
+                </form>
+                <form method="POST" class="admin-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="promote_admin">
+                    <input type="text" name="reason" class="admin-reason-input" placeholder="Reason (optional)">
+                    <button type="submit" class="button button-primary button-sm admin-btn-danger">Promote to Admin</button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Suspension -->
+            <div class="admin-action-group">
+                <h3 class="admin-action-group-title">Suspension</h3>
+                {% if not user.is_suspended %}
+                <form method="POST" class="admin-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="suspend">
+                    <div class="admin-action-row">
+                        <select name="duration" class="admin-filter-select">
+                            <option value="1">1 hour</option>
+                            <option value="6">6 hours</option>
+                            <option value="24" selected>24 hours</option>
+                            <option value="72">3 days</option>
+                            <option value="168">1 week</option>
+                            <option value="720">30 days</option>
+                        </select>
+                    </div>
+                    <input type="text" name="reason" class="admin-reason-input" placeholder="Reason for suspension" required>
+                    <button type="submit" class="button button-secondary button-sm admin-btn-warning">Suspend</button>
+                </form>
+                {% else %}
+                <form method="POST" class="admin-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="unsuspend">
+                    <button type="submit" class="button button-primary button-sm">Lift Suspension</button>
+                </form>
+                {% endif %}
+            </div>
+
+            <!-- Ban -->
+            <div class="admin-action-group">
+                <h3 class="admin-action-group-title">Ban</h3>
+                {% if not user.is_banned %}
+                <form method="POST" class="admin-action-form" onsubmit="return confirm('Permanently ban {{ user.username }}? This will lock them out.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="ban">
+                    <input type="text" name="reason" class="admin-reason-input" placeholder="Reason for ban" required>
+                    <button type="submit" class="button button-secondary button-sm admin-btn-danger">Ban User</button>
+                </form>
+                {% else %}
+                <form method="POST" class="admin-action-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="action" value="unban">
+                    <input type="text" name="reason" class="admin-reason-input" placeholder="Reason for unban">
+                    <button type="submit" class="button button-primary button-sm">Unban User</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Edits by this user -->
+    {% if recent_edits %}
+    <div class="admin-panel">
+        <h2 class="admin-panel-title">Recent Edits by {{ user.username | e }}</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Article</th>
+                        <th>Summary</th>
+                        <th>Rev #</th>
+                        <th>When</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rev in recent_edits %}
+                    <tr>
+                        <td><a href="/wiki/{{ rev.article.slug }}">{{ rev.article.title | e }}</a></td>
+                        <td>{{ (rev.edit_summary or '—') | truncate(60) | e }}</td>
+                        <td>#{{ rev.revision_number }}</td>
+                        <td>{{ rev.created_at | timeago }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Moderation History -->
+    {% if mod_history %}
+    <div class="admin-panel">
+        <h2 class="admin-panel-title">Moderation History</h2>
+        <div class="admin-table-wrap">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Action</th>
+                        <th>By</th>
+                        <th>Reason</th>
+                        <th>When</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for action in mod_history %}
+                    <tr>
+                        <td><span class="admin-action-badge">{{ action.action_type | replace('_', ' ') | title }}</span></td>
+                        <td>{{ action.moderator.username | e }}</td>
+                        <td>{{ (action.reason or '—') | truncate(60) | e }}</td>
+                        <td>{{ action.created_at | timeago }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

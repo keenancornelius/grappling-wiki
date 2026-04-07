@@ -11,30 +11,43 @@
             <p>Join the GrapplingWiki community</p>
         </div>
 
-        <form method="POST" class="auth-form">
+        <form method="POST" class="auth-form" id="register-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <!-- Timing check: records when the form was loaded -->
+            <input type="hidden" name="_form_ts" value="{{ form_ts | default('', true) }}">
+
+            <!-- Honeypot: invisible to humans, bots fill it in -->
+            <div style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden;" aria-hidden="true" tabindex="-1">
+                <label for="website_url">Website URL</label>
+                <input type="text" id="website_url" name="website_url" value="" autocomplete="off" tabindex="-1">
+            </div>
+
             <!-- Username Field -->
             <div class="form-group">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" id="username" name="username" class="form-input"
-                       placeholder="Choose a username (3+ characters)"
-                       value="{{ username | default('', true) | e }}" required autofocus>
-                <p class="form-help">Letters, numbers, and underscores only.</p>
+                       placeholder="Choose a username (3-30 characters)"
+                       value="{{ username | default('', true) | e }}" required autofocus
+                       minlength="3" maxlength="30" pattern="^[a-zA-Z0-9_-]+$">
+                <p class="form-help">Letters, numbers, underscores, and hyphens only.</p>
             </div>
 
             <!-- Email Field -->
             <div class="form-group">
                 <label for="email" class="form-label">Email</label>
                 <input type="email" id="email" name="email" class="form-input"
-                       placeholder="Enter your email"
+                       placeholder="Enter your email (permanent address required)"
                        value="{{ email | default('', true) | e }}" required>
+                <p class="form-help">We'll never share your email. Disposable addresses are not accepted.</p>
             </div>
 
             <!-- Password Field -->
             <div class="form-group">
                 <label for="password" class="form-label">Password</label>
                 <input type="password" id="password" name="password" class="form-input"
-                       placeholder="Create a password (6+ characters)" required>
+                       placeholder="At least 8 characters, include a letter and number" required
+                       minlength="8">
+                <div class="password-strength" id="password-strength"></div>
             </div>
 
             <!-- Confirm Password Field -->
@@ -45,7 +58,7 @@
             </div>
 
             <!-- Submit Button -->
-            <button type="submit" class="button button-primary button-lg button-block">
+            <button type="submit" class="button button-primary button-lg button-block" id="register-btn">
                 Create Account
             </button>
         </form>
@@ -75,4 +88,47 @@
         </ul>
     </aside>
 </div>
+
+<script>
+(function() {
+    // Client-side password strength indicator
+    var pw = document.getElementById('password');
+    var indicator = document.getElementById('password-strength');
+    if (pw && indicator) {
+        pw.addEventListener('input', function() {
+            var val = pw.value;
+            var score = 0;
+            if (val.length >= 8) score++;
+            if (val.length >= 12) score++;
+            if (/[a-z]/.test(val) && /[A-Z]/.test(val)) score++;
+            if (/[0-9]/.test(val)) score++;
+            if (/[^a-zA-Z0-9]/.test(val)) score++;
+
+            var labels = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Excellent'];
+            var colors = ['', '#ef4444', '#f59e0b', '#eab308', '#22c55e', '#1B8A6B'];
+            if (val.length === 0) {
+                indicator.textContent = '';
+                indicator.style.color = '';
+            } else {
+                indicator.textContent = labels[score] || 'Weak';
+                indicator.style.color = colors[score] || '#ef4444';
+            }
+        });
+    }
+
+    // Confirm password match check
+    var confirm = document.getElementById('confirm_password');
+    if (confirm && pw) {
+        confirm.addEventListener('input', function() {
+            if (confirm.value && confirm.value !== pw.value) {
+                confirm.style.borderColor = '#ef4444';
+            } else if (confirm.value) {
+                confirm.style.borderColor = '#1B8A6B';
+            } else {
+                confirm.style.borderColor = '';
+            }
+        });
+    }
+})();
+</script>
 {% endblock %}

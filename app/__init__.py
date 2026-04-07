@@ -43,11 +43,13 @@ def create_app(config_name='default'):
     from app.routes.wiki import wiki_bp
     from app.routes.auth import auth_bp
     from app.routes.api import api_bp
+    from app.routes.admin import admin_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(wiki_bp, url_prefix='/wiki')
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
     csrf.exempt(api_bp)
 
     # Register template filters

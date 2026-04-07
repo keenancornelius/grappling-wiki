@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Revision #{{ revision.revision_number }} — {{ article.title | e }} — GrapplingWiki{% endblock %}
+{% block meta_description %}Viewing revision {{ revision.revision_number }} of {{ article.title }}.{% endblock %}
+
+{% block content %}
+<div class="revision-view">
+    <div class="revision-header">
+        <h1>{{ article.title | e }}</h1>
+        <div class="revision-meta">
+            <span class="revision-badge">Revision #{{ revision.revision_number }}</span>
+            <span class="revision-date">{{ revision.created_at | timeago }}</span>
+            {% if revision.editor %}
+            <span class="revision-editor">by <a href="{{ url_for('auth.profile', username=revision.editor.username) }}">{{ revision.editor.username | e }}</a></span>
+            {% endif %}
+            {% if revision.edit_summary %}
+            <span class="revision-summary">&mdash; {{ revision.edit_summary | e }}</span>
+            {% endif %}
+        </div>
+        <div class="revision-actions">
+            <a href="{{ url_for('wiki.view', slug=article.slug) }}" class="button button-secondary">Current Version</a>
+            <a href="{{ url_for('wiki.history', slug=article.slug) }}" class="button button-secondary">Full History</a>
+        </div>
+    </div>
+
+    <div class="article-body">
+        {{ html_content | safe }}
+    </div>
+</div>
+{% endblock %}

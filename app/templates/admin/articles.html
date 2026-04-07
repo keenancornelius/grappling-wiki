@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Article Management — Admin — GrapplingWiki{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+    <div class="admin-header">
+        <h1>Article Management</h1>
+        <nav class="admin-nav">
+            <a href="{{ url_for('admin.dashboard') }}" class="admin-nav-link">Dashboard</a>
+            <a href="{{ url_for('admin.users') }}" class="admin-nav-link">Users</a>
+            <a href="{{ url_for('admin.articles') }}" class="admin-nav-link active">Articles</a>
+            <a href="{{ url_for('admin.flags') }}" class="admin-nav-link">Flags</a>
+            <a href="{{ url_for('admin.audit_log') }}" class="admin-nav-link">Audit Log</a>
+        </nav>
+    </div>
+
+    <!-- Search & Filters -->
+    <div class="admin-toolbar">
+        <form action="{{ url_for('admin.articles') }}" method="get" class="admin-search-form">
+            <input type="text" name="q" class="admin-search-input" placeholder="Search articles..."
+                   value="{{ search | e }}">
+            <select name="status" class="admin-filter-select">
+                <option value="">All Status</option>
+                <option value="published" {% if status_filter == 'published' %}selected{% endif %}>Published</option>
+                <option value="unpublished" {% if status_filter == 'unpublished' %}selected{% endif %}>Unpublished</option>
+                <option value="protected" {% if status_filter == 'protected' %}selected{% endif %}>Protected</option>
+            </select>
+            <button type="submit" class="button button-secondary button-sm">Filter</button>
+        </form>
+    </div>
+
+    <!-- Articles Table -->
+    <div class="admin-table-wrap">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Category</th>
+                    <th>Views</th>
+                    <th>Status</th>
+                    <th>Updated</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for article in articles.items %}
+                <tr>
+                    <td><a href="/wiki/{{ article.slug }}">{{ article.title | e }}</a></td>
+                    <td>
+                        <a href="{{ url_for('admin.user_detail', user_id=article.author_id) }}">{{ article.author.username | e }}</a>
+                    </td>
+                    <td>{{ article.category_name or '—' }}</td>
+                    <td>{{ article.view_count }}</td>
+                    <td>
+                        {% if article.is_published %}
+                        <span class="admin-status-badge admin-status-published">Published</span>
+                        {% else %}
+                        <span class="admin-status-badge admin-status-unpublished">Unpublished</span>
+                        {% endif %}
+                        {% if article.is_protected %}
+                        <span class="admin-status-badge admin-status-protected">Protected</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ article.updated_at | timeago }}</td>
+                    <td>
+                        <div class="admin-actions-dropdown">
+                            <button class="admin-actions-trigger button button-secondary button-xs">Actions</button>
+                            <div class="admin-actions-menu">
+                                {% if not article.is_protected %}
+                                <form method="POST" action="{{ url_for('admin.article_action', article_id=article.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="lock">
+                                    <button type="submit" class="admin-actions-item">Lock (protect)</button>
+                                </form>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin.article_action', article_id=article.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="unlock">
+                                    <button type="submit" class="admin-actions-item">Unlock</button>
+                                </form>
+                                {% endif %}
+
+                                {% if article.is_published %}
+                                <form method="POST" action="{{ url_for('admin.article_action', article_id=article.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="unpublish">
+                                    <button type="submit" class="admin-actions-item">Unpublish</button>
+                                </form>
+                                {% else %}
+                                <form method="POST" action="{{ url_for('admin.article_action', article_id=article.id) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="publish">
+                                    <button type="submit" class="admin-actions-item">Publish</button>
+                                </form>
+                                {% endif %}
+
+                                <form method="POST" action="{{ url_for('admin.article_action', article_id=article.id) }}"
+                                      onsubmit="return confirm('Delete this article permanently?')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="action" value="delete">
+                                    <button type="submit" class="admin-actions-item admin-actions-danger">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if articles.pages > 1 %}
+    <nav class="admin-pagination">
+        {% if articles.has_prev %}
+        <a href="{{ url_for('admin.articles', page=articles.page - 1, q=search, status=status_filter) }}" class="pagination-link">&larr; Previous</a>
+        {% endif %}
+        <span class="pagination-info">Page {{ articles.page }} of {{ articles.pages }}</span>
+        {% if articles.has_next %}
+        <a href="{{ url_for('admin.articles', page=articles.page + 1, q=search, status=status_filter) }}" class="pagination-link">Next &rarr;</a>
+        {% endif %}
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

@@ -77,32 +77,12 @@ var GWGraph = (function () {
       }
     });
 
-    // Try to place unplaced nodes near their connected nodes
-    unplaced.forEach(function (n) {
-      var connTiers = [];
-      edges.forEach(function (e) {
-        if (e.source === n.id && nodeMap[e.target] && nodeMap[e.target].tier >= 0) {
-          connTiers.push(nodeMap[e.target].tier);
-        }
-        if (e.target === n.id && nodeMap[e.source] && nodeMap[e.source].tier >= 0) {
-          connTiers.push(nodeMap[e.source].tier);
-        }
-      });
-      if (connTiers.length > 0) {
-        var avg = connTiers.reduce(function (a, b) { return a + b; }, 0) / connTiers.length;
-        n.tier = Math.round(avg);
-      } else {
-        n.tier = 2; // default to guards tier
-      }
-      tiers[n.tier].push(n);
-    });
-
-    // Vertical spacing
+    // Vertical spacing — place tiered nodes first
     var tierPadding = 60;
     var topPad = 80;
     var tierHeight = (height - topPad - tierPadding) / (TIER_COUNT - 1 || 1);
 
-    // Assign positions
+    // Assign positions for tiered nodes
     for (var t = 0; t < TIER_COUNT; t++) {
       var tierNodes = tiers[t];
       if (!tierNodes.length) continue;
@@ -116,17 +96,73 @@ var GWGraph = (function () {
       var spacing = count > 1 ? availWidth / (count - 1) : 0;
       var startX = count > 1 ? xPad : width / 2;
 
-      // Sort within tier for visual consistency
-      tierNodes.sort(function (a, b) { return a.title.localeCompare(b.title); });
+      // Count connections per node for sorting
+      tierNodes.forEach(function (n) {
+        var c = 0;
+        edges.forEach(function (e) {
+          if (e.source === n.id || e.target === n.id) c++;
+        });
+        n._connCount = c;
+      });
+
+      // Sort: most connected nodes go to the center, fewest to the edges
+      // First sort by connection count descending
+      tierNodes.sort(function (a, b) { return b._connCount - a._connCount; });
+
+      // Then distribute center-out: index 0→center, 1→left, 2→right, 3→left...
+      var ordered = new Array(count);
+      var mid = Math.floor(count / 2);
+      var left = mid, right = mid + 1;
+      for (var ci = 0; ci < count; ci++) {
+        if (ci === 0) {
+          ordered[mid] = tierNodes[ci];
+        } else if (ci % 2 === 1 && left > 0) {
+          left--;
+          ordered[left] = tierNodes[ci];
+        } else if (right < count) {
+          ordered[right] = tierNodes[ci];
+          right++;
+        } else {
+          left--;
+          ordered[left] = tierNodes[ci];
+        }
+      }
 
       // For dense tiers (>12 nodes), stagger labels to avoid overlap
       var dense = count > 12;
-      tierNodes.forEach(function (n, i) {
+      ordered.forEach(function (n, i) {
+        if (!n) return;
         n.x = startX + i * spacing;
         n.y = y;
         n._labelStagger = dense ? (i % 2 === 0 ? 0 : 12) : 0;
       });
     }
+
+    // Place unplaced nodes (concepts/principles) at centroid of connected nodes
+    // These float freely — not snapped to any tier row
+    unplaced.forEach(function (n) {
+      var cx = 0, cy = 0, connCount = 0;
+      edges.forEach(function (e) {
+        var other = null;
+        if (e.source === n.id) other = nodeMap[e.target];
+        if (e.target === n.id) other = nodeMap[e.source];
+        if (other && typeof other.x === 'number') {
+          cx += other.x;
+          cy += other.y;
+          connCount++;
+        }
+      });
+      if (connCount > 0) {
+        n.x = cx / connCount;
+        n.y = cy / connCount;
+      } else {
+        // No connections — park in a neutral spot
+        n.x = width / 2 + (Math.random() - 0.5) * 200;
+        n.y = height / 2;
+      }
+      n._labelStagger = 0;
+      n._isFree = true; // mark as free-floating for rendering
+    });
   }
 
   // ── Node color ──

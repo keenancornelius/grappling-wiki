@@ -440,23 +440,59 @@ var GWGraph = (function () {
     });
   }
 
-  // ── Electric trace: continuous bolt from Standing → Submission ──
+  // ══════════════════════════════════════════════════════════════════════
+  // ELECTRIC TRACE — lightning bolt from Standing → Submission
+  // ══════════════════════════════════════════════════════════════════════
   var traceInterval;
-  var traceG; // dedicated SVG group for trace paths
+  var traceG;
+  var traceActive = false;
 
+  // Generate jagged lightning segments between two points
+  function lightningPath(x1, y1, x2, y2, jag, segments) {
+    var pts = [{ x: x1, y: y1 }];
+    for (var i = 1; i < segments; i++) {
+      var t = i / segments;
+      var mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * jag;
+      var my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * jag * 0.3;
+      pts.push({ x: mx, y: my });
+    }
+    pts.push({ x: x2, y: y2 });
+    var d = 'M ' + pts[0].x.toFixed(1) + ' ' + pts[0].y.toFixed(1);
+    for (var j = 1; j < pts.length; j++) {
+      d += ' L ' + pts[j].x.toFixed(1) + ' ' + pts[j].y.toFixed(1);
+    }
+    return { d: d, pts: pts };
+  }
+
+  // Create a forking branch bolt off a point
+  function forkBolt(cx, cy, angle, len) {
+    var ex = cx + Math.cos(angle) * len;
+    var ey = cy + Math.sin(angle) * len;
+    var segs = 3 + Math.floor(Math.random() * 3);
+    var pts = [{ x: cx, y: cy }];
+    for (var i = 1; i <= segs; i++) {
+      var t = i / segs;
+      pts.push({
+        x: cx + (ex - cx) * t + (Math.random() - 0.5) * len * 0.3,
+        y: cy + (ey - cy) * t + (Math.random() - 0.5) * len * 0.2,
+      });
+    }
+    var d = 'M ' + pts[0].x.toFixed(1) + ' ' + pts[0].y.toFixed(1);
+    for (var j = 1; j < pts.length; j++) {
+      d += ' L ' + pts[j].x.toFixed(1) + ' ' + pts[j].y.toFixed(1);
+    }
+    return d;
+  }
+
+  // Build a chain of nodes from tier 0 → tier N
   function buildTracePath() {
-    // Find one random path from tier 0 down to tier TIER_COUNT-1
-    // by picking the most-connected node at each tier, with some randomness
     var path = [];
     for (var t = 0; t < TIER_COUNT; t++) {
       var candidates = nodes.filter(function (n) { return n.tier === t; });
       if (!candidates.length) continue;
-
       if (path.length === 0) {
-        // Pick random starting node in tier 0
         path.push(candidates[Math.floor(Math.random() * candidates.length)]);
       } else {
-        // Find nodes in this tier connected to the previous node
         var prev = path[path.length - 1];
         var connected = candidates.filter(function (c) {
           return edges.some(function (e) {
@@ -467,7 +503,6 @@ var GWGraph = (function () {
         if (connected.length > 0) {
           path.push(connected[Math.floor(Math.random() * connected.length)]);
         } else {
-          // No direct connection — pick closest node in tier
           candidates.sort(function (a, b) {
             return Math.abs(a.x - prev.x) - Math.abs(b.x - prev.x);
           });
@@ -479,83 +514,196 @@ var GWGraph = (function () {
   }
 
   function animateTrace() {
-    if (reducedMotion || hoveredNode) return;
+    if (reducedMotion || hoveredNode || traceActive) return;
+    traceActive = true;
 
-    var path = buildTracePath();
-    if (path.length < 2) return;
+    var chain = buildTracePath();
+    if (chain.length < 2) { traceActive = false; return; }
 
-    // Build SVG path through the chain
-    var d = 'M ' + path[0].x + ' ' + path[0].y;
-    for (var i = 1; i < path.length; i++) {
-      var prev = path[i - 1];
-      var curr = path[i];
-      var cpx = (prev.x + curr.x) / 2 + (Math.random() - 0.5) * 40;
-      var cpy = (prev.y + curr.y) / 2;
-      d += ' Q ' + cpx + ' ' + cpy + ' ' + curr.x + ' ' + curr.y;
-    }
+    var allEls = []; // track all SVG elements for cleanup
+    var segDur = 280; // ms per segment
+    var totalDur = chain.length * segDur + 1200;
 
-    // Create the trace line
-    var tracePath = svgEl('path', {
-      d: d,
-      fill: 'none',
-      stroke: COLORS.pulse,
-      'stroke-width': '1.5',
-      opacity: '0',
-      filter: 'url(#glow)',
-    });
-    traceG.appendChild(tracePath);
+    // Animate segment by segment, top to bottom
+    chain.forEach(function (node, idx) {
+      if (idx === 0) return;
+      var prev = chain[idx - 1];
+      var delay = idx * segDur;
 
-    // Create moving dot
-    var dot = svgEl('circle', {
-      r: 3,
-      fill: '#fff',
-      opacity: '0',
-      filter: 'url(#glow)',
-    });
-    var motion = svgEl('animateMotion', {
-      dur: '2.5s',
-      repeatCount: '1',
-      fill: 'freeze',
-      path: d,
-    });
-    dot.appendChild(motion);
-    traceG.appendChild(dot);
-
-    // Animate: fade in path, run dot, fade out
-    tracePath.setAttribute('opacity', '0.25');
-    dot.setAttribute('opacity', '0.8');
-
-    // Also briefly highlight the nodes in the path
-    path.forEach(function (n, idx) {
       setTimeout(function () {
-        if (n._glow) {
-          n._glow.setAttribute('opacity', '0.3');
+        if (hoveredNode) return;
+
+        // ── Main lightning bolt between nodes ──
+        var dist = Math.sqrt(Math.pow(node.x - prev.x, 2) + Math.pow(node.y - prev.y, 2));
+        var jag = Math.min(60, dist * 0.15);
+        var segs = Math.max(5, Math.floor(dist / 15));
+        var bolt = lightningPath(prev.x, prev.y, node.x, node.y, jag, segs);
+
+        // Main bolt path — bright white core
+        var mainPath = svgEl('path', {
+          d: bolt.d, fill: 'none', stroke: '#fff',
+          'stroke-width': '2', opacity: '0.9',
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        });
+        traceG.appendChild(mainPath);
+        allEls.push(mainPath);
+
+        // Glow layer — wider, colored, electric blur
+        var glowPath = svgEl('path', {
+          d: bolt.d, fill: 'none', stroke: COLORS.pulse,
+          'stroke-width': '6', opacity: '0.5',
+          filter: 'url(#electric)',
+          'stroke-linecap': 'round',
+        });
+        traceG.appendChild(glowPath);
+        allEls.push(glowPath);
+
+        // Second glow — even wider, atmospheric
+        var outerGlow = svgEl('path', {
+          d: bolt.d, fill: 'none', stroke: COLORS.pulse,
+          'stroke-width': '18', opacity: '0.12',
+          filter: 'url(#electric)',
+        });
+        traceG.appendChild(outerGlow);
+        allEls.push(outerGlow);
+
+        // ── Fork bolts — small branches off the main bolt ──
+        var forkCount = 1 + Math.floor(Math.random() * 3);
+        for (var f = 0; f < forkCount; f++) {
+          var forkPt = bolt.pts[Math.floor(Math.random() * (bolt.pts.length - 1)) + 1];
+          var forkAngle = Math.random() * Math.PI * 2;
+          var forkLen = 15 + Math.random() * 30;
+          var forkD = forkBolt(forkPt.x, forkPt.y, forkAngle, forkLen);
+
+          var forkEl = svgEl('path', {
+            d: forkD, fill: 'none', stroke: '#fff',
+            'stroke-width': '1', opacity: '0.6',
+            'stroke-linecap': 'round',
+          });
+          traceG.appendChild(forkEl);
+          allEls.push(forkEl);
+
+          var forkGlow = svgEl('path', {
+            d: forkD, fill: 'none', stroke: COLORS.pulse,
+            'stroke-width': '4', opacity: '0.3',
+            filter: 'url(#electric)',
+          });
+          traceG.appendChild(forkGlow);
+          allEls.push(forkGlow);
+        }
+
+        // ── Spark particles at the target node ──
+        var sparkCount = 4 + Math.floor(Math.random() * 5);
+        for (var s = 0; s < sparkCount; s++) {
+          var sa = Math.random() * Math.PI * 2;
+          var sr = 8 + Math.random() * 20;
+          var sx = node.x + Math.cos(sa) * sr;
+          var sy = node.y + Math.sin(sa) * sr;
+          var sparkSize = 1 + Math.random() * 2;
+
+          var spark = svgEl('circle', {
+            cx: node.x, cy: node.y, r: sparkSize,
+            fill: Math.random() > 0.5 ? '#fff' : COLORS.pulse,
+            opacity: '0.9',
+          });
+          traceG.appendChild(spark);
+          allEls.push(spark);
+
+          // Animate spark outward
+          (function (el, tx, ty) {
+            var start = performance.now();
+            var dur = 200 + Math.random() * 300;
+            var ox = parseFloat(el.getAttribute('cx'));
+            var oy = parseFloat(el.getAttribute('cy'));
+            function step(now) {
+              var t = Math.min(1, (now - start) / dur);
+              var ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+              el.setAttribute('cx', (ox + (tx - ox) * ease).toFixed(1));
+              el.setAttribute('cy', (oy + (ty - oy) * ease).toFixed(1));
+              el.setAttribute('opacity', (0.9 * (1 - t)).toFixed(2));
+              el.setAttribute('r', (sparkSize * (1 - t * 0.5)).toFixed(1));
+              if (t < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+          })(spark, sx, sy);
+        }
+
+        // ── Node impact flash ──
+        if (node._glow) {
+          node._glow.setAttribute('fill', '#fff');
+          node._glow.setAttribute('opacity', '0.6');
+          node._el.querySelector('.node-circle').setAttribute('fill', '#fff');
+
           setTimeout(function () {
-            if (!hoveredNode) n._glow.setAttribute('opacity', '0');
+            node._glow.setAttribute('fill', node._color);
+            node._glow.setAttribute('opacity', '0.3');
+            node._el.querySelector('.node-circle').setAttribute('fill', node._color);
+          }, 150);
+          setTimeout(function () {
+            if (!hoveredNode) {
+              node._glow.setAttribute('opacity', '0');
+              node._el.querySelector('.node-circle').setAttribute('fill', node._color);
+            }
           }, 800);
         }
-      }, idx * 350);
+
+        // Previous node glow lingers
+        if (prev._glow && !hoveredNode) {
+          prev._glow.setAttribute('opacity', '0.15');
+        }
+
+        // ── Flicker effect — redraw bolt 2x rapidly for crackle ──
+        setTimeout(function () {
+          if (hoveredNode) return;
+          var flicker = lightningPath(prev.x, prev.y, node.x, node.y, jag * 1.2, segs);
+          mainPath.setAttribute('d', flicker.d);
+          glowPath.setAttribute('d', flicker.d);
+          mainPath.setAttribute('opacity', '0.7');
+        }, 60);
+        setTimeout(function () {
+          if (hoveredNode) return;
+          var flicker2 = lightningPath(prev.x, prev.y, node.x, node.y, jag * 0.8, segs);
+          mainPath.setAttribute('d', flicker2.d);
+          glowPath.setAttribute('d', flicker2.d);
+          mainPath.setAttribute('opacity', '0.5');
+        }, 120);
+
+        // Fade this segment
+        setTimeout(function () {
+          mainPath.setAttribute('opacity', '0.15');
+          glowPath.setAttribute('opacity', '0.1');
+          outerGlow.setAttribute('opacity', '0.03');
+        }, segDur + 200);
+
+      }, delay);
     });
 
-    // Clean up after animation
+    // Full cleanup after all segments done
     setTimeout(function () {
-      tracePath.setAttribute('opacity', '0');
-      dot.setAttribute('opacity', '0');
+      // Fade everything out
+      allEls.forEach(function (el) {
+        el.setAttribute('opacity', '0');
+      });
+      // Reset node glows
+      chain.forEach(function (n) {
+        if (n._glow && !hoveredNode) n._glow.setAttribute('opacity', '0');
+      });
+      // Remove from DOM
       setTimeout(function () {
-        if (tracePath.parentNode) traceG.removeChild(tracePath);
-        if (dot.parentNode) traceG.removeChild(dot);
-      }, 300);
-    }, 2800);
+        allEls.forEach(function (el) {
+          if (el.parentNode) el.parentNode.removeChild(el);
+        });
+        traceActive = false;
+      }, 400);
+    }, totalDur);
   }
 
   function startAmbientPulse() {
     if (reducedMotion || !edges.length) return;
-
-    // Fire first trace after a short delay, then repeat
-    setTimeout(animateTrace, 1500);
+    setTimeout(animateTrace, 1200);
     traceInterval = setInterval(function () {
       if (!hoveredNode) animateTrace();
-    }, 5000);
+    }, 6000);
   }
 
   // ── Pan and zoom ──
@@ -627,18 +775,34 @@ var GWGraph = (function () {
     });
     el.appendChild(svg);
 
-    // Defs for glow filter
+    // Defs for glow filters
     var defs = svgEl('defs');
+
+    // Soft glow (for nodes, hover)
     var filter = svgEl('filter', { id: 'glow', x: '-50%', y: '-50%', width: '200%', height: '200%' });
     var blur = svgEl('feGaussianBlur', { stdDeviation: '3', result: 'blur' });
     var merge = svgEl('feMerge');
-    var m1 = svgEl('feMergeNode', { in: 'blur' });
-    var m2 = svgEl('feMergeNode', { in: 'SourceGraphic' });
-    merge.appendChild(m1);
-    merge.appendChild(m2);
+    merge.appendChild(svgEl('feMergeNode', { in: 'blur' }));
+    merge.appendChild(svgEl('feMergeNode', { in: 'SourceGraphic' }));
     filter.appendChild(blur);
     filter.appendChild(merge);
     defs.appendChild(filter);
+
+    // Electric glow (sharper, brighter — for lightning)
+    var eFilter = svgEl('filter', { id: 'electric', x: '-80%', y: '-80%', width: '260%', height: '260%' });
+    // Inner sharp glow
+    var eBlur1 = svgEl('feGaussianBlur', { stdDeviation: '2', result: 'inner', in: 'SourceGraphic' });
+    // Outer diffuse glow
+    var eBlur2 = svgEl('feGaussianBlur', { stdDeviation: '8', result: 'outer', in: 'SourceGraphic' });
+    var eMerge = svgEl('feMerge');
+    eMerge.appendChild(svgEl('feMergeNode', { in: 'outer' }));
+    eMerge.appendChild(svgEl('feMergeNode', { in: 'inner' }));
+    eMerge.appendChild(svgEl('feMergeNode', { in: 'SourceGraphic' }));
+    eFilter.appendChild(eBlur1);
+    eFilter.appendChild(eBlur2);
+    eFilter.appendChild(eMerge);
+    defs.appendChild(eFilter);
+
     svg.appendChild(defs);
 
     // Groups (order = z-index)
@@ -648,7 +812,7 @@ var GWGraph = (function () {
     pulseG = svgEl('g', { class: 'pulses', filter: 'url(#glow)' });
     nodesG = svgEl('g', { class: 'nodes' });
 
-    traceG = svgEl('g', { class: 'traces', filter: 'url(#glow)' });
+    traceG = svgEl('g', { class: 'traces' });
 
     container.appendChild(labelsG);
     container.appendChild(edgesG);

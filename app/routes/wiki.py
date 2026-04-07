@@ -13,7 +13,8 @@ from difflib import unified_diff
 import re
 
 from app import db
-from app.models import Article, ArticleRevision, ArticleRelationship, Category, Discussion, DiscussionReply, User
+from app.models import (Article, ArticleRevision, ArticleRelationship, Category,
+                        Discussion, DiscussionReply, User, ContentFlag)
 
 wiki_bp = Blueprint('wiki', __name__, url_prefix='/wiki')
 
@@ -116,23 +117,20 @@ def view(slug):
 
     revision_count = article.revisions.count()
 
-    # Get related articles via relationships
-    related_articles = []
-    outgoing_targets = [r.target_article for r in article.outgoing_relationships.all()]
-    incoming_sources = [r.source_article for r in article.incoming_relationships.all()]
-    seen_ids = {article.id}
-    for a in outgoing_targets + incoming_sources:
-        if a.id not in seen_ids and a.is_published:
-            related_articles.append(a)
-            seen_ids.add(a.id)
-        if len(related_articles) >= 6:
-            break
+    # Get relationships with eager-loaded articles (2 queries instead of N+1)
+    from sqlalchemy.orm import joinedload
+    outgoing_rels = ArticleRelationship.query.filter_by(
+        source_article_id=article.id
+    ).options(joinedload(ArticleRelationship.target_article)).all()
 
-    # Get relationships (outgoing and incoming)
-    outgoing_rels = ArticleRelationship.query.filter_by(source_article_id=article.id).all()
-    incoming_rels = ArticleRelationship.query.filter_by(target_article_id=article.id).all()
+    incoming_rels = ArticleRelationship.query.filter_by(
+        target_article_id=article.id
+    ).options(joinedload(ArticleRelationship.source_article)).all()
 
     relationships = []
+    related_articles = []
+    seen_ids = {article.id}
+
     for rel in outgoing_rels:
         relationships.append({
             'id': rel.id,
@@ -142,6 +140,11 @@ def view(slug):
             'notes': rel.notes or '',
             'other': rel.target_article,
         })
+        a = rel.target_article
+        if a and a.id not in seen_ids and a.is_published:
+            related_articles.append(a)
+            seen_ids.add(a.id)
+
     for rel in incoming_rels:
         relationships.append({
             'id': rel.id,
@@ -151,6 +154,12 @@ def view(slug):
             'notes': rel.notes or '',
             'other': rel.source_article,
         })
+        a = rel.source_article
+        if a and a.id not in seen_ids and a.is_published:
+            related_articles.append(a)
+            seen_ids.add(a.id)
+
+    related_articles = related_articles[:6]
 
     return render_template(
         'wiki/view.html',
@@ -493,3 +502,44 @@ def create():
         'wiki/create.html',
         categories=categories
     )
+
+
+@wiki_bp.route('/<slug>/flag', methods=['POST'])
+@login_required
+def flag_article(slug):
+    """Submit a content flag on an article for moderator review."""
+    article = Article.query.filter_by(slug=slug, is_published=True).first_or_404()
+
+    reason = request.form.get('reason', '').strip()
+    details = request.form.get('details', '').strip()
+
+    if reason not in ContentFlag.REASONS:
+        flash('Invalid flag reason.', 'danger')
+        return redirect(url_for('wiki.view', slug=slug))
+
+    # Check if this user already flagged this article (pending)
+    existing = ContentFlag.query.filter_by(
+        article_id=article.id,
+        reporter_id=current_user.id,
+        status='pending'
+    ).first()
+    if existing:
+        flash('You already have a pending flag on this article.', 'info')
+        return redirect(url_for('wiki.view', slug=slug))
+
+    flag = ContentFlag(
+        article_id=article.id,
+        reporter_id=current_user.id,
+        reason=reason,
+        details=details,
+    )
+    db.session.add(flag)
+
+    try:
+        db.session.commit()
+        flash('Thank you. Your flag has been submitted for review.', 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Could not submit flag. Please try again.', 'danger')
+
+    return redirect(url_for('wiki.view', slug=slug))

@@ -158,56 +158,52 @@ def index():
     total_edits = ArticleRevision.query.count()
     total_relationships = ArticleRelationship.query.count()
 
-    # ── Categories with article counts ──
-    categories = []
-    for cat in Category.query.order_by(Category.name).all():
-        count = cat.articles.filter_by(is_published=True).count()
-        if count > 0:
-            categories.append({
-                'name': cat.name,
-                'slug': cat.slug,
-                'description': cat.description or '',
-                'article_count': count,
-            })
-    # Sort by count descending so the biggest categories are first
-    categories.sort(key=lambda c: c['article_count'], reverse=True)
+    # ── Categories with article counts (single query) ──
+    cat_counts = db.session.query(
+        Category.id, Category.name, Category.slug, Category.description,
+        func.count(Article.id).label('cnt')
+    ).outerjoin(Article, (Article.category_id == Category.id) & (Article.is_published == True)
+    ).group_by(Category.id).having(func.count(Article.id) > 0
+    ).order_by(func.count(Article.id).desc()).all()
+
+    categories = [{
+        'name': row.name, 'slug': row.slug,
+        'description': row.description or '', 'article_count': row.cnt,
+    } for row in cat_counts]
 
     # ── Featured: most-viewed articles ──
     featured_articles = Article.query.filter_by(
         is_published=True
     ).order_by(desc(Article.view_count)).limit(6).all()
 
-    # ── Most connected articles (by total relationship count) ──
-    # Subquery: count outgoing + incoming relationships per article
-    outgoing_count = db.session.query(
-        ArticleRelationship.source_article_id.label('article_id'),
-        func.count().label('cnt')
-    ).group_by(ArticleRelationship.source_article_id).subquery()
-
-    incoming_count = db.session.query(
-        ArticleRelationship.target_article_id.label('article_id'),
-        func.count().label('cnt')
-    ).group_by(ArticleRelationship.target_article_id).subquery()
-
-    # Get articles with most connections (outgoing only for simplicity, then combine)
+    # ── Most connected articles (single SQL query with UNION) ──
     connected_articles = []
     if total_relationships > 0:
-        # Simple approach: get all published articles and count their relationships in Python
-        all_published = Article.query.filter_by(is_published=True).all()
-        article_connections = []
-        for a in all_published:
-            out_count = a.outgoing_relationships.count()
-            in_count = a.incoming_relationships.count()
-            total = out_count + in_count
-            if total > 0:
-                article_connections.append((a, total))
-        article_connections.sort(key=lambda x: x[1], reverse=True)
-        connected_articles = article_connections[:8]
+        # Union outgoing + incoming, count per article, join back to Article
+        out_q = db.session.query(
+            ArticleRelationship.source_article_id.label('aid')
+        )
+        in_q = db.session.query(
+            ArticleRelationship.target_article_id.label('aid')
+        )
+        all_edges = out_q.union_all(in_q).subquery()
+        top_connected_q = db.session.query(
+            all_edges.c.aid, func.count().label('cnt')
+        ).group_by(all_edges.c.aid).order_by(func.count().desc()).limit(8).subquery()
 
-    # ── Interesting relationship pairs (for "How things connect" section) ──
+        rows = db.session.query(Article, top_connected_q.c.cnt).join(
+            top_connected_q, Article.id == top_connected_q.c.aid
+        ).filter(Article.is_published == True).order_by(top_connected_q.c.cnt.desc()).all()
+        connected_articles = [(a, cnt) for a, cnt in rows]
+
+    # ── Interesting relationship pairs (eager-load both articles in one query) ──
     relationship_highlights = []
     if total_relationships > 0:
-        rels = ArticleRelationship.query.limit(12).all()
+        from sqlalchemy.orm import joinedload
+        rels = ArticleRelationship.query.options(
+            joinedload(ArticleRelationship.source_article),
+            joinedload(ArticleRelationship.target_article),
+        ).limit(12).all()
         for rel in rels:
             if rel.source_article and rel.target_article:
                 if rel.source_article.is_published and rel.target_article.is_published:
@@ -232,18 +228,10 @@ def index():
         is_published=True
     ).order_by(desc(Article.created_at)).limit(8).all()
 
-    # ── Random discovery: 3 random articles ──
-    random_articles = Article.query.filter_by(is_published=True).all()
-    if len(random_articles) > 3:
-        random_articles = random.sample(random_articles, 3)
-    else:
-        random_articles = random_articles[:3]
-
-    # ── Articles per category (for the visual breakdown) ──
-    category_breakdown = []
-    for cat in categories:
-        if cat['article_count'] > 0:
-            category_breakdown.append(cat)
+    # ── Random discovery: 3 random articles (DB-level random, not loading all) ──
+    random_articles = Article.query.filter_by(
+        is_published=True
+    ).order_by(func.random()).limit(3).all()
 
     return render_template(
         'index.html',
@@ -299,21 +287,28 @@ def categories():
     Uses the Category model with nesting support.
     Falls back to legacy string categories for unmigrated articles.
     """
+    # Load all categories eagerly with children in 2 queries (not N+1)
+    from sqlalchemy.orm import subqueryload
+    all_cats = Category.query.options(
+        subqueryload(Category.children)
+    ).order_by(Category.name).all()
+
+    # Build cat_map
+    cat_map = {}
+    for cat in all_cats:
+        cat_map[cat.id] = {
+            'model': cat,
+            'label': cat.name,
+            'description': cat.description or '',
+            'slug': cat.slug,
+            'key': cat.slug,
+            'depth': cat.depth,
+            'parent_id': cat.parent_id,
+            'articles': [],
+        }
+
+    # Load articles with their category in one query
     all_articles = Article.query.filter_by(is_published=True).order_by(Article.title).all()
-
-    all_cats = Category.query.order_by(Category.name).all()
-
-    cat_map = {cat.id: {
-        'model': cat,
-        'label': cat.name,
-        'description': cat.description or '',
-        'slug': cat.slug,
-        'key': cat.slug,
-        'depth': cat.depth,
-        'parent_id': cat.parent_id,
-        'articles': [],
-    } for cat in all_cats}
-
     legacy_groups = {}
 
     for a in all_articles:
@@ -323,23 +318,20 @@ def categories():
             key = a.category
             if key not in legacy_groups:
                 legacy_groups[key] = {
-                    'label': key.title(),
-                    'description': '',
-                    'slug': key,
-                    'key': key,
-                    'depth': 0,
-                    'articles': [],
+                    'label': key.title(), 'description': '', 'slug': key,
+                    'key': key, 'depth': 0, 'articles': [],
                 }
             legacy_groups[key]['articles'].append(a)
 
+    # Build hierarchy using pre-loaded children (no extra queries)
     category_list = []
     for cat in all_cats:
         if cat.parent_id is None:
             entry = cat_map[cat.id]
             entry['children'] = []
-            for child in cat.children.order_by(Category.name).all():
-                child_entry = cat_map[child.id]
-                entry['children'].append(child_entry)
+            for child in sorted(cat.children.all(), key=lambda c: c.name):
+                if child.id in cat_map:
+                    entry['children'].append(cat_map[child.id])
             category_list.append(entry)
 
     existing_slugs = {c['slug'] for c in category_list}
@@ -377,10 +369,9 @@ def recent_changes():
 @main_bp.route('/random')
 def random_article():
     """Redirect to a random published article."""
-    articles = Article.query.filter_by(is_published=True).all()
-    if not articles:
+    article = Article.query.filter_by(is_published=True).order_by(func.random()).first()
+    if not article:
         return redirect('/')
-    article = random.choice(articles)
     return redirect(f'/wiki/{article.slug}')
 
 
@@ -421,8 +412,109 @@ def sitemap():
 
 @main_bp.route('/explore')
 def explore():
-    """Knowledge graph placeholder — being rebuilt with relationship system."""
-    return render_template('explore.html')
+    """
+    Explore page — browse the entire wiki by relationships and categories.
+    Shows articles organized by category with connection counts,
+    filterable and sortable for discovery.
+    """
+    # Query params
+    filter_category = request.args.get('category', '').strip()
+    sort_by = request.args.get('sort', 'connections')  # connections, views, recent, title
+    page = request.args.get('page', 1, type=int)
+    per_page = 30
+
+    # Base query: published articles
+    query = Article.query.filter_by(is_published=True)
+
+    # Filter by category
+    active_category = None
+    if filter_category:
+        cat = Category.query.filter_by(slug=filter_category).first()
+        if cat:
+            active_category = cat
+            query = query.filter_by(category_id=cat.id)
+
+    # ── Build connection counts via SQL subquery ──
+    out_q = db.session.query(
+        ArticleRelationship.source_article_id.label('aid')
+    )
+    in_q = db.session.query(
+        ArticleRelationship.target_article_id.label('aid')
+    )
+    all_edges = out_q.union_all(in_q).subquery()
+    conn_counts = db.session.query(
+        all_edges.c.aid, func.count().label('cnt')
+    ).group_by(all_edges.c.aid).subquery()
+
+    # Join articles with their connection count
+    base_q = db.session.query(
+        Article, func.coalesce(conn_counts.c.cnt, 0).label('connection_count')
+    ).outerjoin(conn_counts, Article.id == conn_counts.c.aid
+    ).filter(Article.is_published == True)
+
+    if active_category:
+        base_q = base_q.filter(Article.category_id == active_category.id)
+
+    if sort_by == 'connections':
+        base_q = base_q.order_by(func.coalesce(conn_counts.c.cnt, 0).desc())
+    elif sort_by == 'views':
+        base_q = base_q.order_by(desc(Article.view_count))
+    elif sort_by == 'recent':
+        base_q = base_q.order_by(desc(Article.updated_at))
+    elif sort_by == 'title':
+        base_q = base_q.order_by(Article.title)
+    else:
+        base_q = base_q.order_by(desc(Article.view_count))
+
+    # Paginate
+    total = base_q.count()
+    total_pages = (total + per_page - 1) // per_page
+    rows = base_q.offset((page - 1) * per_page).limit(per_page).all()
+
+    articles_with_counts = [{'article': a, 'connection_count': cnt} for a, cnt in rows]
+    pagination_info = {
+        'page': page,
+        'per_page': per_page,
+        'total': total,
+        'pages': total_pages,
+        'has_next': page < total_pages,
+        'has_prev': page > 1,
+    }
+
+    # Categories for filter sidebar (single query)
+    cat_count_rows = db.session.query(
+        Category, func.count(Article.id).label('cnt')
+    ).outerjoin(Article, (Article.category_id == Category.id) & (Article.is_published == True)
+    ).group_by(Category.id).having(func.count(Article.id) > 0
+    ).order_by(func.count(Article.id).desc()).all()
+    category_counts = [{'category': cat, 'count': cnt} for cat, cnt in cat_count_rows]
+
+    # Overall stats
+    total_articles = Article.query.filter_by(is_published=True).count()
+    total_relationships = ArticleRelationship.query.count()
+    total_categories = len(category_counts)
+
+    # Most connected articles (top 5, single query using the same subquery pattern)
+    top_rows = db.session.query(
+        Article, func.coalesce(conn_counts.c.cnt, 0).label('tc')
+    ).outerjoin(conn_counts, Article.id == conn_counts.c.aid
+    ).filter(Article.is_published == True
+    ).order_by(func.coalesce(conn_counts.c.cnt, 0).desc()).limit(5).all()
+    top_connected = [{'article': a, 'count': tc} for a, tc in top_rows if tc > 0]
+
+    return render_template(
+        'explore.html',
+        articles_with_counts=articles_with_counts,
+        pagination=pagination_info,
+        category_counts=category_counts,
+        active_category=active_category,
+        sort_by=sort_by,
+        filter_category=filter_category,
+        total_articles=total_articles,
+        total_relationships=total_relationships,
+        total_categories=total_categories,
+        top_connected=top_connected,
+    )
 
 
 @main_bp.route('/graph/editor')
